@@ -1,9 +1,19 @@
-#!/usr/bin/env python
-from distutils.core import setup
+import setuptools
 
-setup(name='ndi',
-      version='1.0',
-      description='Neuroscience Data Interface',
-      author='Squishymedia',
-      author_email='info@squishymedia.com',
-      packages=['ndi', 'ndi.schema'])
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
+setuptools.setup(
+    name="ndi",
+    version="0.0.1",
+    author="Squishymedia",
+    author_email="info@squishymedia.com",
+    description="NDI Python",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    packages=setuptools.find_packages(),
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "Operating System :: OS Independent",
+    ],
+)
