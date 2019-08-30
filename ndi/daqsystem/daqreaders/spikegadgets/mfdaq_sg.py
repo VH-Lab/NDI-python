@@ -1,5 +1,6 @@
 import re
 import numpy as np
+import xml.etree.ElementTree as ET
 from ndi.daqsystem.mfdaq import DaqReaderMultiFunction
 
 
@@ -14,7 +15,20 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.extractedData = readTrodesExtractedDataFile(self.path)
+        self._readConfiguration()
+
+    def _readConfiguration(self):
+        """Read in and parse the configuration XML prefix."""
+        configuration_doc = ''
+        with open(self.path, 'rb') as f:
+            for line in f:
+                decoded_line = line.decode('ascii')
+                configuration_doc += decoded_line
+                # End of XML header
+                if '</Configuration>' in decoded_line:
+                    self._raw = f.read()
+        conf = ET.fromstring(configuration_doc)
+        self._configuration = conf
 
 
 def readTrodesExtractedDataFile(filename):
