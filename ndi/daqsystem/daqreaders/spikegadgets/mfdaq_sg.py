@@ -4,18 +4,47 @@ import xml.etree.ElementTree as ET
 from ndi.daqsystem.mfdaq import DaqReaderMultiFunction
 
 
+class NTrode():
+    def __init__(self, channels, lfpChannel):
+        self.channels = channels
+        self.lfpChannel = lfpChannel
+
+
 class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
     """
     This class reads data from video files .rec that spikegadgets use
 
-    This implementation does not use the Trodes live API and only works with prerecorded data.
+    This implementation does not use the Trodes live API and only works with prerecorded data at the original sample rate.
 
     Spike Gadgets: http://spikegadgets.com/
     """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._readConfiguration()
+        self._configuration = self._readConfiguration()
+        self._setupChannels()
+        self._packetOffset = 0
+        self._packetHeaderSize = -1
+
+    @property
+    def _hardwareConfiguration(self):
+        # Shortcut for hardware configuration tag
+        return self._configuration.find('HardwareConfiguration')
+
+    @property
+    def _spikeConfiguration(self):
+        # Shortcut for spike configuration
+        return self._configuration.find('SpikeConfiguration')
+
+    @property
+    def channels(self):
+        # Get channel refs from parsed config
+        return self._hardwareConfiguration.attrib['numChannels']
+
+    @property
+    def sampleRate(self):
+        # Get sample rate from parsed config
+        return self._hardwareConfiguration.find('HardwareConfiguration').attrib['samplingRate']
 
     def _readConfiguration(self):
         """Read in and parse the configuration XML prefix."""
@@ -26,9 +55,25 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
                 configuration_doc += decoded_line
                 # End of XML header
                 if '</Configuration>' in decoded_line:
-                    self._raw = f.read()
-        conf = ET.fromstring(configuration_doc)
-        self._configuration = conf
+                    self._dataOffset = f.tell()
+                    break
+        return ET.fromstring(configuration_doc)
+
+    def _setupChannels(self):
+        """Setup channel readers."""
+        devices = self._hardwareConfiguration.find('Device')
+        devices.sort(key=lambda dev: dev.attrib['packetOrderPreference'])
+        self._packetHeaderSize = 4  # TODO: This can be overriden?
+        for ntrode in self._spikeConfiguration.findall('SpikeNTrode'):
+            ntrodeChannels = len(ntrode.getall('SpikeChannel'))
+            NTrode(ntrodeChannels, ntrode.attrib['LFPChan'])
+
+    def _readPacket(self):
+        """Get the next packet."""
+        self._packetOffset += 1
+        with open(self.path, 'rb') as f:
+            # Skip to start of actual data
+            f.seek(self._dataOffset)
 
 
 def readTrodesExtractedDataFile(filename):
