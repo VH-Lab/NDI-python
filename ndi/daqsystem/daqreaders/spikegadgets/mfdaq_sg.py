@@ -6,9 +6,10 @@ from ndi.daqsystem.mfdaq import DaqReaderMultiFunction
 
 class NTrode():
     """SpikeGadgets NTrode configuration."""
+
     def __init__(self, ntrode_id, channel_count, lfp_channel, ref_on, ref_chan, filter_on, low_filter=None, high_filter=None):
         self.id = ntrode_id
-        self.channels = channels
+        self.channels = channel_count
         self.lfp_channel = lfp_channel
         self.ref_on = ref_on
         self.ref_chan = ref_chan
@@ -55,12 +56,12 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
     @property
     def channels(self):
         # Get channel refs from parsed config
-        return self._hardware_configuration.attrib['numChannels']
+        return int(self._hardware_configuration.attrib['numChannels'])
 
     @property
     def sample_rate(self):
         # Get sample rate from parsed config
-        return self._hardware_configuration.attrib['samplingRate']
+        return int(self._hardware_configuration.attrib['samplingRate'])
 
     def _read_configuration(self):
         """Read in and parse the configuration XML prefix."""
@@ -76,12 +77,12 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
 
     def _setup_channels(self):
         """Setup channel readers based on SpikeConfiguration portion of configuration."""
-        devices = self._hardware_configuration.find('Device')
+        devices = self._hardware_configuration.findall('Device')
         devices.sort(key=lambda dev: dev.attrib['packetOrderPreference'])
-        for SpikeNTrode in self._spikeConfiguration.findall('SpikeNTrode'):
+        for SpikeNTrode in self._spike_configuration.findall('SpikeNTrode'):
             ntrode_id = int(SpikeNTrode.attrib['id'])
-            channels = SpikeNTrode.getall('SpikeChannel')
-            channel_count = len(channels)
+            ntrode_channels = SpikeNTrode.findall('SpikeChannel')
+            channel_count = len(ntrode_channels)
             lfp_channel = int(SpikeNTrode.attrib['LFPChan'])
             ref_on = bool(SpikeNTrode.attrib['refOn'])
             ref_chan = int(SpikeNTrode.attrib['refChan'])
@@ -89,7 +90,8 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
             if filter_on:
                 low_filter = int(SpikeNTrode.attrib['lowFilter'])
                 high_filter = int(SpikeNTrode.attrib['highFilter'])
-            ntrode = NTrode(ntrode_id, channel_count, lfp_channel, ref_on, ref_chan, filter_on, low_filter, high_filter)
+            ntrode = NTrode(ntrode_id, channel_count, lfp_channel,
+                            ref_on, ref_chan, filter_on, low_filter, high_filter)
             self._ntrode_list.append(ntrode)
         self._file_packet_size = 2 * self.channels + self._packet_header_size
 
@@ -97,7 +99,8 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
         """Get the next packet."""
         self._packet_offset += 1
         # Skip to start of actual data
-        self._file_handle.seek(self._data_offset + self._packet_offset * self._file_packet_size)
+        self._file_handle.seek(self._data_offset +
+                               self._packet_offset * self._file_packet_size)
         return self._file_handle.read(self._file_packet_size)
 
     def get_channels_epoch(self):
