@@ -5,9 +5,16 @@ from ndi.daqsystem.mfdaq import DaqReaderMultiFunction
 
 
 class NTrode():
-    def __init__(self, channels, lfpChannel):
+    """SpikeGadgets NTrode configuration."""
+    def __init__(self, ntrode_id, channel_count, lfp_channel, ref_on, ref_chan, filter_on, low_filter=None, high_filter=None):
+        self.id = ntrode_id
         self.channels = channels
-        self.lfpChannel = lfpChannel
+        self.lfp_channel = lfp_channel
+        self.ref_on = ref_on
+        self.ref_chan = ref_chan
+        self.filter_on = filter_on
+        self.low_filter = low_filter
+        self.high_filter = high_filter
 
 
 class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
@@ -21,59 +28,86 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._configuration = self._readConfiguration()
-        self._setupChannels()
-        self._packetOffset = 0
-        self._packetHeaderSize = -1
+        # File region to read per step
+        self._file_packet_size = -1
+        # Start of data relative to start of file
+        self._data_offset = -1
+        # Counter for the current packet
+        self._packet_offset = 0
+        # Bytes for packet header
+        self._packet_header_size = 4  # TODO: This can be overriden?
+        # Described ntrodes
+        self._ntrode_list = []
+        self._file_handle = open(self.path, 'rb')
+        self._configuration = self._read_configuration()
+        self._setup_channels()
 
     @property
-    def _hardwareConfiguration(self):
+    def _hardware_configuration(self):
         # Shortcut for hardware configuration tag
         return self._configuration.find('HardwareConfiguration')
 
     @property
-    def _spikeConfiguration(self):
+    def _spike_configuration(self):
         # Shortcut for spike configuration
         return self._configuration.find('SpikeConfiguration')
 
     @property
     def channels(self):
         # Get channel refs from parsed config
-        return self._hardwareConfiguration.attrib['numChannels']
+        return self._hardware_configuration.attrib['numChannels']
 
     @property
-    def sampleRate(self):
+    def sample_rate(self):
         # Get sample rate from parsed config
-        return self._hardwareConfiguration.find('HardwareConfiguration').attrib['samplingRate']
+        return self._hardware_configuration.attrib['samplingRate']
 
-    def _readConfiguration(self):
+    def _read_configuration(self):
         """Read in and parse the configuration XML prefix."""
         configuration_doc = ''
-        with open(self.path, 'rb') as f:
-            for line in f:
-                decoded_line = line.decode('ascii')
-                configuration_doc += decoded_line
-                # End of XML header
-                if '</Configuration>' in decoded_line:
-                    self._dataOffset = f.tell()
-                    break
+        for line in self._file_handle:
+            decoded_line = line.decode('ascii')
+            configuration_doc += decoded_line
+            # End of XML header
+            if '</Configuration>' in decoded_line:
+                self._data_offset = self._file_handle.tell()
+                break
         return ET.fromstring(configuration_doc)
 
-    def _setupChannels(self):
-        """Setup channel readers."""
-        devices = self._hardwareConfiguration.find('Device')
+    def _setup_channels(self):
+        """Setup channel readers based on SpikeConfiguration portion of configuration."""
+        devices = self._hardware_configuration.find('Device')
         devices.sort(key=lambda dev: dev.attrib['packetOrderPreference'])
-        self._packetHeaderSize = 4  # TODO: This can be overriden?
-        for ntrode in self._spikeConfiguration.findall('SpikeNTrode'):
-            ntrodeChannels = len(ntrode.getall('SpikeChannel'))
-            NTrode(ntrodeChannels, ntrode.attrib['LFPChan'])
+        for SpikeNTrode in self._spikeConfiguration.findall('SpikeNTrode'):
+            ntrode_id = int(SpikeNTrode.attrib['id'])
+            channels = SpikeNTrode.getall('SpikeChannel')
+            channel_count = len(channels)
+            lfp_channel = int(SpikeNTrode.attrib['LFPChan'])
+            ref_on = bool(SpikeNTrode.attrib['refOn'])
+            ref_chan = int(SpikeNTrode.attrib['refChan'])
+            filter_on = bool(SpikeNTrode.attrib['filterOn'])
+            if filter_on:
+                low_filter = int(SpikeNTrode.attrib['lowFilter'])
+                high_filter = int(SpikeNTrode.attrib['highFilter'])
+            ntrode = NTrode(ntrode_id, channel_count, lfp_channel, ref_on, ref_chan, filter_on, low_filter, high_filter)
+            self._ntrode_list.append(ntrode)
+        self._file_packet_size = 2 * self.channels + self._packet_header_size
 
     def _readPacket(self):
         """Get the next packet."""
-        self._packetOffset += 1
-        with open(self.path, 'rb') as f:
-            # Skip to start of actual data
-            f.seek(self._dataOffset)
+        self._packet_offset += 1
+        # Skip to start of actual data
+        self._file_handle.seek(self._data_offset + self._packet_offset * self._file_packet_size)
+        return self._file_handle.read(self._file_packet_size)
+
+    def get_channels_epoch(self):
+        pass
+
+    def read_channels_epoch_samples(self):
+        pass
+
+    def get_epoch_probe_map(self):
+        pass
 
 
 def readTrodesExtractedDataFile(filename):
