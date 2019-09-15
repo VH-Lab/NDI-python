@@ -1,5 +1,5 @@
 
-from ndi.schema import App as AppInterface
+from ndi.schema.App import App as AppInterface
 
 
 class App(AppInterface):
@@ -10,5 +10,6 @@ class App(AppInterface):
     """
     input_schema = None
     output_schema = None
+
     def __init__(self):
         pass
