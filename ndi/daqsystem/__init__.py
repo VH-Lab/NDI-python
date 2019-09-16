@@ -9,3 +9,7 @@ class DaqSystem(DaqSystemInterface):
     def __init__(self, name, daq_reader):
         self.name = name
         self.daq_reader = daq_reader
+
+    @property
+    def probes(self):
+        return self.daq_reader.get_probes()

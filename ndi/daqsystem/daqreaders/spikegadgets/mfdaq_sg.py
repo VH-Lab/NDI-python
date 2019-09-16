@@ -2,10 +2,11 @@ import re
 import numpy as np
 import xml.etree.ElementTree as ET
 from ndi.daqsystem.mfdaq import DaqReaderMultiFunction
+from ndi.daqsystem.probe import Probe
 
 
-class NTrode():
-    """SpikeGadgets NTrode configuration."""
+class ProbeNTrode(Probe):
+    """SpikeGadgets NTrode probe."""
 
     def __init__(self, ntrode_id, channel_count, lfp_channel, ref_on, ref_chan, filter_on, low_filter=None, high_filter=None):
         self.id = ntrode_id
@@ -16,6 +17,14 @@ class NTrode():
         self.filter_on = filter_on
         self.low_filter = low_filter
         self.high_filter = high_filter
+
+    @property
+    def name(self):
+        return self.id
+
+    @property
+    def reference(self):
+        return self.id
 
 
 class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
@@ -37,8 +46,7 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
         self._packet_offset = 0
         # Bytes for packet header
         self._packet_header_size = 4  # TODO: This can be overriden?
-        # Described ntrodes
-        self._ntrode_list = []
+        # Open and parse file
         self._file_handle = open(self.path, 'rb')
         self._configuration = self._read_configuration()
         self._setup_channels()
@@ -90,9 +98,9 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
             if filter_on:
                 low_filter = int(SpikeNTrode.attrib['lowFilter'])
                 high_filter = int(SpikeNTrode.attrib['highFilter'])
-            ntrode = NTrode(ntrode_id, channel_count, lfp_channel,
-                            ref_on, ref_chan, filter_on, low_filter, high_filter)
-            self._ntrode_list.append(ntrode)
+            ntrode = ProbeNTrode(ntrode_id, channel_count, lfp_channel,
+                                 ref_on, ref_chan, filter_on, low_filter, high_filter)
+            self.probes.append(ntrode)
         self._file_packet_size = 2 * self.channels + self._packet_header_size
 
     def _readPacket(self):
@@ -102,6 +110,9 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
         self._file_handle.seek(self._data_offset +
                                self._packet_offset * self._file_packet_size)
         return self._file_handle.read(self._file_packet_size)
+
+    def get_probes(self):
+        return probes
 
     def get_channels_epoch(self):
         pass

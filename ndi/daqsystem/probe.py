@@ -1,4 +1,4 @@
-from ndi.schema import Probe as ProbeInterface
+from ndi.schema.Probe import Probe as ProbeInterface
 
 class Probe(ProbeInterface):
     """
