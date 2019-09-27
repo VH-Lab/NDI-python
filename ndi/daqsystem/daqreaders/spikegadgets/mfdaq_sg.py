@@ -36,6 +36,8 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
     Spike Gadgets: http://spikegadgets.com/
     """
 
+    type = 'n-trode'
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # File region to read per step
