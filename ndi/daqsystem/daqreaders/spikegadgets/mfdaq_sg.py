@@ -7,6 +7,8 @@ from ndi.daqsystem.probe import Probe
 
 class ProbeNTrode(Probe):
     """SpikeGadgets NTrode probe."""
+    # Maybe these should just be the native types?
+    type = 'n-trode'
 
     def __init__(self, ntrode_id, channel_count, lfp_channel, ref_on, ref_chan, filter_on, low_filter=None, high_filter=None):
         self.id = ntrode_id
@@ -20,7 +22,7 @@ class ProbeNTrode(Probe):
 
     @property
     def name(self):
-        return self.id
+        return 'Tetrode{}'.format(self.id)
 
     @property
     def reference(self):
@@ -35,8 +37,6 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
 
     Spike Gadgets: http://spikegadgets.com/
     """
-
-    type = 'n-trode'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -112,9 +112,6 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
         self._file_handle.seek(self._data_offset +
                                self._packet_offset * self._file_packet_size)
         return self._file_handle.read(self._file_packet_size)
-
-    def get_probes(self):
-        return probes
 
     def get_channels_epoch(self):
         pass

@@ -11,5 +11,10 @@ class App(AppInterface):
     input_schema = None
     output_schema = None
 
-    def __init__(self):
+    def run(self, input):
+        """Execute the app inline.
+
+        App definitions should override this method and implement their own input_schema and output_schema static values.
+        """
+        # No op for the abstract implementation
         pass

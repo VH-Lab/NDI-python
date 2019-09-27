@@ -12,4 +12,5 @@ class DaqSystem(DaqSystemInterface):
 
     @property
     def probes(self):
-        return self.daq_reader.get_probes()
+        # TODO: Expand to more complex probe systems than a single daq_reader
+        return self.daq_reader.probes
