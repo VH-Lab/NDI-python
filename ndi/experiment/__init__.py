@@ -29,3 +29,6 @@ class Experiment(AbstractExperiment):
                 if all(getattr(probe, arg) == kwargs[arg] for arg in kwargs):
                     matching_probes.append(probe)
         return matching_probes
+
+    def read_channels(self, probe):
+        pass
