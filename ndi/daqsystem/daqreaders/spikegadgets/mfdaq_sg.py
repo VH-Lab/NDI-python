@@ -4,66 +4,36 @@ import os
 import xml.etree.ElementTree as ET
 from ndi.daqsystem.mfdaq import DaqReaderMultiFunction
 from ndi.daqsystem.probe import Probe
-from ndi.schema.ProbeChannel import ProbeChannel
 from ndi.schema.ChannelType import ChannelType
 
 
-class SpikeGadgetChannel(ProbeChannel):
-    """SpikeGadgets channel"""
+class ProbeNTrode(Probe):
+    """SpikeGadgets NTrode channel"""
 
-    def __init__(self, name):
+    def __init__(self, name, reference):
+        self.name = name
+        self.reference = reference
         # Auxiliary
         if name[0] == 'A':
             self.type = ChannelType.auxiliary
             if name[1] == 'i':
                 self.number = int(name[3:])
-                self.name = 'axn{}'.format(self.number)
             else:
                 self.number = int(name[4:])
-                self.name = 'axo{}'.format(self.number)
         elif name[0] == 'D':
             if name[1] == 'i':
                 self.type = ChannelType.digital_in
                 self.number = int(name[3:])
-                self.name = 'di{}'.format(self.number)
             else:
                 self.type = ChannelType.digital_out
                 self.number = int(name[4:])
-                self.name = 'do{}'.format(self.number)
         elif name.startswith('Tetrode'):
             self.type = ChannelType.analog_in
             self.number = int(name[7:])
-            self.name = 'ai{}'.format(self.number)
         else:
             # MCU (digital inputs)
             self.type = ChannelType.digital_in
             self.number = int(name[7:]) + 32
-            self.name = 'di{}'.format(self.number)
-
-
-class ProbeNTrode(Probe):
-    """SpikeGadgets NTrode probe."""
-    # Maybe this should just be a native type?
-    type = 'n-trode'
-    channel_type = ChannelType.analog_in
-
-    def __init__(self, ntrode_id, channels, lfp_channel, ref_on, ref_chan, filter_on, low_filter=None, high_filter=None):
-        self.id = ntrode_id
-        self.channels = channels
-        self.lfp_channel = lfp_channel
-        self.ref_on = ref_on
-        self.ref_chan = ref_chan
-        self.filter_on = filter_on
-        self.low_filter = low_filter
-        self.high_filter = high_filter
-
-    @property
-    def name(self):
-        return 'Tetrode{}'.format(self.id)
-
-    @property
-    def reference(self):
-        return self.id
 
 
 class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
@@ -111,7 +81,7 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
 
     @property
     def t1(self):
-        block_size = self._packet_header_size + 2 + len(self.channels)
+        block_size = self._packet_header_size + 2 + len(self.probes)
         total_samples = self._data_size / block_size
         return int((total_samples - 1) / self.sample_rate)
 
@@ -139,55 +109,45 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
         """Setup channel readers based on SpikeConfiguration portion of configuration."""
         devices = self._hardware_configuration.findall('Device')
         devices.sort(key=lambda dev: dev.attrib['packetOrderPreference'])
-        for device in devices:
-            for channel in device.findall('Channel'):
-                self.channels.append(SpikeGadgetChannel(channel.attrib['id']))
-        # Save count for ntrode channel offsets later
-        base_channels = len(self.channels)
         for SpikeNTrode in self._spike_configuration.findall('SpikeNTrode'):
             ntrode_id = int(SpikeNTrode.attrib['id'])
             ntrode_channels = SpikeNTrode.findall('SpikeChannel')
-            lfp_channel = int(SpikeNTrode.attrib['LFPChan'])
-            ref_on = bool(SpikeNTrode.attrib['refOn'])
-            ref_chan = int(SpikeNTrode.attrib['refChan'])
-            filter_on = bool(SpikeNTrode.attrib['filterOn'])
-            if filter_on:
-                low_filter = int(SpikeNTrode.attrib['lowFilter'])
-                high_filter = int(SpikeNTrode.attrib['highFilter'])
             # Add ntrode's to channels
-            probe_channels = []
-            for ntrode_ch in ntrode_channels:
-                channel_obj = SpikeGadgetChannel(
-                    'Tetrode{}'.format(ntrode_id + base_channels))
-                probe_channels.append(channel_obj)
-                self.channels.append(channel_obj)
-            ntrode = ProbeNTrode(ntrode_id, probe_channels, lfp_channel,
-                                 ref_on, ref_chan, filter_on, low_filter, high_filter)
-            self.probes.append(ntrode)
+            for ref in range(len(ntrode_channels)):
+                ntrode = ProbeNTrode(
+                    'Tetrode{}'.format(ntrode_id), ref + 1)
+                self.probes.append(ntrode)
         self._file_packet_size = 2 * self._num_channels + self._packet_header_size
 
-    def _read_packet(self, reset=False):
+    def _read_packet(self):
         """Get the next packet."""
+        # Skip to start of actual data
+        offset = self._data_offset + self._packet_offset * \
+            self._file_packet_size + self._packet_header_size
+        # Increment for next packet read
         self._packet_offset += 1
-        if reset:
-            # Skip to start of actual data
-            self._file_handle.seek(self._data_offset +
-                                   self._packet_offset * self._file_packet_size)
-        return self._file_handle.read(self._file_packet_size)
+        return np.fromfile(self._file_handle, dtype=np.uint8, count=self._num_channels*2, offset=self._packet_header_size)
 
     def _read_all_samples(self, channels_to_read):
-        first_packet = False
-        dtype = np.dtype('uint32')
         channel_size = len(channels_to_read)
+        block_size = self._packet_header_size + channel_size
         samples = (self.t1 - self.t0) * self.sample_rate
-        data = np.ndarray((channel_size, samples), dtype=dtype)
-        for n in range(samples):
+        timestamps = np.ndarray((channel_size, samples), dtype=np.uint32)
+        data = np.ndarray((channel_size, samples), dtype=np.uint16)
+        for n in range(channel_size):
             packet = self._read_packet()
+            print(packet)
+            timestamps[n] = packet.view(dtype=np.uint32)[0]
+            channel_offset = 2 + channels_to_read[n]
+            data[n] = packet.view(dtype=np.uint16)[
+                channel_offset:channel_offset + block_size]
         return data
 
-    def read_channels_epoch_samples(self, channel_type, channel, epoch):
+    def read_channels_epoch_samples(self, channel_type, channels, epoch):
         channels_to_read = []
-        for ch in self.channels:
-            if ch.name in channel and ch.type == channel_type:
-                channels_to_read.append(ch)
-        return self._read_all_samples(channels_to_read)
+        if channel_type == ChannelType.analog_in:
+            for ch in channels:
+                channels_to_read.append(ch.number * 4 + ch.reference)
+        else:
+            raise Exception('Only ntrode channels are supported')
+        self._read_all_samples(channels_to_read)

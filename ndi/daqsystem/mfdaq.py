@@ -8,15 +8,15 @@ class DaqSystemMultiFunction(DaqSystem):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def read_channels(self, channel_type, channel, timeref_or_epoch=None):
+    def read_channels(self, channel_type, channels, timeref_or_epoch=None):
         if timeref_or_epoch:
             # Epoch mapping
             raise Exception('Epoch mapping is not yet implemented')
         else:
-            return self.read_channels_samples(channel_type, channel, timeref_or_epoch)
+            return self.read_channels_samples(channel_type, channels, timeref_or_epoch)
 
-    def read_channels_samples(self, channel_type, channel, epoch):
-        return self.daq_reader.read_channels_epoch_samples(channel_type, channel, epoch)
+    def read_channels_samples(self, channel_type, channels, epoch):
+        return self.daq_reader.read_channels_epoch_samples(channel_type, channels, epoch)
 
 
 class DaqReaderMultiFunction(DaqReader):
