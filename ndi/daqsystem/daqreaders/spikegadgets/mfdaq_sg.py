@@ -51,8 +51,6 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
         self._file_packet_size = -1
         # Start of data relative to start of file
         self._data_offset = -1
-        # Counter for the current packet
-        self._packet_offset = 0
         # Bytes for packet header
         self._packet_header_size = 4  # TODO: This can be overriden?
         # Open and parse file
@@ -81,7 +79,7 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
 
     @property
     def t1(self):
-        block_size = self._packet_header_size + 2 + len(self.probes)
+        block_size = self._packet_header_size + 2 + len(self.probes) * 2
         total_samples = self._data_size / block_size
         return int((total_samples - 1) / self.sample_rate)
 
@@ -119,29 +117,36 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
                 self.probes.append(ntrode)
         self._file_packet_size = 2 * self._num_channels + self._packet_header_size
 
-    def _read_packet(self):
+    def _read_packet(self, packet_offset):
         """Get the next packet."""
         # Skip to start of actual data
-        offset = self._data_offset + self._packet_offset * \
+        offset = self._data_offset + packet_offset * \
             self._file_packet_size + self._packet_header_size
-        # Increment for next packet read
-        self._packet_offset += 1
         return np.fromfile(self._file_handle, dtype=np.uint8, count=self._num_channels*2, offset=self._packet_header_size)
 
     def _read_all_samples(self, channels_to_read):
         channel_size = len(channels_to_read)
         block_size = self._packet_header_size + channel_size
         samples = (self.t1 - self.t0) * self.sample_rate
-        timestamps = np.ndarray((channel_size, samples), dtype=np.uint32)
-        data = np.ndarray((channel_size, samples), dtype=np.uint16)
-        for n in range(channel_size):
-            packet = self._read_packet()
-            print(packet)
-            timestamps[n] = packet.view(dtype=np.uint32)[0]
-            channel_offset = 2 + channels_to_read[n]
-            data[n] = packet.view(dtype=np.uint16)[
-                channel_offset:channel_offset + block_size]
-        return data
+        timestamps = np.zeros((samples), dtype=np.uint32)
+        data = np.ndarray((samples, channel_size), dtype=np.float)
+        for sample in range(samples):
+            packet = self._read_packet(packet_offset=sample)
+            try:
+                timestamps[sample] = packet.view(dtype=np.uint32)[0]
+                channel_data = packet.view(dtype=np.uint16)
+            except:
+                print(self.t1, sample, samples, packet)
+            for channel in range(channel_size):
+                # Offset is timestamp (2 bytes) + channel position to read
+                channel_offset = 2 + channels_to_read[channel]
+                # Read packet data
+                channel_data_frame = channel_data[channel_offset:channel_offset + 1]
+                # Convert to uV
+                channel_data_frame = channel_data_frame * 12780
+                channel_data_frame = channel_data_frame / 65536
+                data[sample][channel] = channel_data_frame
+        return (timestamps, data)
 
     def read_channels_epoch_samples(self, channel_type, channels, epoch):
         channels_to_read = []
@@ -150,4 +155,4 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
                 channels_to_read.append(ch.number * 4 + ch.reference)
         else:
             raise Exception('Only ntrode channels are supported')
-        self._read_all_samples(channels_to_read)
+        return self._read_all_samples(channels_to_read)
