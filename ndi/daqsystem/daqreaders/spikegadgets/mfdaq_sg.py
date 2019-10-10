@@ -129,12 +129,12 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
         block_size = self._packet_header_size + channel_size
         samples = (self.t1 - self.t0) * self.sample_rate
         timestamps = np.zeros((samples), dtype=np.uint32)
-        data = np.ndarray((samples, channel_size), dtype=np.float)
+        data = np.ndarray((samples, channel_size), dtype=np.int16)
         for sample in range(samples):
             packet = self._read_packet(packet_offset=sample)
             try:
                 timestamps[sample] = packet.view(dtype=np.uint32)[0]
-                channel_data = packet.view(dtype=np.uint16)
+                channel_data = packet.view(dtype=np.int16)
             except:
                 print(self.t1, sample, samples, packet)
             for channel in range(channel_size):
@@ -142,9 +142,6 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
                 channel_offset = 2 + channels_to_read[channel]
                 # Read packet data
                 channel_data_frame = channel_data[channel_offset:channel_offset + 1]
-                # Convert to uV
-                channel_data_frame = channel_data_frame * 12780
-                channel_data_frame = channel_data_frame / 65536
                 data[sample][channel] = channel_data_frame
         return (timestamps, data)
 
