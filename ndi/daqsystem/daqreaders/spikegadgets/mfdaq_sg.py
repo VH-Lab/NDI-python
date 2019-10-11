@@ -47,8 +47,6 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # File region to read per step
-        self._file_packet_size = -1
         # Start of data relative to start of file
         self._data_offset = -1
         # Bytes for packet header
@@ -57,6 +55,7 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
         self._file_handle = open(self.path, 'rb')
         self._configuration = self._read_configuration()
         self._setup_channels()
+        self._packet_size = self._packet_header_size + 2 + len(self.probes) * 2
 
     @property
     def _hardware_configuration(self):
@@ -79,8 +78,7 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
 
     @property
     def t1(self):
-        block_size = self._packet_header_size + 2 + len(self.probes) * 2
-        total_samples = self._data_size / block_size
+        total_samples = self._data_size / self._packet_size
         return int((total_samples - 1) / self.sample_rate)
 
     @property
@@ -115,34 +113,34 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
                 ntrode = ProbeNTrode(
                     'Tetrode{}'.format(ntrode_id), ref + 1)
                 self.probes.append(ntrode)
-        self._file_packet_size = 2 * self._num_channels + self._packet_header_size
 
     def _read_packet(self, packet_offset):
         """Get the next packet."""
         # Skip to start of actual data
-        offset = self._data_offset + packet_offset * \
-            self._file_packet_size + self._packet_header_size
-        return np.fromfile(self._file_handle, dtype=np.uint8, count=self._num_channels*2, offset=self._packet_header_size)
+        offset = self._data_offset + self._packet_size * packet_offset
+        self._file_handle.seek(offset)
+        return np.fromfile(self._file_handle, dtype=np.int16, count=self._num_channels)
 
     def _read_all_samples(self, channels_to_read):
-        channel_size = len(channels_to_read)
-        block_size = self._packet_header_size + channel_size
+        channel_count = len(channels_to_read)
         samples = (self.t1 - self.t0) * self.sample_rate
         timestamps = np.zeros((samples), dtype=np.uint32)
-        data = np.ndarray((samples, channel_size), dtype=np.int16)
+        data = np.ndarray((samples, channel_count), dtype=np.int16)
         for sample in range(samples):
             packet = self._read_packet(packet_offset=sample)
             try:
                 timestamps[sample] = packet.view(dtype=np.uint32)[0]
+                print(timestamps[sample])
                 channel_data = packet.view(dtype=np.int16)
             except:
                 print(self.t1, sample, samples, packet)
-            for channel in range(channel_size):
+            for channel in range(channel_count):
                 # Offset is timestamp (2 bytes) + channel position to read
                 channel_offset = 2 + channels_to_read[channel]
                 # Read packet data
                 channel_data_frame = channel_data[channel_offset:channel_offset + 1]
                 data[sample][channel] = channel_data_frame
+            break
         return (timestamps, data)
 
     def read_channels_epoch_samples(self, channel_type, channels, epoch):
