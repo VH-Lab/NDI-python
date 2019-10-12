@@ -57,7 +57,7 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
         self._packet_header_size = 34
         self._channel_size = len(self.probes) * 2
         # Packet header size (MCU/ECU bytes) + timestamp bytes (uint32) + channel bytes (int16)
-        self._packet_size = self._packet_header_size + 4 + self._channel_size
+        self._packet_size = self._packet_header_size + 2 + self._channel_size
         print(self.samples, self.sample_rate,
               self._data_offset, self._data_size, self._packet_size)
 
@@ -121,28 +121,24 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
                     'Tetrode{}'.format(ntrode_id), ref + 1)
                 self.probes.append(ntrode)
 
-    def _read_packet(self, packet_offset):
-        """Get the next packet."""
-        # Skip to start of actual data
-        offset = self._data_offset + self._packet_size * packet_offset
-        self._file_handle.seek(offset)
-        return np.fromfile(self._file_handle, dtype=np.uint16, count=self._packet_size)
-
     def _read_all_samples(self, channels_to_read):
         channel_count = len(channels_to_read)
         timestamps = np.zeros((self.samples), dtype=np.uint32)
         data = np.ndarray((channel_count, self.samples), dtype=np.int16)
-        for sample in range(self.samples):
-            packet = self._read_packet(packet_offset=sample)
-            timestamps[sample] = packet[0:1].astype(np.uint32)
+        packet_dtype = np.dtype([('header', np.uint8, self._packet_header_size),
+                                 ('timestamp', np.uint32),
+                                 ('channel_data', np.int16, len(self.probes))])
+        # Reset file position
+        self._file_handle.seek(0)
+        samples = np.fromfile(
+            self._file_handle, dtype=packet_dtype, count=self.samples, offset=self._data_offset)
+
+        for index, sample in enumerate(samples):
+            timestamps[index] = sample[1]
             for channel in range(channel_count):
-                # Offset is timestamp (4 bytes) + channel position to read
-                channel_offset = 4 + 2 * channels_to_read[channel]
                 # Read packet data
-                channel_data_frame = packet[channel_offset:channel_offset + 1]
-                data[channel][sample] = channel_data_frame
-            # if sample % 10000 == 0:
-                # print(timestamps[sample])
+                data[channel][index] = sample[2][channels_to_read[channel]]
+
         data = data.astype(float) * -1 * 12780 / 65536
         return (timestamps, data)
 
