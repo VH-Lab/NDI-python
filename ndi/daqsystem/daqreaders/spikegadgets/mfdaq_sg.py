@@ -49,13 +49,16 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
         super().__init__(*args, **kwargs)
         # Start of data relative to start of file
         self._data_offset = -1
-        # Bytes for packet header
-        self._packet_header_size = 4  # TODO: This can be overriden?
         # Open and parse file
         self._file_handle = open(self.path, 'rb')
         self._configuration = self._read_configuration()
         self._setup_channels()
-        self._packet_size = self._packet_header_size + 2 + len(self.probes) * 2
+        # TODO - Can this be overriden?
+        self._packet_header_size = 34
+        # Packet header size (MCU/ECU bytes) + timestamp bytes (uint32) + channel bytes (int16)
+        self._packet_size = self._packet_header_size + 4 + len(self.probes) * 2
+        print(self.samples, self.sample_rate,
+              self._data_offset, self._data_size, self._packet_size)
 
     @property
     def _hardware_configuration(self):
@@ -78,13 +81,16 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
 
     @property
     def t1(self):
-        total_samples = self._data_size / self._packet_size
-        return int((total_samples - 1) / self.sample_rate)
+        return self.samples / self.sample_rate
 
     @property
     def sample_rate(self):
         # Get sample rate from parsed config
         return int(self._hardware_configuration.attrib['samplingRate'])
+
+    @property
+    def samples(self):
+        return int(self._data_size / self._packet_size)
 
     def _read_configuration(self):
         """Read in and parse the configuration XML prefix."""
@@ -119,28 +125,26 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
         # Skip to start of actual data
         offset = self._data_offset + self._packet_size * packet_offset
         self._file_handle.seek(offset)
-        return np.fromfile(self._file_handle, dtype=np.int16, count=self._num_channels)
+        return np.fromfile(self._file_handle, dtype=np.int16, count=len(self.probes))
 
     def _read_all_samples(self, channels_to_read):
         channel_count = len(channels_to_read)
-        samples = (self.t1 - self.t0) * self.sample_rate
-        timestamps = np.zeros((samples), dtype=np.uint32)
-        data = np.ndarray((samples, channel_count), dtype=np.int16)
-        for sample in range(samples):
+        timestamps = np.zeros((self.samples), dtype=np.uint32)
+        data = np.ndarray((self.samples, channel_count), dtype=np.int16)
+        for sample in range(self.samples):
             packet = self._read_packet(packet_offset=sample)
             try:
                 timestamps[sample] = packet.view(dtype=np.uint32)[0]
-                print(timestamps[sample])
                 channel_data = packet.view(dtype=np.int16)
             except:
-                print(self.t1, sample, samples, packet)
+                print(self.t1, sample, self.samples, packet)
             for channel in range(channel_count):
                 # Offset is timestamp (2 bytes) + channel position to read
                 channel_offset = 2 + channels_to_read[channel]
                 # Read packet data
                 channel_data_frame = channel_data[channel_offset:channel_offset + 1]
                 data[sample][channel] = channel_data_frame
-            break
+        data = data.astype(float) * -1 * 12780 / 65536
         return (timestamps, data)
 
     def read_channels_epoch_samples(self, channel_type, channels, epoch):
