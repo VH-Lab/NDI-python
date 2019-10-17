@@ -120,9 +120,15 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
                 self.probes.append(ntrode)
 
     def _read_all_samples(self, channels_to_read):
+        """
+        Given a list of channels, read each packet and read the requested channels.
+        
+        Returns (np.array, np.ndarray) in shape (timestamps[sample], channel_data[channel][sample])
+        """
         channel_count = len(channels_to_read)
         timestamps = np.zeros((self.samples), dtype=np.uint32)
         data = np.ndarray((channel_count, self.samples), dtype=np.int16)
+        # Header contains the non-ntrode channels, skip for now
         packet_dtype = np.dtype([('header', np.uint8, self._packet_header_size),
                                  ('timestamp', np.uint32),
                                  ('channel_data', np.int16, len(self.probes))])
@@ -141,6 +147,7 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
         return (timestamps, data)
 
     def read_channels_epoch_samples(self, channel_type, channels, epoch):
+        # TODO - hook up epoch to syncgraph, right now all samples are returned as the device epoch
         channels_to_read = []
         if channel_type == ChannelType.analog_in:
             for ch in channels:
