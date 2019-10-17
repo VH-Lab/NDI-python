@@ -58,8 +58,6 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
         self._channel_size = len(self.probes) * 2
         # Packet header size (MCU/ECU bytes) + timestamp bytes (uint32) + channel bytes (int16)
         self._packet_size = self._packet_header_size + 2 + self._channel_size
-        print(self.samples, self.sample_rate,
-              self._data_offset, self._data_size, self._packet_size)
 
     @property
     def _hardware_configuration(self):
@@ -139,7 +137,7 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
                 # Read packet data
                 data[channel][index] = sample[2][channels_to_read[channel]]
 
-        data = data.astype(float) * -1 * 12780 / 65536
+        data = data.astype(np.float) ** -1 * 12780 / 65536
         return (timestamps, data)
 
     def read_channels_epoch_samples(self, channel_type, channels, epoch):
