@@ -56,3 +56,6 @@ coverage.xml
 # Common virtualenv paths
 .venv/
 .env/
+
+# Example notebook checkpoint
+example/.ipynb_checkpoints/
