@@ -143,7 +143,7 @@ class DaqReaderMultiFunctionSg(DaqReaderMultiFunction):
                 # Read packet data
                 data[channel][index] = sample[2][channels_to_read[channel]]
 
-        data = data.astype(np.float) ** -1 * 12780 / 65536
+        data = data.astype(np.float) * 12780 / 65536
         return (timestamps, data)
 
     def read_channels_epoch_samples(self, channel_type, channels, epoch):
