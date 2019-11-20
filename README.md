@@ -4,15 +4,20 @@ This is a Python wrapper around ndi-schema objects and reference implementations
 
 Basic usage is recommended via [Jupyter Notebook](https://jupyter.org/). Any Jupyter install should work but [Anaconda](https://www.anaconda.com/distribution/) (Python 3) is an easy way to get started with Jupyter.
 
+## Package manager
+Ndi-python uses pipenv is used for package management, it can be installed with pip.
+
 ## Jupyter Notebook Quickstart
 
 ```shell
-$ virtualenv -p python3 .virtualenv
-$ source .virtualenv/bin/activate
-(venv) $ pip install -r requirements.txt
-# Setup the Python environment
-(venv) $ ipython kernel install --user --name=NDI
-(venv) $ jupyter notebook
+# Install dependencies
+$ pipenv install
+# Activate virtualenv
+$ pipenv shell
+# Verify virtual environment (OPTIONAL)
+(ndi-python) $ which jupyter
+# Start Jupyter Notebook
+(ndi-python) $ jupyter notebook
 ```
 
 # Developer Notes
