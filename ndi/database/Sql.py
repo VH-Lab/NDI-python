@@ -2,11 +2,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer
 from sqlalchemy.orm import sessionmaker
-from .AbstractDatabase import AbstractDatabase
+from .base_db import BaseDB
 
 Base = declarative_base()
 
-class Sql(AbstractDatabase):
+class SQL(BaseDB):
     def __init__(self, connection_string):
         self.db = create_engine(connection_string)
         self.tables = {}

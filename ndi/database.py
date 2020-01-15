@@ -1,12 +1,7 @@
 from abc import ABC, abstractmethod
-
-class AbstractDatabase(ABC):
+class Database(ABC):
     @abstractmethod
     def __init__(self):
-        pass
-
-    @abstractmethod
-    def create_table(self):
         pass
 
     @abstractmethod
@@ -14,5 +9,5 @@ class AbstractDatabase(ABC):
         pass
 
     @abstractmethod
-    def find(self):
-        pass
+    def __delattr__(self, name):
+
