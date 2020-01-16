@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 import flatbuffers
+from uuid import uuid4
+
 
 class NDI_Object(ABC):
     @abstractmethod
-    def __init__(self):
-        pass
+    def __init__(self, id_):
+        self.id = id_ or uuid4().hex
 
     # Flatbuffer Methods for converting to and from flatbuffers
     @classmethod
@@ -53,19 +55,19 @@ class NDI_Object(ABC):
         pass
 
     @staticmethod
-    def _buildVector(builder, ndi_objects):
+    def _buildStringVector(builder, strings):
         """
-        Builds flatbuffer vectors of ndi_object
+        Builds flatbuffer vector from list of strings
         """
-        built_ndi_objects = [
-            ndi_object._build(builder)
-            for ndi_object in ndi_objects
+        built_strings = [
+            builder.CreateString(string)
+            for string in strings
         ]
-        
-        builder.StartVector(4, len(built_ndi_objects), 4)
-        for built_ndi_object in reversed(built_ndi_objects):
-            builder.PrependUOffsetTRelative(built_ndi_object)
-        return builder.EndVector(len(built_ndi_objects))
+
+        builder.StartVector(4, len(built_strings), 4)
+        for built_string in reversed(built_strings):
+            builder.PrependUOffsetTRelative(built_string)
+        return builder.EndVector(len(built_strings))
 
     def serialize(self):
         """

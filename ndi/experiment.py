@@ -1,15 +1,14 @@
-from ndi import NDI_Object, DaqSystem, Database
+from ndi import NDI_Object
 from uuid import uuid4
-import ndi.build.Experiment as build_experiment
+import ndi.schema.Experiment as build_experiment
 
 
 class Experiment(NDI_Object):
-    def __init__(self, reference, databases, daq_systems, unique_reference=uuid4().hex):
-        self.reference = reference
-        self.unique_reference = unique_reference
-        self.databases = databases
-        self.daq_systems = daq_systems
+    def __init__(self, name, id_=None):
+        super().__init__(id_)
+        self.name = name
 
+    # Flatbuffer Methods
     @classmethod
     def frombuffer(cls, buffer):
         experiment = build_experiment.Experiment.GetRootAsExperiment(buffer, 0)
@@ -17,21 +16,14 @@ class Experiment(NDI_Object):
 
     @classmethod
     def _reconstruct(cls, experiment):
-        databases = Database._reconstructList(experiment)
-        daq_systems = DaqSystem._reconstructList(experiment)
-        return cls(reference=experiment.Reference().decode('utf8'),
-                   databases=databases,
-                   daq_systems=daq_systems)
+        return cls(id_=experiment.Id().decode('utf8'),
+                   name=experiment.Name().decode('utf8'))
 
     def _build(self, builder):
-        reference = builder.CreateString(self.reference)
-        unique_reference = builder.CreateString(self.unique_reference)
-        databases = self._buildVector(builder, self.databases)
-        daq_systems = self._buildVector(builder, self.daq_systems)
+        id_ = builder.CreateString(self.id)
+        name = builder.CreateString(self.name)
 
         build_experiment.ExperimentStart(builder)
-        build_experiment.ExperimentAddReference(builder, reference)
-        build_experiment.ExperimentAddUniqueReference(builder, unique_reference)
-        build_experiment.ExperimentAddDatabases(builder, databases)
-        build_experiment.ExperimentAddDaqSystems(builder, daq_systems)
+        build_experiment.ExperimentAddId(builder, id_)
+        build_experiment.ExperimentAddName(builder, name)
         return build_experiment.ExperimentEnd(builder)

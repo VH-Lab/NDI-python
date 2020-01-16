@@ -10,7 +10,7 @@ class BaseDB(ABC):
         pass
 
     @abstractmethod
-    def create_table(self):
+    def create_collections(self):
         pass
 
     @abstractmethod

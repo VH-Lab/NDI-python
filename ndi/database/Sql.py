@@ -15,6 +15,8 @@ class SQL(BaseDB):
     def execute(self, query):
         self.db.execute(query)
 
+    # TODO: def create_collections()
+    
     def create_table(self, table_name, columns):
         self.tables[table_name] = type(table_name, (Base,), {
             '__tablename__': table_name,
