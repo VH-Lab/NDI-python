@@ -1,4 +1,4 @@
-from ndi import NDI_Object
+from .ndi_object import NDI_Object
 import ndi.schema.Channel as build_channel
 import ndi.schema.ClockType as build_clock_type
 import ndi.schema.ChannelType as build_channel_type
@@ -7,7 +7,7 @@ from .clock_type import ClockType
 
 
 class Channel(NDI_Object):
-    def __init__(self, name, number, type_, clock_type, source_file, epoch_id, probe_id):
+    def __init__(self, name, number, type_, source_file, epoch_id, probe_id, clock_type=None,):
         self.name = name
         self.number = number
         self.type = type_
@@ -40,8 +40,10 @@ class Channel(NDI_Object):
         build_channel.ChannelStart(builder)
         build_channel.ChannelAddName(builder, name)
         build_channel.ChannelAddNumber(builder, self.number)
-        build_channel.ChannelAddType(builder, getattr(build_channel_type, self.type))
-        build_channel.ChannelAddClockType(builder, getattr(build_clock_type, self.clock_type))
+        build_channel.ChannelAddType(
+            builder, getattr(build_channel_type, self.type))
+        build_channel.ChannelAddClockType(
+            builder, getattr(build_clock_type, self.clock_type))
         build_channel.ChannelAddSourceFile(builder, source_file)
         build_channel.ChannelAddEpochId(builder, epoch_id)
         build_channel.ChannelAddProbeId(builder, probe_id)

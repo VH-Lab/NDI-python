@@ -1,4 +1,3 @@
-from .ndi_object import NDI_Object
 from .channel_type import ChannelType
 from .channel import Channel
 from .file_navigator import FileNavigator, EpochFiles

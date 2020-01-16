@@ -1,5 +1,6 @@
-from ndi import NDI_Object
+from .ndi_object import NDI_Object
 import ndi.schema.Epoch as build_epoch
+
 
 class Epoch(NDI_Object):
     def __init__(self, id_=None):

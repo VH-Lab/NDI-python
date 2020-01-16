@@ -1,5 +1,7 @@
-from ndi import NDI_Object, FileNavigator
+from .ndi_object import NDI_Object
+from .file_navigator import FileNavigator
 import ndi.schema.DaqSystem as build_daq_system
+import ndi.daqsystem.daqreaders as DaqReaders
 
 
 class DaqSystem(NDI_Object):
@@ -18,18 +20,19 @@ class DaqSystem(NDI_Object):
     @classmethod
     def _reconstruct(cls, daq_system):
         file_navigator = FileNavigator._reconstruct(daq_system.FileNavigator())
+        daq_reader = getattr(DaqReaders, daq_system.DaqReader().decode('utf8'))
 
         return cls(id_=daq_system.Id().decode('utf8'),
                    name=daq_system.Name().decode('utf8'),
                    file_navigator=file_navigator,
-                   daq_reader=daq_system.DaqReader().decode('utf8'),
+                   daq_reader=daq_reader,
                    experiment_id=daq_system.ExperimentId().decode('utf8'))
 
     def _build(self, builder):
         id_ = builder.CreateString(self.id)
         name = builder.CreateString(self.name)
         file_navigator = self.file_navigator._build(builder)
-        daq_reader = builder.CreateString(self.daq_reader)
+        daq_reader = builder.CreateString(self.daq_reader.__name__)
         experiment_id = builder.CreateString(self.experiment_id)
 
         build_daq_system.DaqSystemStart(builder)

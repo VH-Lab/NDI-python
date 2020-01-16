@@ -1,8 +1,9 @@
 from ndi import DaqSystem, FileNavigator, Experiment, Epoch
+from ndi.daqsystem.daqreaders import MockReader
 
 fn = FileNavigator(['a', 'b'], 'b')
 
-ds1 = DaqSystem('DAQ1', fn, 'DaqReader', 'feoiwnf')
+ds1 = DaqSystem('DAQ1', fn, MockReader, 'feoiwnf')
 
 buffer = ds1.serialize()
 

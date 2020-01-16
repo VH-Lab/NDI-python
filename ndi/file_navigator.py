@@ -1,6 +1,6 @@
 import os
 import re
-from ndi import NDI_Object
+from .ndi_object import NDI_Object
 import ndi.schema.FileNavigator as build_file_navigator
 
 
@@ -32,12 +32,16 @@ class FileNavigator(NDI_Object):
                    metadata_file_pattern=file_navigator.MetadataFilePattern().decode('utf8'))
 
     def _build(self, builder):
-        epoch_file_patterns = self._buildStringVector(builder, self.epoch_file_patterns)
-        metadata_file_pattern = builder.CreateString(self.metadata_file_pattern)
-        
+        epoch_file_patterns = self._buildStringVector(
+            builder, self.epoch_file_patterns)
+        metadata_file_pattern = builder.CreateString(
+            self.metadata_file_pattern)
+
         build_file_navigator.FileNavigatorStart(builder)
-        build_file_navigator.FileNavigatorAddEpochFilePatterns(builder, epoch_file_patterns)
-        build_file_navigator.FileNavigatorAddMetadataFilePattern(builder, metadata_file_pattern)
+        build_file_navigator.FileNavigatorAddEpochFilePatterns(
+            builder, epoch_file_patterns)
+        build_file_navigator.FileNavigatorAddMetadataFilePattern(
+            builder, metadata_file_pattern)
         return build_file_navigator.FileNavigatorEnd(builder)
 
     def get_epochs(self, directory):

@@ -1,4 +1,4 @@
-from ndi import NDI_Object
+from .ndi_object import NDI_Object
 from uuid import uuid4
 import ndi.schema.Experiment as build_experiment
 

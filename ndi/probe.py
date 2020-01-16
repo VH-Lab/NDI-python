@@ -1,4 +1,4 @@
-from ndi import NDI_Object, Channel
+from .ndi_object import NDI_Object
 import ndi.schema.Probe as build_probe
 from ndi.schema.ProbeType import ProbeType as build_probe_type
 from .probe_type import ProbeType
