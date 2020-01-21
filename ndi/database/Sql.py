@@ -32,6 +32,7 @@ class SQL(BaseDB):
     def __init__(self, connection_string):
         self.db = create_engine(connection_string)
         self.tables = {}
+        self.create_collections()
         self.Session = sessionmaker(bind=self.db)
 
     def execute(self, query):
@@ -78,6 +79,11 @@ class SQL(BaseDB):
         results = session.query(Table).filter_by(**kwargs).all()
         return results
 
+    @with_open_session
+    def find_by_id(self, session, Table, id):
+        results = session.query(Table).get(id)
+        return results
+
     @with_session
     def add(self, session, payload):
         if type(payload) is list:
@@ -95,14 +101,31 @@ class SQL(BaseDB):
             results.update(payload, synchronize_session='evaluate')
 
     @with_session
+    def upsert_by_id(self, session, Table, id, payload):
+        results = session.query(Table).get(id)
+        if len(results.all()) == 0:
+            self.add(Table(**payload))
+        else:
+            results.update(payload, synchronize_session='evaluate')
+
+    @with_session
     def update(self, session, Table, filters, payload):
         return session.query(Table).filter_by(**filters).update(payload, synchronize_session='evaluate')
+
+    @with_session
+    def update_by_id(self, session, Table, id, payload):
+        return session.query(Table).get(id).update(payload, synchronize_session='evaluate')
 
     @with_session
     def delete(self, session, Table, **kwargs):
         results = session.query(Table).filter_by(**kwargs).all()
         for instance in results:
             session.delete(instance)
+
+    @with_session
+    def delete_by_id(self, session, Table, id):
+        instance = session.query(Table).get(id)
+        session.delete(instance)
 
     @with_session
     def delete_all(self, session, Table):
