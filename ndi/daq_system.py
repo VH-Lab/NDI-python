@@ -5,7 +5,7 @@ import ndi.daqsystem.daqreaders as DaqReaders
 
 
 class DaqSystem(NDI_Object):
-    def __init__(self, name, file_navigator, daq_reader, experiment_id, id_=None):
+    def __init__(self, name, file_navigator, daq_reader, experiment_id=None, id_=None):
         super().__init__(id_)
         self.name = name
         self.file_navigator = file_navigator
