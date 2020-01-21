@@ -5,7 +5,7 @@ from .probe_type import ProbeType
 
 
 class Probe(NDI_Object):
-    def __init__(self, name, reference, type_, id_=None, daq_system_id=None):
+    def __init__(self, name, reference, type_, id_=None, daq_system_id=''):
         super().__init__(id_)
         self.name = name
         self.type = type_

@@ -1,13 +1,13 @@
 from .ndi_object import NDI_Object
 import ndi.schema.Channel as build_channel
-import ndi.schema.ClockType as build_clock_type
-import ndi.schema.ChannelType as build_channel_type
+from ndi.schema.ClockType import ClockType as build_clock_type
+from ndi.schema.ChannelType import ChannelType as build_channel_type
 from .channel_type import ChannelType
 from .clock_type import ClockType
 
 
 class Channel(NDI_Object):
-    def __init__(self, name, number, type_, source_file, epoch_id, probe_id, clock_type=None,):
+    def __init__(self, name, number, type_, source_file, epoch_id, probe_id, clock_type='no_time',):
         self.name = name
         self.number = number
         self.type = type_

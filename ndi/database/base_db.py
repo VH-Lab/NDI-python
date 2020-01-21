@@ -1,6 +1,21 @@
 from abc import ABC, abstractmethod
 
+from ..experiment import Experiment
+from ..daq_system import DaqSystem
+from ..probe import Probe
+from ..epoch import Epoch
+from ..channel import Channel
+
+
 class BaseDB(ABC):
+    _collections = {
+        Experiment: None,
+        DaqSystem: None,
+        Probe: None,
+        Epoch: None,
+        Channel: None
+    }
+
     @abstractmethod
     def __init__(self):
         pass

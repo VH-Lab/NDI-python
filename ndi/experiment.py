@@ -4,9 +4,15 @@ import ndi.schema.Experiment as build_experiment
 
 
 class Experiment(NDI_Object):
-    def __init__(self, name, id_=None):
+    def __init__(self, name, daqsystems=None, id_=None):
         super().__init__(id_)
         self.name = name
+
+        if daqsystems:
+            for daqsystem in daqsystems:
+                daqsystem.experiment_id = self.id
+        self.daqsystems = daqsystems
+
 
     # Flatbuffer Methods
     @classmethod
