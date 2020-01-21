@@ -4,12 +4,33 @@ from sqlalchemy import Table, Column, ForeignKey
 from sqlalchemy.orm import sessionmaker
 from .base_db import BaseDB
 from .types import String, Blob, Integer
+from contextlib import contextmanager
 
 Base = declarative_base()
 
+def with_session(func):
+    """Handle session instantiation, commit, and close operations for a class method."""
+    def decorator(self, *args, **kwargs):
+        session = self.Session()
+        output = func(self, session, *args, **kwargs)
+        session.commit()
+        session.close()
+        return output
+    return decorator
+
+def with_open_session(func):
+    """Handle session setup/teardown as a context manager for a class method."""
+    @contextmanager
+    def decorator(self, *args, **kwargs):
+        session = self.Session()
+        yield func(self, session, *args, **kwargs)
+        session.commit()
+        session.close()
+    return decorator
+
 class SQL(BaseDB):
     def __init__(self, connection_string):
-        self.db = create_engine(connection_string, echo=True)
+        self.db = create_engine(connection_string)
         self.tables = {}
         self.Session = sessionmaker(bind=self.db)
 
@@ -52,16 +73,26 @@ class SQL(BaseDB):
     def get_tables(self):
         return Base.metadata.sorted_tables
 
-    def __finish_session(self, session):
-        session.commit()
-        session.close()
+    @with_session
+    def add(self, session, item):
+        return session.add(item)
 
-    def add(self, item):
-        session = self.Session()
-        session.add(item)
-        self.__finish_session(session)
+    @with_open_session
+    def find(self, session, Table, **kwargs):
+        results = session.query(Table).filter_by(**kwargs).all()
+        return results
 
-    def find(self, Table, **kwargs):
-        session = self.Session()
-        result = session.query(Table).filter_by(**kwargs).all()
-        return result
+    @with_session
+    def update(self, session, Table, filters, payload):
+        return session.query(Table).filter_by(**filters).update(payload, synchronize_session='evaluate')
+
+    @with_session
+    def delete(self, session, Table, **kwargs):
+        results = session.query(Table).filter_by(**kwargs).all()
+        for instance in results:
+            session.delete(instance)
+
+    @with_session
+    def delete_all(self, session, Table):
+        session.query(Table).delete()
+        
