@@ -21,33 +21,36 @@ class SQL(BaseDB):
 
     def create_collections(self):
         self.create_table('experiments', {
-            'flatBuffer': Blob()
+            'flat_buffer': Blob()
         })
         self.create_table('daq_systems', {
-            'experiment_id': String(ForeignKey('experiments.id')),
-            'flatBuffer': Blob()
+            'experiment_id': Integer(ForeignKey('experiments.id')),
+            'flat_buffer': Blob()
         })
         self.create_table('epochs', {
-            'daq_system_id': String(ForeignKey('daq_systems.id')),
-            'flatBuffer': Blob()
+            'daq_system_id': Integer(ForeignKey('daq_systems.id')),
+            'flat_buffer': Blob()
         })
         self.create_table('probes', {
-            'daq_system_id': String(ForeignKey('daq_systems.id')),
-            'flatBuffer': Blob()
+            'daq_system_id': Integer(ForeignKey('daq_systems.id')),
+            'flat_buffer': Blob()
         })
         self.create_table('channels', {
-            'probe_id': String(ForeignKey('probes.id')),
-            'flatBuffer': Blob()
+            'probe_id': Integer(ForeignKey('probes.id')),
+            'flat_buffer': Blob()
         })
     
     def create_table(self, table_name, columns):
         self.tables[table_name] = type(table_name, (Base,), {
             '__tablename__': table_name,
-            'id': String(primary_key=True),
+            'id': Integer(primary_key=True),
             **columns
         })
         Base.metadata.create_all(self.db)
         return self.tables[table_name]
+
+    def get_tables(self):
+        return Base.metadata.sorted_tables
 
     def __finish_session(self, session):
         session.commit()
