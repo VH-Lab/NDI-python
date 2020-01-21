@@ -41,12 +41,28 @@ class FileSystem(BaseDB):
         return self._collections[ndi_class].find_by_id(ndi_class, id_)
 
     def find(self, ndi_class, **kwargs):
+        ndi_objects = self._collections[ndi_class].find(ndi_class)
+
+        if not kwargs:
+            return ndi_objects
+
         return [
             ndi_object
-            for ndi_object in self._collections[ndi_class].find(ndi_class)
+            for ndi_object in ndi_objects
             for key, value in kwargs.items()
             if getattr(ndi_object, key) == value
         ]
+    
+    def delete_by_id(self, ndi_class, id_):
+        self._collections[ndi_class].delete_by_id(id_)
+    
+    def delete(self, ndi_class, **kwargs):
+        ids = [
+            ndi_object.id
+            for ndi_object in self.find(ndi_class, **kwargs)
+        ]
+        
+        self._collections[ndi_class].delete(ids)
 
 class Collection:
     def __init__(self, collection_dir):
@@ -66,3 +82,10 @@ class Collection:
             ndi_class.frombuffer(file.read_bytes())
             for file in self.collection_dir.glob('*.dat')
         ]
+    
+    def delete_by_id(self, id_):
+          (self.collection_dir / f'{id_}.dat').unlink()
+        
+    def delete(self, ids):
+        for id_ in ids:
+            (self.collection_dir / f'{id_}.dat').unlink()
