@@ -73,14 +73,26 @@ class SQL(BaseDB):
     def get_tables(self):
         return Base.metadata.sorted_tables
 
-    @with_session
-    def add(self, session, item):
-        return session.add(item)
-
     @with_open_session
     def find(self, session, Table, **kwargs):
         results = session.query(Table).filter_by(**kwargs).all()
         return results
+
+    @with_session
+    def add(self, session, payload):
+        if type(payload) is list:
+            for item in payload:
+                session.add(item)
+        else:
+            return session.add(payload)
+
+    @with_session
+    def upsert(self, session, Table, filters, payload):
+        results = session.query(Table).filter_by(**filters)
+        if len(results.all()) == 0:
+            self.add(Table(**payload))
+        else:
+            results.update(payload, synchronize_session='evaluate')
 
     @with_session
     def update(self, session, Table, filters, payload):
