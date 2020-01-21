@@ -5,7 +5,8 @@ from sqlalchemy import \
     String as S, \
     LargeBinary
 
-Integer = Column(I)
-Float = Column(F)
-String = Column(S)
-Blob = Column(LargeBinary)
+Integer = lambda *args, **kwargs: Column(I, *args, **kwargs)
+Float = lambda *args, **kwargs: Column(F, *args, **kwargs)
+String = lambda *args, **kwargs: Column(S, *args, **kwargs)
+Blob = lambda *args, **kwargs: Column(LargeBinary, *args, **kwargs)
+
