@@ -1,9 +1,9 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Table, Column, ForeignKey
+from sqlalchemy import String, LargeBinary, Integer
 from sqlalchemy.orm import sessionmaker
 from .base_db import BaseDB
-from .types import String, Blob, Integer
 from contextlib import contextmanager
 
 Base = declarative_base()
@@ -43,29 +43,29 @@ class SQL(BaseDB):
 
     def create_collections(self):
         self.create_table('experiments', {
-            'flat_buffer': Blob()
+            'flat_buffer': Column(LargeBinary)
         })
         self.create_table('daq_systems', {
-            'experiment_id': Integer(ForeignKey('experiments.id')),
-            'flat_buffer': Blob()
+            'experiment_id': Column(Integer, ForeignKey('experiments.id')),
+            'flat_buffer': Column(LargeBinary)
         })
         self.create_table('epochs', {
-            'daq_system_id': Integer(ForeignKey('daq_systems.id')),
-            'flat_buffer': Blob()
+            'daq_system_id': Column(Integer, ForeignKey('daq_systems.id')),
+            'flat_buffer': Column(LargeBinary)
         })
         self.create_table('probes', {
-            'daq_system_id': Integer(ForeignKey('daq_systems.id')),
-            'flat_buffer': Blob()
+            'daq_system_id': Column(Integer, ForeignKey('daq_systems.id')),
+            'flat_buffer': Column(LargeBinary)
         })
         self.create_table('channels', {
-            'probe_id': Integer(ForeignKey('probes.id')),
-            'flat_buffer': Blob()
+            'probe_id': Column(Integer, ForeignKey('probes.id')),
+            'flat_buffer': Column(LargeBinary)
         })
     
     def create_table(self, table_name, columns):
         self.tables[table_name] = type(table_name, (Base,), {
             '__tablename__': table_name,
-            'id': Integer(primary_key=True),
+            'id': Column(Integer, primary_key=True),
             **columns
         })
         Base.metadata.create_all(self.db)
