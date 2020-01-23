@@ -29,7 +29,7 @@ class BaseDB(ABC):
         pass
 
     @abstractmethod
-    def create_collection(self, name, **fields)
+    def create_collection(self, name, **fields):
         pass
 
 
