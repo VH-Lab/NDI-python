@@ -62,3 +62,7 @@ example/.ipynb_checkpoints/
 
 # MacOS
 .DS_Store/
+
+# symlinked schema
+ndi/schema
+*/.ndi
