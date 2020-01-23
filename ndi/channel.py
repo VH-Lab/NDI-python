@@ -7,6 +7,13 @@ from .clock_type import ClockType
 
 
 class Channel(NDI_Object):
+    """Channel
+    
+    :param NDI_Object: NDI Abstract Class
+    :type NDI_Object: ABC
+    :return: Channel instance
+    :rtype: object
+    """
     def __init__(self, name, number, type_, source_file, epoch_id, probe_id, clock_type='no_time',):
         self.name = name
         self.number = number
