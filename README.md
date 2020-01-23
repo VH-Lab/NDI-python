@@ -30,4 +30,4 @@ Documentation is powered by [Sphinx](http://www.sphinx-doc.org/en/master/). We u
 
 If you are using VSCode it is recommended that you install the [autoDocstring](https://marketplace.visualstudio.com/items?itemName=njpwerner.autodocstring) extension. You will have to add `"autoDocstring.docstringFormat": "sphinx"` to the your [settings.json](https://vscode.readthedocs.io/en/latest/getstarted/settings/).
 
-Documentation must be rebuilt with `sphinx-apidoc -fo ./docs/source ./ndi` on changes to codebase.
+Documentation must be rebuilt with `bin/mkdocs` on changes to codebase. To rebuild and view the documentation in the browser, run `bin/docs`.
