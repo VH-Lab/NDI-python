@@ -23,3 +23,11 @@ $ pipenv shell
 # Developer Notes
 
 The Python package makes use of [native namespace packages available in Python 3.3 and later](https://packaging.python.org/guides/packaging-namespace-packages/#native-namespace-packages).
+
+## Documentation
+
+Documentation is powered by [Sphinx](http://www.sphinx-doc.org/en/master/). We use its autodoc extension to generate documentation, which relies on [properly formatted docstrings](https://sphinx-rtd-tutorial.readthedocs.io/en/latest/docstrings.html)
+
+If you are using VSCode it is recommended that you install the [autoDocstring](https://marketplace.visualstudio.com/items?itemName=njpwerner.autodocstring) extension. You will have to add `"autoDocstring.docstringFormat": "sphinx"` to the your [settings.json](https://vscode.readthedocs.io/en/latest/getstarted/settings/).
+
+Documentation must be rebuilt with `sphinx-apidoc -fo ./docs/source ./ndi` on changes to codebase.
