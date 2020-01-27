@@ -12,4 +12,4 @@ def pascal_to_snake_case(string):
   :return: String in snake case.
   :rtype: str
   """
-  return pascal_pattern.sub(r
+  return pascal_pattern.sub(r'_\1', string).lower()
