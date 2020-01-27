@@ -10,7 +10,7 @@ Ndi-python uses pipenv is used for package management, it can be installed with 
 ## Jupyter Notebook Quickstart
 
 ```shell
-# Install dependencies
+# Install dependencies (use the --dev flag if you plan to run the linter, test suite, or docs)
 $ pipenv install
 # Activate virtualenv
 $ pipenv shell
@@ -23,3 +23,15 @@ $ pipenv shell
 # Developer Notes
 
 The Python package makes use of [native namespace packages available in Python 3.3 and later](https://packaging.python.org/guides/packaging-namespace-packages/#native-namespace-packages).
+
+## Documentation
+
+Documentation is powered by [Sphinx](http://www.sphinx-doc.org/en/master/). The doc site's source code and build files can be found in ./docs.
+
+We use Sphinx's autodoc extension to generate the source files from the codebase. This means that docstrings must be [properly formatted](https://sphinx-rtd-tutorial.readthedocs.io/en/latest/docstrings.html).
+
+If you are using VSCode it is recommended that you install the [autoDocstring](https://marketplace.visualstudio.com/items?itemName=njpwerner.autodocstring) extension. You will have to add `"autoDocstring.docstringFormat": "sphinx"` to the your [settings.json](https://vscode.readthedocs.io/en/latest/getstarted/settings/).
+
+Docstrings may also include standard [reST](https://thomas-cokelaer.info/tutorials/sphinx/rest_syntax.html) syntax for more sophisticated markup.
+
+Documentation must be rebuilt with `bin/mkdocs` on changes to the codebase. To rebuild and view the documentation in the browser, run `bin/docs`. Sphinx must be installed (`pipenv install --dev sphinx`).

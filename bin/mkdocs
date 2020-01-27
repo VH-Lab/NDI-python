@@ -1,0 +1,15 @@
+#! /bin/sh
+# Build Sphinx docs and site.
+
+cd ./docs &&
+
+# Create .rst files.
+sphinx-apidoc -fo ./source ../ndi &&
+
+# Reset html files to prevent old errors.
+make clean &&
+
+# Build site from source.
+make html;
+
+cd ..;
