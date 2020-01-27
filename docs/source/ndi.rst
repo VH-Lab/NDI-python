@@ -93,6 +93,14 @@ ndi.probe\_type module
    :undoc-members:
    :show-inheritance:
 
+ndi.utils module
+----------------
+
+.. automodule:: ndi.utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 
 Module contents
 ---------------
