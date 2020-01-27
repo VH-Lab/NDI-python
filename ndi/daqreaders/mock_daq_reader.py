@@ -1,6 +1,6 @@
-from ...channel import Channel
-from ...probe import Probe
-from ...epoch import Epoch
+from ..channel import Channel
+from ..probe import Probe
+from ..epoch import Epoch
 
 class MockReader:
     def __init__(self, epoch_files=[]):

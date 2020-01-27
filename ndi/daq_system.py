@@ -1,7 +1,7 @@
 from .ndi_object import NDI_Object
 from .file_navigator import FileNavigator
 import ndi.schema.DaqSystem as build_daq_system
-import ndi.daqsystem.daqreaders as DaqReaders
+import ndi.daqreaders as DaqReaders
 
 
 class DaqSystem(NDI_Object):
