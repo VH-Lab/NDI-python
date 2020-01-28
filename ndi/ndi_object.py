@@ -11,11 +11,11 @@ class NDI_Object(ABC):
     # Flatbuffer Methods for converting to and from flatbuffers
     @classmethod
     @abstractmethod
-    def frombuffer(cls, buffer):
+    def from_flatbuffer(cls, flatbuffer):
         """
         Creates ndi_object instance from flatbuffer
 
-            ndi_object = GetRootAsNDIObject(buffer, 0)
+            ndi_object = GetRootAsNDIObject(flatbuffer, 0)
 
             return cls._reconstruct(ndi_object)
         """
@@ -23,7 +23,7 @@ class NDI_Object(ABC):
 
     @classmethod
     @abstractmethod
-    def _reconstruct(cls, ndi_object):
+    def _reconstruct(cls, flatbuffer_object):
         """
         Creates ndi_object instance from flatbuffer object 
 
@@ -32,13 +32,14 @@ class NDI_Object(ABC):
         pass
 
     @classmethod
-    def _reconstructList(cls, ndi_object_parent):
+    def _reconstructList(cls, flatbuffer_object_parent):
         """
         Creates ndi_object instances for flatbuffer objects in a vector 
         """
         return [
-            cls._reconstruct(getattr(ndi_object_parent, f'{cls.__name__}s')(i))
-            for i in range(getattr(ndi_object_parent, f'{cls.__name__}sLength')())
+            cls._reconstruct(
+                getattr(flatbuffer_object_parent, f'{cls.__name__}s')(i))
+            for i in range(getattr(flatbuffer_object_parent, f'{cls.__name__}sLength')())
         ]
 
     @abstractmethod

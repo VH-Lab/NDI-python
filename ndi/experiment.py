@@ -13,8 +13,9 @@ class Experiment(NDI_Object):
 
     # Flatbuffer Methods
     @classmethod
-    def frombuffer(cls, buffer):
-        experiment = build_experiment.Experiment.GetRootAsExperiment(buffer, 0)
+    def from_flatbuffer(cls, flatbuffer):
+        experiment = build_experiment.Experiment.GetRootAsExperiment(
+            flatbuffer, 0)
         return cls._reconstruct(experiment)
 
     @classmethod

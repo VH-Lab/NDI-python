@@ -13,8 +13,9 @@ class DaqSystem(NDI_Object):
         self.experiment_id = experiment_id
 
     @classmethod
-    def frombuffer(cls, buffer):
-        daq_system = build_daq_system.DaqSystem.GetRootAsDaqSystem(buffer, 0)
+    def from_flatbuffer(cls, flatbuffer):
+        daq_system = build_daq_system.DaqSystem.GetRootAsDaqSystem(
+            flatbuffer, 0)
         return cls._reconstruct(daq_system)
 
     @classmethod

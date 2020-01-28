@@ -8,8 +8,8 @@ class Epoch(NDI_Object):
         self.daq_system_id = daq_system_id
 
     @classmethod
-    def frombuffer(cls, buffer):
-        epoch = build_epoch.Epoch.GetRootAsEpoch(buffer, 0)
+    def from_flatbuffer(cls, flatbuffer):
+        epoch = build_epoch.Epoch.GetRootAsEpoch(flatbuffer, 0)
         return cls._reconstruct(epoch)
 
     @classmethod
