@@ -13,3 +13,15 @@ def pascal_to_snake_case(string):
   :rtype: str
   """
   return pascal_pattern.sub(r'_\1', string).lower()
+
+def class_to_collection_name(ndi_object):
+  """Convert a :class:`ndi.ndi_class` __name__ (PascalCase, singular) to a collection name (snake_case, plural).
+  .. note::
+    For consistency, collection names are made plural by the addition of an 's'.
+  
+  :param string: An :class:`ndi.ndi_class` object.
+  :type string: :class:`ndi.ndi_class`
+  :return: A standardized collection name for the given class.
+  :rtype: str
+  """
+  return f'{pascal_to_snake_case(ndi_object.__name__)}s'

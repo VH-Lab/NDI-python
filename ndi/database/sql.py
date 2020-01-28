@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from .base_db import BaseDB
 from contextlib import contextmanager
 from ndi import Experiment, DaqSystem, Probe, Epoch, Channel
-from ndi.utils import pascal_to_snake_case
+from ndi.utils import class_to_collection_name
 
 def with_session(func):
     """Handle session instantiation, commit, and close operations for a class method."""
@@ -39,9 +39,9 @@ class SQL(BaseDB):
         :type connection_string: str
         """
         self.db = create_engine(connection_string)
-        self.create_collections()
-        self.Session = sessionmaker(bind=self.db)
         self.Base = declarative_base()
+        self.Session = sessionmaker(bind=self.db)
+        self.__create_collections()
 
     def execute(self, query):
         """Runs a custom sql query.
@@ -61,7 +61,7 @@ class SQL(BaseDB):
 
     def __create_collections(self):
         """Create Base Collections described in :class:`ndi.database.BaseDB`."""
-        collections_columns: {
+        collections_columns = {
             Experiment: {
                 'flat_buffer': Column(LargeBinary)
             },
@@ -83,7 +83,10 @@ class SQL(BaseDB):
             }
         }
         for collection, columns in collections_columns.items():
-            create_collection 
+            self.create_collection(collection, **columns)
+        print(self._collections)
+        print(self.Base)
+        print(self.Base.metadata.tables)
 
     def create_collection(self, ndi_class, **fields):
         """Creates a table given an ndi_object and the desired fields and stores it in _collections.
@@ -99,17 +102,43 @@ class SQL(BaseDB):
         Returns:
             :class:`ndi.database.sql.Table`. The table object for the newly created collection.
         """
-        table_name = pascal_to_snake_case(ndi_class.__name__)
-        self._collections[ndi_class] = Table(table_name, **fields)
+        table_name = class_to_collection_name(ndi_class)
+        self._collections[ndi_class] = Table(self.Base, table_name, **fields)
         return self._collections[ndi_class]
 
-    # def get_tables(self):
-    #     return Base.metadata.sorted_tables
+    def get_tables(self):
+        return self.Base.metadata.sorted_tables
+
+
+    def add(self, ndi_object):
+        pass
+
+    def find(self, ndi_class, **query):
+        pass
+    
+    def find_by_id(self, ndi_class, id_):
+        pass
+
+    def update(self):
+        # params tbd
+        pass
+    
+    def update_by_id(self, ndi_class, id, payload):
+        pass
+
+    def upsert(self, ndi_objects):
+        pass
+
+    def delete(self, ndi_entity, **query):
+        pass
+    
+    def delete_by_id(self, ndi_class, id_):
+        pass
 
 
 
 class Table:
-    def __init__(self, table_name, **fields):
+    def __init__(self, Base, table_name, **fields):
         self.metadata = type(table_name, (Base,), {
             '__tablename__': table_name,
             'id': Column(Integer, primary_key=True),
