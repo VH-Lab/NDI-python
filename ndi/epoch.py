@@ -3,7 +3,7 @@ import ndi.schema.Epoch as build_epoch
 
 
 class Epoch(NDI_Object):
-    def __init__(self, id_=None, daq_system_id):
+    def __init__(self, daq_system_id, id_=None):
         super().__init__(id_)
         self.daq_system_id = daq_system_id
 

@@ -14,7 +14,7 @@ class Channel(NDI_Object):
     :return: Channel instance
     :rtype: object
     """
-    def __init__(self, id_=None, name, number, type_, source_file, epoch_id, probe_id, daq_system_id, clock_type='no_time',):
+    def __init__(self, name, number, type_, source_file, epoch_id, probe_id, daq_system_id, id_=None, clock_type='no_time',):
         super().__init__(id_)
         self.name = name
         self.number = number
