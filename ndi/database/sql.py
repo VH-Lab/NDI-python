@@ -1,33 +1,12 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Table, Column, ForeignKey
-from sqlalchemy import String, LargeBinary, Integer
+from sqlalchemy import String, LargeBinary
 from sqlalchemy.orm import sessionmaker
 from .base_db import BaseDB
 from contextlib import contextmanager
 from ndi import Experiment, DaqSystem, Probe, Epoch, Channel
 from ndi.utils import class_to_collection_name
-
-def with_session(func):
-    """Handle session instantiation, commit, and close operations for a class method."""
-    def decorator(self, *args, **kwargs):
-        session = self.Session()
-        output = func(self, session, *args, **kwargs)
-        session.commit()
-        session.close()
-        return output
-    return decorator
-
-def with_open_session(func):
-    """Handle session setup/teardown as a context manager for a class method."""
-    @contextmanager
-    def decorator(self, *args, **kwargs):
-        session = self.Session()
-        yield func(self, session, *args, **kwargs)
-        session.commit()
-        session.close()
-    return decorator
-
 
 class SQL(BaseDB):
     """Interface for SQL Databases.
@@ -57,6 +36,21 @@ class SQL(BaseDB):
         :param experiment: NDI Experiment Object
         :type experiment: :class:`ndi.Experiment`
         """
+        self.add(experiment)
+        for daqsystem in experiment.daqsystems:
+            self._collections[type(daqsystem)].add(daqsystem)
+            daqreader = daqsystem.daq_reader()
+
+            for probe in daqreader.get_probes():
+                self._collections[type(probe)].add(probe)
+
+            for epoch in daqreader.get_epochs():
+                self._collections[type(epoch)].add(epoch)
+        
+            for channel in daqreader.get_channels():
+                channel.id = channel.probe_id + channel.epoch_id
+                self._collections[type(channel)].add(channel)
+        
         return 
 
     def __create_collections(self):
@@ -66,27 +60,24 @@ class SQL(BaseDB):
                 'flat_buffer': Column(LargeBinary)
             },
             DaqSystem: {
-                'experiment_id': Column(Integer, ForeignKey('experiments.id')),
+                'experiment_id': Column(String, ForeignKey('experiments.id')),
                 'flat_buffer': Column(LargeBinary)
             },
             Probe: {
-                'daq_system_id': Column(Integer, ForeignKey('daq_systems.id')),
+                'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
                 'flat_buffer': Column(LargeBinary)
             },
             Epoch: {
-                'daq_system_id': Column(Integer, ForeignKey('daq_systems.id')),
+                'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
                 'flat_buffer': Column(LargeBinary)
             },
             Channel: {
-                'probe_id': Column(Integer, ForeignKey('probes.id')),
+                'probe_id': Column(String, ForeignKey('probes.id')),
                 'flat_buffer': Column(LargeBinary)
             }
         }
         for collection, columns in collections_columns.items():
             self.create_collection(collection, **columns)
-        print(self._collections)
-        print(self.Base)
-        print(self.Base.metadata.tables)
 
     def create_collection(self, ndi_class, **fields):
         """Creates a table given an ndi_object and the desired fields and stores it in _collections.
@@ -103,26 +94,30 @@ class SQL(BaseDB):
             :class:`ndi.database.sql.Table`. The table object for the newly created collection.
         """
         table_name = class_to_collection_name(ndi_class)
-        self._collections[ndi_class] = Table(self.Base, table_name, **fields)
+        self._collections[ndi_class] = Table(self.Base, self.Session, table_name, **fields)
         return self._collections[ndi_class]
 
     def get_tables(self):
         return self.Base.metadata.sorted_tables
 
-
     def add(self, ndi_object):
+        ndi_class = type(ndi_object)
+        print(ndi_class.__name__)
+        print(ndi_object.__dict__)
+        for name in ndi_object.__dict__:
+            print(name)
         pass
 
     def find(self, ndi_class, **query):
         pass
-    
+
     def find_by_id(self, ndi_class, id_):
         pass
 
     def update(self):
         # params tbd
         pass
-    
+
     def update_by_id(self, ndi_class, id, payload):
         pass
 
@@ -131,28 +126,53 @@ class SQL(BaseDB):
 
     def delete(self, ndi_entity, **query):
         pass
-    
+
     def delete_by_id(self, ndi_class, id_):
         pass
 
 
 
+
+def with_session(func):
+    """Handle session instantiation, commit, and close operations for a class method."""
+    def decorator(self, *args, **kwargs):
+        session = self.Session()
+        output = func(self, session, *args, **kwargs)
+        session.commit()
+        session.close()
+        return output
+    return decorator
+
+def with_open_session(func):
+    """Handle session setup/teardown as a context manager for a class method."""
+    @contextmanager
+    def decorator(self, *args, **kwargs):
+        session = self.Session()
+        yield func(self, session, *args, **kwargs)
+        session.commit()
+        session.close()
+    return decorator
+
 class Table:
-    def __init__(self, Base, table_name, **fields):
-        self.metadata = type(table_name, (Base,), {
+    def __init__(self, Base, Session, table_name, **fields):
+        self.table = type(table_name, (Base,), {
             '__tablename__': table_name,
-            'id': Column(Integer, primary_key=True),
+            'id': Column(String, primary_key=True),
             **fields
         })
-        
-    def find(self, session, Table, **kwargs):
-        results = session.query(Table).filter_by(**kwargs).all()
+        self.Session = Session
+
+    @with_session
+    def find(self, **kwargs):
+        results = session.query(self.filter).filter_by(**kwargs).all()
         return results
 
-    def find_by_id(self, session, Table, id):
-        results = session.query(Table).get(id)
+    @with_session
+    def find_by_id(self, id):
+        results = session.query(self.filter).get(id)
         return results
 
+    @with_session
     def add(self, session, payload):
         if type(payload) is list:
             for item in payload:
@@ -160,37 +180,47 @@ class Table:
         else:
             return session.add(payload)
 
-    def upsert(self, session, Table, filters, payload):
-        results = session.query(Table).filter_by(**filters)
+    @with_session
+    def upsert(self, filters, payload):
+        results = session.query(self.filter).filter_by(**filters)
         if len(results.all()) == 0:
             self.add(Table(**payload))
         else:
             results.update(payload, synchronize_session='evaluate')
 
-    def upsert_by_id(self, session, Table, id, payload):
-        results = session.query(Table).get(id)
+    @with_session
+    def upsert_by_id(self, id, payload):
+        results = session.query(self.filter).get(id)
         if len(results.all()) == 0:
             self.add(Table(**payload))
         else:
             results.update(payload, synchronize_session='evaluate')
 
-    def update(self, session, Table, filters, payload):
-        return session.query(Table).filter_by(**filters).update(payload, synchronize_session='evaluate')
+    @with_session
+    def update(self, filters, payload):
+        return session.query(self.filter).filter_by(**filters).update(payload, synchronize_session='evaluate')
 
-    def update_by_id(self, session, Table, id, payload):
-        return session.query(Table).get(id).update(payload, synchronize_session='evaluate')
+    @with_session
+    def update_by_id(self, id, payload):
+        return session.query(self.filter).get(id).update(payload, synchronize_session='evaluate')
 
-    def delete(self, session, Table, **kwargs):
-        results = session.query(Table).filter_by(**kwargs).all()
+    @with_session
+    def delete(self, session, **kwargs):
+        results = session.query(self.filter).filter_by(**kwargs).all()
         for instance in results:
             session.delete(instance)
 
-    def delete_by_id(self, session, Table, id):
-        instance = session.query(Table).get(id)
+    @with_session
+    def delete_by_id(self, session, id):
+        instance = session.query(self.filter).get(id)
         session.delete(instance)
 
-    def delete_all(self, session, Table):
-        session.query(Table).delete()
+    @with_session
+    def delete_all(self):
+        session.query(self.filter).delete()
+
+
+
 
 
 
