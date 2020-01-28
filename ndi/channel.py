@@ -39,7 +39,7 @@ class Channel(NDI_Object):
                    clock_type=ClockType[channel.ClockType()],
                    source_file=channel.SourceFile().decode('utf8'),
                    epoch_id=channel.EpochId().decode('utf8'),
-                   probe_id=channel.ProbeId().decode('utf8')
+                   probe_id=channel.ProbeId().decode('utf8'),
                    daq_system_id=channel.DaqSystemId().decode('utf8'))
 
     def _build(self, builder):

@@ -14,7 +14,7 @@ class Epoch(NDI_Object):
 
     @classmethod
     def _reconstruct(cls, epoch):
-        return cls(id_=epoch.Id().decode('utf8')
+        return cls(id_=epoch.Id().decode('utf8'),
                    daq_system_id=epoch.DaqSystemId().decode('utf8'))
 
     def _build(self, builder):
