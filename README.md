@@ -24,6 +24,8 @@ $ pipenv shell
 
 The Python package makes use of [native namespace packages available in Python 3.3 and later](https://packaging.python.org/guides/packaging-namespace-packages/#native-namespace-packages).
 
+NDI_Object subclasses are PascalCase, their collection/table names are snake_case + 's', and their reference keys are snake_case + '_id'.
+
 ## Documentation
 
 Documentation is powered by [Sphinx](http://www.sphinx-doc.org/en/master/). The doc site's source code and build files can be found in ./docs.
