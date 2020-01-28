@@ -15,7 +15,8 @@ class Channel(NDI_Object):
     :rtype: object
     """
 
-    def __init__(self, name, number, type_, source_file, epoch_id, probe_id, daq_system_id, id_=None, clock_type='no_time',):
+    # TODO: require daq_system_id after implementing DaqReaders
+    def __init__(self, name, number, type_, source_file, epoch_id, probe_id, daq_system_id='', id_=None, clock_type='no_time',):
         super().__init__(id_)
         self.name = name
         self.number = number
