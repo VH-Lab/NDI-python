@@ -25,7 +25,7 @@ class BaseDB(ABC):
         pass
 
     @abstractmethod
-    def __create_collections(self):
+    def _create_collections(self):
         pass
 
     @abstractmethod
@@ -65,6 +65,3 @@ class BaseDB(ABC):
     @abstractmethod
     def delete_by_id(self, ndi_class, id_):
         pass
-
-
-
