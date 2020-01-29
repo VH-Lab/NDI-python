@@ -59,7 +59,7 @@ class FileSystem(BaseDB):
         pass
 
     def upsert(self, ndi_object):
-        pass
+        self._collections[type(ndi_object)].upsert(ndi_object)
 
     def delete(self, ndi_class, **kwargs):
         ids = [
@@ -81,8 +81,11 @@ class Collection:
         self.collection_dir.mkdir(parents=True, exist_ok=True)
 
     def add(self, ndi_object):
-        (self.collection_dir /
-         f'{ndi_object.id}.dat').write_bytes(ndi_object.serialize())
+        file_path = self.collection_dir / f'{ndi_object.id}.dat'
+        if not file_path.exists():
+            self.upsert(ndi_object)
+        else:
+            raise FileExistsError(f'File "{file_path}" already exists')
 
     def find_by_id(self, ndi_class, id_):
         return ndi_class.from_flatbuffer((self.collection_dir / f'{id_}.dat').read_bytes())
@@ -92,6 +95,9 @@ class Collection:
             ndi_class.from_flatbuffer(file.read_bytes())
             for file in self.collection_dir.glob('*.dat')
         ]
+    
+    def upsert(self, ndi_object):
+        (self.collection_dir / f'{ndi_object.id}.dat').write_bytes(ndi_object.serialize())
 
     def delete_by_id(self, id_):
         (self.collection_dir / f'{id_}.dat').unlink()
