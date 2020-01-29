@@ -32,7 +32,6 @@ class BaseDB(ABC):
     def create_collection(self, name, **fields):
         pass
 
-
     @abstractmethod
     def add(self, ndi_object):
         pass
