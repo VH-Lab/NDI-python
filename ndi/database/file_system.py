@@ -55,8 +55,11 @@ class FileSystem(BaseDB):
     def update(self):
         pass
 
-    def update_by_id(self):
-        pass
+    def update_by_id(self, ndi_class, id_, payload):
+        ndi_object = self.find_by_id(ndi_class, id_)
+        for key, value in payload.items():
+            ndi_object.__dict__[key] = value
+        self.upsert(ndi_object)
 
     def upsert(self, ndi_object):
         self._collections[type(ndi_object)].upsert(ndi_object)
