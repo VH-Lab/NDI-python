@@ -10,7 +10,7 @@ class FileSystem(BaseDB):
 
         # Initializing FS Database
         if self.exp_dir.exists() and self.exp_dir.is_dir():
-            self._create_collections()
+            self.__create_collections()
         else:
             raise FileNotFoundError(
                 f'No such file or directory: \'{self.exp_dir}\'')
@@ -25,7 +25,7 @@ class FileSystem(BaseDB):
                 for ndi_object in getattr(daqreader, f'get_{collection}')():
                     self._collections[type(ndi_object)].add(ndi_object)
 
-    def _create_collections(self):
+    def __create_collections(self):
         for collection in self._collections:
             self.create_collection(collection)
 
@@ -88,7 +88,7 @@ class Collection:
         if not file_path.exists():
             self.upsert(ndi_object)
         else:
-            raise FileExistsError(f'File "{file_path}" already exists')
+            raise FileExistsError(f'File \'{file_path}\' already exists')
 
     def find_by_id(self, ndi_class, id_):
         return ndi_class.from_flatbuffer((self.collection_dir / f'{id_}.dat').read_bytes())

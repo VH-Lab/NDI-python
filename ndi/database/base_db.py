@@ -25,10 +25,6 @@ class BaseDB(ABC):
         pass
 
     @abstractmethod
-    def _create_collections(self):
-        pass
-
-    @abstractmethod
     def create_collection(self, name, **fields):
         pass
 
@@ -37,7 +33,7 @@ class BaseDB(ABC):
         pass
 
     @abstractmethod
-    def find(self, ndi_class, **query):
+    def find(self, ndi_class, query):
         pass
     
     @abstractmethod
@@ -45,20 +41,27 @@ class BaseDB(ABC):
         pass
 
     @abstractmethod
-    def update(self):
-        # params tbd
-        pass
-    
-    @abstractmethod
-    def update_by_id(self, ndi_class, id, payload):
+    def update(self, ndi_object):
         pass
 
     @abstractmethod
-    def upsert(self, ndi_objects):
+    def update_many(self, ndi_class, query, payload):
         pass
 
     @abstractmethod
-    def delete(self, ndi_entity, **query):
+    def update_by_id(self, ndi_class, id_, payload):
+        pass
+
+    @abstractmethod
+    def upsert(self, ndi_object):
+        pass
+
+    @abstractmethod
+    def delete(self, ndi_object):
+        pass
+
+    @abstractmethod
+    def delete_many(self, ndi_class, query):
         pass
     
     @abstractmethod
