@@ -3,18 +3,19 @@ import ndi.schema.Epoch as build_epoch
 
 
 class Epoch(NDI_Object):
-    def __init__(self, daq_system_id, id_=None):
+    # TODO: require daq_system_id after implementing DaqReaders
+    def __init__(self, daq_system_id='', id_=None):
         super().__init__(id_)
         self.daq_system_id = daq_system_id
 
     @classmethod
-    def frombuffer(cls, buffer):
-        epoch = build_epoch.Epoch.GetRootAsEpoch(buffer, 0)
+    def from_flatbuffer(cls, flatbuffer):
+        epoch = build_epoch.Epoch.GetRootAsEpoch(flatbuffer, 0)
         return cls._reconstruct(epoch)
 
     @classmethod
     def _reconstruct(cls, epoch):
-        return cls(id_=epoch.Id().decode('utf8')
+        return cls(id_=epoch.Id().decode('utf8'),
                    daq_system_id=epoch.DaqSystemId().decode('utf8'))
 
     def _build(self, builder):

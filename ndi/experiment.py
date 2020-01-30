@@ -7,17 +7,15 @@ class Experiment(NDI_Object):
     def __init__(self, name, daq_systems=[], id_=None):
         super().__init__(id_)
         self.name = name
-
-        if len(daq_systems) != 0:
-            for daq_system in daq_systems:
-                daq_system.experiment_id = self.id
-        self.daq_systems = daq_systems
-
+        self.daq_systems = []
+        for daq_system in daq_systems:
+            self.add_daq_system(daq_system)
 
     # Flatbuffer Methods
     @classmethod
-    def frombuffer(cls, buffer):
-        experiment = build_experiment.Experiment.GetRootAsExperiment(buffer, 0)
+    def from_flatbuffer(cls, flatbuffer):
+        experiment = build_experiment.Experiment.GetRootAsExperiment(
+            flatbuffer, 0)
         return cls._reconstruct(experiment)
 
     @classmethod
@@ -33,3 +31,8 @@ class Experiment(NDI_Object):
         build_experiment.ExperimentAddId(builder, id_)
         build_experiment.ExperimentAddName(builder, name)
         return build_experiment.ExperimentEnd(builder)
+
+    # Experiment Methods
+    def add_daq_system(self, daq_system):
+        daq_system.experiment_id = self.id
+        self.daq_systems.append(daq_system)

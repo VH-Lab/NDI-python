@@ -8,13 +8,15 @@ from .clock_type import ClockType
 
 class Channel(NDI_Object):
     """Channel
-    
+
     :param NDI_Object: NDI Abstract Class
     :type NDI_Object: ABC
     :return: Channel instance
     :rtype: object
     """
-    def __init__(self, name, number, type_, source_file, epoch_id, probe_id, daq_system_id, id_=None, clock_type='no_time',):
+
+    # TODO: require daq_system_id after implementing DaqReaders
+    def __init__(self, name, number, type_, source_file, epoch_id, probe_id, daq_system_id='', id_=None, clock_type='no_time',):
         super().__init__(id_)
         self.name = name
         self.number = number
@@ -26,8 +28,8 @@ class Channel(NDI_Object):
         self.daq_system_id = daq_system_id
 
     @classmethod
-    def frombuffer(cls, buffer):
-        channel = build_channel.Channel.GetRootAsChannel(buffer, 0)
+    def from_flatbuffer(cls, flatbuffer):
+        channel = build_channel.Channel.GetRootAsChannel(flatbuffer, 0)
         return cls._reconstruct(channel)
 
     @classmethod
@@ -39,7 +41,7 @@ class Channel(NDI_Object):
                    clock_type=ClockType[channel.ClockType()],
                    source_file=channel.SourceFile().decode('utf8'),
                    epoch_id=channel.EpochId().decode('utf8'),
-                   probe_id=channel.ProbeId().decode('utf8')
+                   probe_id=channel.ProbeId().decode('utf8'),
                    daq_system_id=channel.DaqSystemId().decode('utf8'))
 
     def _build(self, builder):

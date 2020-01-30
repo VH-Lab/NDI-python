@@ -3,6 +3,7 @@ from pathlib import Path
 
 NDI_DB_DIR = '.ndi'
 
+
 class FileSystem(BaseDB):
     def __init__(self, exp_dir):
         self.exp_dir = Path(exp_dir)
@@ -12,7 +13,8 @@ class FileSystem(BaseDB):
         if self.exp_dir.exists() and self.exp_dir.is_dir():
             self.create_collections()
         else:
-            raise FileNotFoundError(f'No such file or directory: \'{self.exp_dir}\'')
+            raise FileNotFoundError(
+                f'No such file or directory: \'{self.exp_dir}\'')
 
     def add_experiment(self, experiment):
         self._collections[type(experiment)].add(experiment)
@@ -25,14 +27,15 @@ class FileSystem(BaseDB):
 
             for epoch in daqreader.get_epochs():
                 self._collections[type(epoch)].add(epoch)
-        
+
             for channel in daqreader.get_channels():
                 channel.id = channel.probe_id + channel.epoch_id
                 self._collections[type(channel)].add(channel)
 
     def create_collections(self):
         for collection in self._collections:
-            self._collections[collection] = Collection(self.db_dir / f'{collection.__name__.lower()}s')
+            self._collections[collection] = Collection(
+                self.db_dir / f'{collection.__name__.lower()}s')
 
     def add(self, ndi_object):
         self._collections[type(ndi_object)].add(ndi_object)
@@ -52,17 +55,18 @@ class FileSystem(BaseDB):
             for key, value in kwargs.items()
             if getattr(ndi_object, key) == value
         ]
-    
+
     def delete_by_id(self, ndi_class, id_):
         self._collections[ndi_class].delete_by_id(id_)
-    
+
     def delete(self, ndi_class, **kwargs):
         ids = [
             ndi_object.id
             for ndi_object in self.find(ndi_class, **kwargs)
         ]
-        
+
         self._collections[ndi_class].delete(ids)
+
 
 class Collection:
     def __init__(self, collection_dir):
@@ -72,20 +76,21 @@ class Collection:
         self.collection_dir.mkdir(parents=True, exist_ok=True)
 
     def add(self, ndi_object):
-        (self.collection_dir / f'{ndi_object.id}.dat').write_bytes(ndi_object.serialize())
+        (self.collection_dir /
+         f'{ndi_object.id}.dat').write_bytes(ndi_object.serialize())
 
     def find_by_id(self, ndi_class, id_):
-        return ndi_class.frombuffer((self.collection_dir / f'{id_}.dat').read_bytes())
+        return ndi_class.from_flatbuffer((self.collection_dir / f'{id_}.dat').read_bytes())
 
     def find(self, ndi_class):
         return [
-            ndi_class.frombuffer(file.read_bytes())
+            ndi_class.from_flatbuffer(file.read_bytes())
             for file in self.collection_dir.glob('*.dat')
         ]
-    
+
     def delete_by_id(self, id_):
-          (self.collection_dir / f'{id_}.dat').unlink()
-        
+        (self.collection_dir / f'{id_}.dat').unlink()
+
     def delete(self, ids):
         for id_ in ids:
             (self.collection_dir / f'{id_}.dat').unlink()

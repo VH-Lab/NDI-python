@@ -16,9 +16,9 @@ class FileNavigator(NDI_Object):
         self.metadata_file_pattern = metadata_file_pattern
 
     @classmethod
-    def frombuffer(cls, buffer):
+    def from_flatbuffer(cls, flatbuffer):
         file_navigator = build_file_navigator.FileNavigator.GetRootAsFileNavigator(
-            buffer, 0)
+            flatbuffer, 0)
         return cls._reconstruct(file_navigator)
 
     @classmethod

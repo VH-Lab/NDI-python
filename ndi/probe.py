@@ -13,8 +13,8 @@ class Probe(NDI_Object):
 
     # Flatbuffer Methods
     @classmethod
-    def frombuffer(cls, buffer):
-        probe = build_probe.Probe.GetRootAsProbe(buffer, 0)
+    def from_flatbuffer(cls, flatbuffer):
+        probe = build_probe.Probe.GetRootAsProbe(flatbuffer, 0)
         return cls._reconstruct(probe)
 
     @classmethod
