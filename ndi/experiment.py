@@ -6,6 +6,7 @@ import ndi.schema.Experiment as build_experiment
 class Experiment(NDI_Object):
     """
     A flatbuffer interface for experiments.
+    
     .. currentmodule:: ndi.ndi_object
     Inherits from the :class:`NDI_Object` abstract class.
     """

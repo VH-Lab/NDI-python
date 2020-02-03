@@ -5,6 +5,7 @@ import ndi.schema.Epoch as build_epoch
 class Epoch(NDI_Object):
     """
     A flatbuffer interface for epochs.
+    
     .. currentmodule:: ndi.ndi_object
     Inherits from the :class:`NDI_Object` abstract class.
     """
