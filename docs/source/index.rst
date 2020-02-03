@@ -29,8 +29,7 @@ API
 .. toctree::
    :maxdepth: 3
 
-   ndi<ndi>
-
+   The NDI Package<api>
 
 Indices and tables
 ==================
