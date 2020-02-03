@@ -5,7 +5,7 @@ Glossary
   :sorted:
 
   DAQ
-    An abbreviation for "Data AQuisition".
+    An abbreviation for "Data AQuisition". A DAQ system consists of a sensor that picks up some analog signal, a DAQ device that converts that output to digital, and software that can process, store, and make use of the resulting data.
 
   .. currentmodule:: ndi.ndi_object
   NDI class
@@ -15,7 +15,7 @@ Glossary
     An instance of a class derived from :class:`NDI_Object`.
 
   flatbuffer
-    TODO: finish
+    A cross-platform data serialization format. Flatbuffers are highly efficient at accessing large amounts of serialized data at minimal memory and processing cost. It achieves this by relying upon predefined schema that are known to all parties involved.
 
   database
     A repository of data structured by :term:`collection`. In this library, a database could refer to any store of information that follows the schema defined in `ndi-schema <>`_. It could be implemented as a posgres or mongo database, a file system, a cache, or any other form of stored data.
