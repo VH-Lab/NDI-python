@@ -20,7 +20,7 @@ DAQ Systems
 .. autosummary::
    :toctree: generated
 
-   ndi.daqreaders.MockReader
+   daqreaders.MockReader
 
 Databases
 ------------------
@@ -29,8 +29,8 @@ Databases
 .. autosummary::
    :toctree: generated
 
-   ndi.database.FileSystem
-   ndi.database.SQL
+   database.FileSystem
+   database.SQL
 
 NDI Objects
 ------------------
@@ -39,11 +39,11 @@ NDI Objects
 .. autosummary::
    :toctree: generated
 
-   ndi.Experiment
-   ndi.DaqSystem
-   ndi.Probe
-   ndi.Channel
-   ndi.Epoch
+   experiment.Experiment
+   daq_system.DaqSystem
+   probe.Probe
+   channel.Channel
+   epoch.Epoch
 
 Test infrastructure
 ===================
