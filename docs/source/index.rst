@@ -22,6 +22,7 @@ Concepts and technologies
    Basic Principles<basic_principles>
    Getting Started<getting_started>
    Customization<customization>
+   Glossary<glossary>
 
 API
 ==========
