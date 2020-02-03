@@ -15,10 +15,10 @@ class Experiment(NDI_Object):
         ::
             new_experiment = Experiment(**fields)
         
+        .. currentmodule:: ndi.daq_system
         :param name: [description]
         :type name: str
         :param daq_systems: a list of daq_system instances, defaults to []
-        .. currentmodule:: ndi.daq_system
         :type daq_systems: List[:class:`DaqSystem`], optional
         :param id_: = defaults to None
         :type id_: str, optional

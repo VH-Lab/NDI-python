@@ -17,10 +17,10 @@ class DaqSystem(NDI_Object):
         ::
             new_daq_system = DaqSystem(**fields)
         
+        .. currentmodule:: ndi.file_navigator
         :param name: [description]
         :type name: str
         :param file_navigator: [description]
-        .. currentmodule:: ndi.file_navigator
         :type file_navigator: :class:`FileNavigator`
         :param daq_reader: Name of DaqReader class used to read files from FileNavigator.
         :type daq_reader: str
