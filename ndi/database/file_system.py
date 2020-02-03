@@ -1,6 +1,6 @@
 from .base_db import BaseDB
 from pathlib import Path
-from .utils import check_ndi_object
+from .utils import handle_iter, check_ndi_object
 
 class FileSystem(BaseDB):
     def __init__(self, exp_dir, db_name='.ndi'):
@@ -14,6 +14,7 @@ class FileSystem(BaseDB):
             raise FileNotFoundError(
                 f'No such file or directory: \'{self.exp_dir}\'')
 
+    @handle_iter
     @check_ndi_object
     def add_experiment(self, experiment):
         self._collections[type(experiment)].add(experiment)
@@ -31,18 +32,22 @@ class FileSystem(BaseDB):
     def create_collection(self, ndi_class):
         self._collections[ndi_class] = Collection(self.db_dir, ndi_class)
 
+    @handle_iter
     @check_ndi_object
     def add(self, ndi_object):
         self._collections[type(ndi_object)].add(ndi_object)
 
+    @handle_iter
     @check_ndi_object
     def update(self, ndi_object):
         self._collections[type(ndi_object)].update(ndi_object)
 
+    @handle_iter
     @check_ndi_object
     def upsert(self, ndi_object):
         self._collections[type(ndi_object)].upsert(ndi_object)
 
+    @handle_iter
     @check_ndi_object
     def delete(self, ndi_object):
         self._collections[type(ndi_object)].delete(ndi_object)
@@ -74,6 +79,7 @@ class Collection:
         # Initializing Collection
         self.collection_dir.mkdir(parents=True, exist_ok=True)
 
+    @handle_iter
     @check_ndi_object
     def add(self, ndi_object):
         file_path = self.collection_dir / f'{ndi_object.id}.dat'
@@ -82,6 +88,7 @@ class Collection:
         else:
             raise FileExistsError(f'File \'{file_path}\' already exists')
 
+    @handle_iter
     @check_ndi_object
     def update(self, ndi_object):
         file_path = self.collection_dir / f'{ndi_object.id}.dat'
@@ -90,10 +97,12 @@ class Collection:
         else:
             raise FileNotFoundError(f'File \'{file_path}\' does not exist')
 
+    @handle_iter
     @check_ndi_object  
     def upsert(self, ndi_object):
         (self.collection_dir / f'{ndi_object.id}.dat').write_bytes(ndi_object.serialize())
     
+    @handle_iter
     @check_ndi_object
     def delete(self, ndi_object):
         self.delete_by_id(ndi_object.id)
