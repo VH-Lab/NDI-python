@@ -4,7 +4,10 @@
 cd ./docs &&
 
 # Create .rst files.
-sphinx-apidoc -fo ./source ../ndi &&
+#   f: overwrite existing generated files
+#   E: no headings (we make our own)
+#   o: output path
+sphinx-apidoc -fEo ./source ../ndi &&
 
 # Reset html files to prevent old errors.
 make clean &&

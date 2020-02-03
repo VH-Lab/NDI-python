@@ -4,8 +4,6 @@ ndi.daqreaders package
 Submodules
 ----------
 
-ndi.daqreaders.mock\_daq\_reader module
----------------------------------------
 
 .. automodule:: ndi.daqreaders.mock_daq_reader
    :members:
