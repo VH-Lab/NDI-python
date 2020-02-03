@@ -37,6 +37,7 @@ class FileNavigator(NDI_Object):
         ::
             reconstructed_file_navigator = FileNavigator.from_flatbuffer(fb)
         
+        :param flatbuffer:
         :type flatbuffer: bytearray
         .. currentmodule:: ndi.file_navigator
         :rtype: :class:`FileNavigator`

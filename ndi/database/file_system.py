@@ -3,8 +3,21 @@ from pathlib import Path
 from .utils import handle_iter, check_ndi_object
 
 class FileSystem(BaseDB):
-    """File system database API."""
+    """File system database API.
+    
+    .. currentmodule:: ndi.database.base_db
+    Inherits from the :class:`BaseDB` abstract class.
+    """
     def __init__(self, exp_dir, db_name='.ndi'):
+        """FileSystem constructor: initializes a named FileSystem instance and connects to it at the given path. If it doesn't already exist, it creates a new file system database at the given path.
+        
+        :param exp_dir: A path to the file system database directory.
+        :type exp_dir: str
+        :param db_name: defaults to '.ndi'
+        :type db_name: str, optional
+        :raises FileNotFoundError: [description]
+        """
+
         self.exp_dir = Path(exp_dir)
         self.db_dir = self.exp_dir / db_name
 
@@ -18,6 +31,12 @@ class FileSystem(BaseDB):
     @handle_iter
     @check_ndi_object
     def add_experiment(self, experiment):
+        """.. currentmodule:: ndi.experiment
+        Takes an :class:`Experiment` and adds it and it's contents (including its DaqSystems, Probes, Channels, and Epochs) to the file database.
+        
+        :param experiment:
+        :type experiment: :class:`Experiment`
+        """
         self._collections[type(experiment)].add(experiment)
         for daq_system in experiment.daq_systems:
             self._collections[type(daq_system)].add(daq_system)

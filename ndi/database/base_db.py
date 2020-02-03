@@ -29,6 +29,9 @@ class BaseDB(ABC):
         """
         .. currentmodule:: ndi.experiment
         It should be able to take an :class:`Experiment` and add it and it's contents (including its DaqSystems, Probes, Channels, and Epochs) to the database.
+
+        :param experminent:
+        :type experiment: :class:`Experiment`
         """
         pass
 
@@ -36,64 +39,112 @@ class BaseDB(ABC):
     def create_collection(self, ndi_class):
         """.. currentmodule:: ndi.ndi_object
         It should be able to take a derivative class of :class:`NDI_Object` and create a collection/table based off of it and its fields. The collection/table name should be created from :func:`ndi.database.utils.class_to_collection_name`.
+
+        :param ndi_class:
+        :type ndi_class: :class:`NDI_Object`
         """
         pass
 
     @abstractmethod
     def add(self, ndi_object):
-        """It should be able to add one or many instances of an :term:`NDI object` to the appropriate :term:`collection`."""
+        """It should be able to add one or many instances of an :term:`NDI object` to the appropriate :term:`collection`.
+        
+        :param ndi_object:
+        :type ndi_object: :term:`NDI object`
+        """
         pass
 
     @abstractmethod
     def update(self, ndi_object):
         """It should be able to update one or many instances of an :term:`NDI object`. Updated entries are found by their :term:`NDI class` and id.
+        
+        :param ndi_object:
+        :type ndi_object: :term:`NDI object`
         """
         pass
 
     @abstractmethod
     def upsert(self, ndi_object):
         """It should be able to update one or many instances of an :term:`NDI object`. Updated entries are found by their :term:`NDI class` and id. In the case that an instance does not already exist, it should be added to its :term:`collection`.
+        
+        :param ndi_object:
+        :type ndi_object: :term:`NDI object`
         """
         pass
 
     @abstractmethod
     def delete(self, ndi_object):
         """It should be able to delete one or many instances of an :term:`NDI object`.
+        
+        :param ndi_object:
+        :type ndi_object: :term:`NDI object`
         """
         pass
 
     @abstractmethod
     def find_by_id(self, ndi_class, id_):
         """It should be able to retrieve a single :term:`document` given the :term:`NDI class` it belongs to and its id.
+
+        :param ndi_class:
+        :type ndi_class: :class:`NDI_Object`
+        :param id_:
+        :type id_: str
         """
         pass
 
     @abstractmethod
     def update_by_id(self, ndi_class, id_, payload):
         """It should be able to update a single :term:`document` given the :term:`NDI class` it belongs to, its id, and the data being updated.
+
+        :param ndi_class:
+        :type ndi_class: :class:`NDI_Object`
+        :param id_:
+        :type id_: str
+        :param payload: Containing values mapped to fields in the specified ndi_class.
+        :type payload: dict
         """
         pass
 
     @abstractmethod
     def delete_by_id(self, ndi_class, id_):
         """It should be able to remove a single :term:`document` from a collection given its :term:`NDI class` and id.
+
+        :param ndi_class:
+        :type ndi_class: :class:`NDI_Object`
+        :param id_:
+        :type id_: str
         """
         pass
 
     @abstractmethod
     def find(self, ndi_class, query):
         """It should be able to utilize a :term:`query` to retrive data from the :term:`collection` of the given :term:`NDI class`.
+
+        :param ndi_class:
+        :type ndi_class: :class:`NDI_Object`
+        :param query:
+        :type query: dict? TBD
         """
         pass
 
     @abstractmethod
     def update_many(self, ndi_class, query, payload):
         """It should be able to update all :term:`document`s matching the given :term:`query` in the :term:`collection` of the given :term:`NDI class`.
+
+        :param ndi_class:
+        :type ndi_class: :class:`NDI_Object`
+        :param query:
+        :type query: dict? TBD
         """
         pass
 
     @abstractmethod
     def delete_many(self, ndi_class, query):
         """It should be able to delete all :term:`document`s matching the given :term:`query` in the :term:`collection` of the given :term:`NDI class`.
+
+        :param ndi_class:
+        :type ndi_class: :class:`NDI_Object`
+        :param query:
+        :type query: dict? TBD
         """
         pass
