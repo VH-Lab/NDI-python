@@ -15,7 +15,7 @@ class EpochFiles:
 class FileNavigator(NDI_Object):
     """
     A flatbuffer interface for file_navigators.
-    .. currentmodule: ndi.ndi_object
+    .. currentmodule:: ndi.ndi_object
     Inherits from the :class:`NDI_Object` abstract class.
     """
     def __init__(self, epoch_file_patterns, metadata_file_pattern):

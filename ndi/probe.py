@@ -7,7 +7,7 @@ from .probe_type import ProbeType
 class Probe(NDI_Object):
     """
     A flatbuffer interface for probes.
-    .. currentmodule: ndi.ndi_object
+    .. currentmodule:: ndi.ndi_object
     Inherits from the :class:`NDI_Object` abstract class.
     """
     def __init__(self, name, reference, type_, id_=None, daq_system_id=''):

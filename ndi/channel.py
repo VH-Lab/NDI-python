@@ -7,7 +7,7 @@ from .clock_type import ClockType
 
 class Channel(NDI_Object):
     """A flatbuffer interface for channels.
-    .. currentmodule: ndi.ndi_object
+    .. currentmodule:: ndi.ndi_object
     Inherits from the :class:`NDI_Object` abstract class.
     """
 

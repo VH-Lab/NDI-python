@@ -6,7 +6,7 @@ import ndi.schema.Experiment as build_experiment
 class Experiment(NDI_Object):
     """
     A flatbuffer interface for experiments.
-    .. currentmodule: ndi.ndi_object
+    .. currentmodule:: ndi.ndi_object
     Inherits from the :class:`NDI_Object` abstract class.
     """
     def __init__(self, name, daq_systems=[], id_=None):
@@ -17,7 +17,7 @@ class Experiment(NDI_Object):
         :param name: [description]
         :type name: str
         :param daq_systems: a list of daq_system instances, defaults to []
-        .. currentmodule: ndi.daq_system
+        .. currentmodule:: ndi.daq_system
         :type daq_systems: List[:class:`DaqSystem`], optional
         :param id_: = defaults to None
         :type id_: str, optional
@@ -74,7 +74,7 @@ class Experiment(NDI_Object):
     def add_daq_system(self, daq_system):
         """Stores a daq_system instance and labels it with the experiment's id.
         
-        .. currentmodule: ndi.daq_system
+        .. currentmodule:: ndi.daq_system
         :type daq_system: :class:`DaqSystem`
         """
         daq_system.experiment_id = self.id
