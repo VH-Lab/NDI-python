@@ -33,10 +33,11 @@ class FileSystem(BaseDB):
     def add_experiment(self, experiment):
         """.. currentmodule:: ndi.experiment
         Takes an :class:`Experiment` and adds it and it's contents (including its DaqSystems, Probes, Channels, and Epochs) to the file database.
-        
-        :param experiment:
+
+        :param experiment: 
         :type experiment: :class:`Experiment`
         """
+        # TODO: handle List[experiment]
         self._collections[type(experiment)].add(experiment)
         for daq_system in experiment.daq_systems:
             self._collections[type(daq_system)].add(daq_system)
@@ -46,48 +47,132 @@ class FileSystem(BaseDB):
                 self.add(getattr(daqreader, f'get_{collection}')())
 
     def __create_collections(self):
+        """.. currentmodule:: ndi.base_db:
+        Build all :term:`collection`s from the _collections property on :class:`BaseDB`.
+        """
         for collection in self._collections:
             self.create_collection(collection)
 
     def create_collection(self, ndi_class):
+        """Instantiates a :term:`collection` from the given :term:`NDI class` using its properties to set the :term:`field`s. 
+        
+        :param ndi_class: The :term:`NDI class` that will define the new collection.
+        :type ndi_class: :class:`BaseDB`
+        """
         self._collections[ndi_class] = Collection(self.db_dir, ndi_class)
 
     @handle_iter
     @check_ndi_object
     def add(self, ndi_object):
+        """.. currentmodule:: ndi.base_db
+        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and adds them to the database. Objects may belong to different :term:`NDI classes`.
+        
+        :param ndi_object: The object(s) to be added to the database.
+        :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
+        """
         self._collections[type(ndi_object)].add(ndi_object)
 
     @handle_iter
     @check_ndi_object
     def update(self, ndi_object):
+        """.. currentmodule:: ndi.base_db
+        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. Objects may belong to different :term:`NDI classes`. 
+        
+        :param ndi_object: The object(s) to be updated in the database.
+        :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
+        """
         self._collections[type(ndi_object)].update(ndi_object)
 
     @handle_iter
     @check_ndi_object
     def upsert(self, ndi_object):
+        """.. currentmodule:: ndi.base_db
+        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. If an object doesn't have a document representation, it is added to the collection. Objects may belong to different :term:`NDI classes`. 
+        
+        :param ndi_object: The object(s) to be upserted into the database.
+        :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
+        """
         self._collections[type(ndi_object)].upsert(ndi_object)
 
     @handle_iter
     @check_ndi_object
     def delete(self, ndi_object):
+        """.. currentmodule:: ndi.base_db
+        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and deletes their :term:`document` in the database. Objects may belong to different :term:`NDI classes`. 
+        
+        :param ndi_object: The object(s) to be removed from the database.
+        :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
+        """
         self._collections[type(ndi_object)].delete(ndi_object)
 
     def find(self, ndi_class, query={}):
+        """Extracts all documents matching the given :term:`query` in the specified :term:`collection`.
+        
+        .. currentmodule:: ndi.base_db
+        :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
+        :type ndi_class: :class:`ndi.base_db`
+        :param query: See :term:`query`, defaults to find-all
+        :type query: dict, optional
+        :rtype: List<:term:`NDI object`>
+        """
         return self._collections[ndi_class].find(query)
     
     def update_many(self, ndi_class, query={}, payload={}):
+        """Updates all documents matching the given :term:`query` in the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
+        
+        .. currentmodule:: ndi.base_db
+        :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
+        :type ndi_class: :class:`ndi.base_db`
+        :param query: See :term:`query`, defaults to update-all
+        :type query: dict, optional
+        :param payload: Field and update values to be updated, defaults to {}
+        :type payload: :term:`payload`, optional
+        """
         self._collections[ndi_class].update_many(query, payload)
     
     def delete_many(self, ndi_class, query={}):
+        """Deletes all documents matching the given :term:`query` in the specified :term:`collection`.
+        
+        .. currentmodule:: ndi.base_db
+        :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
+        :type ndi_class: :class:`BaseDB`
+        :param query: See :term:`query`, defaults to {}
+        :type query: dict, optional
+        """
         self._collections[ndi_class].delete_many(query)
 
     def find_by_id(self, ndi_class, id_):
+        """Retrieves the :term:`NDI object` with the given id from the specified :term:`collection`.
+
+        .. currentmodule:: ndi.base_db
+        :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to search.
+        :type ndi_class: :class:`BaseDB`
+        :param id_: The identifier of the :term:`document` to extract.
+        :type id_: str
+        :rtype: :term:`NDI object`
+        """
         return self._collections[ndi_class].find_by_id(id_)
 
     def update_by_id(self, ndi_class, id_, payload={}):
+        """Updates the :term:`NDI object` with the given id from the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
+
+        .. currentmodule:: ndi.base_db
+        :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to update.
+        :type ndi_class: :class:`BaseDB`
+        :param id_: The identifier of the :term:`document` to update.
+        :type id_: str
+        """
         self._collections[ndi_class].update_by_id(id_, payload)
 
     def delete_by_id(self, ndi_class, id_):
+        """Deletes the :term:`NDI object` with the given id from the specified :term:`collection`.
+
+        .. currentmodule:: ndi.base_db
+        :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
+        :type ndi_class: :class:`BaseDB`
+        :param id_: The identifier of the :term:`document` to delete.
+        :type id_: str
+        """
         self._collections[ndi_class].delete_by_id(id_)
 
 
