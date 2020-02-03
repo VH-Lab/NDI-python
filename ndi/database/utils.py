@@ -7,6 +7,17 @@ from functools import wraps
 
 
 def handle_iter(func):
+    """
+    Decorator: meant to work with :func:`check_ndi_object`. If passed a list of :term:`NDI object`\ s, it will call func with each one. Otherwise, it will call func(arg) once.
+    
+    :param func: The wrapped function.
+    :type func: function
+
+    :param arg: The first argument passed to the wrapped function.
+    :type arg: List<:term:`NDI object`> | :term:`NDI object`
+
+    :rtype: None
+    """
     @wraps(func)
     def decorator(self, arg):
         try:
@@ -18,10 +29,22 @@ def handle_iter(func):
 
 
 def check_ndi_object(func):
+    """.. currentmodule:: ndi.ndi_object
+    Decorator: meant to prevent :class:`NDI_Object` database :term:`CRUD` methods from being called with non-standard input. Throws an error if the first argument passed to wrapped function is not an :term:`NDI object`.
+    
+    :param func: The wrapped function.
+    :type func: function
+
+    :param ndi_object: The first argument passed to the wrapped function.
+    :type ndi_object: :term:`NDI object`
+
+    :raises TypeError: '{ndi_object}' is not an instance of an \'NDI_Object\' child class.
+    :return: func(ndi_object)
+    """
     @wraps(func)
     def decorator(self, ndi_object):
         if isinstance(ndi_object, NDI_Object):
             return func(self, ndi_object)
         else:
-            raise TypeError(f'\'{ndi_object}\' is not of type \'NDI_Object\'')
+            raise TypeError(f'\'{ndi_object}\' is not an instance of an \'NDI_Object\' child class.')
     return decorator
