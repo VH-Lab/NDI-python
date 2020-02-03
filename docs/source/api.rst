@@ -13,24 +13,24 @@ A quick overview of the ndi package's most important subpackages and modules. Fo
 High-level user interface
 =========================
 
-DAQ Systems
+DAQ Readers
 ------------------
 
-.. currentmodule:: ndi
+.. currentmodule:: ndi.daqreaders
 .. autosummary::
    :toctree: generated
 
-   daqreaders.MockReader
+   mock_daq_reader.MockReader
 
 Databases
 ------------------
 
-.. currentmodule:: ndi
+.. currentmodule:: ndi.database
 .. autosummary::
    :toctree: generated
 
-   database.FileSystem
-   database.SQL
+   file_system.FileSystem
+   sql.SQL
 
 NDI Objects
 ------------------
