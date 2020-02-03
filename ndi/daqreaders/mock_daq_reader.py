@@ -3,6 +3,7 @@ from ..probe import Probe
 from ..epoch import Epoch
 
 class MockReader:
+    """A temporary class for mocking DAQ_Reader output."""
     def __init__(self, epoch_files=[]):
         self.epoch_files = epoch_files
         self.__build_epoch_probe_map()

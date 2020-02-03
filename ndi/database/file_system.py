@@ -3,6 +3,7 @@ from pathlib import Path
 from .utils import handle_iter, check_ndi_object
 
 class FileSystem(BaseDB):
+    """File system database API."""
     def __init__(self, exp_dir, db_name='.ndi'):
         self.exp_dir = Path(exp_dir)
         self.db_dir = self.exp_dir / db_name
