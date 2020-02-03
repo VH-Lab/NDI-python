@@ -33,23 +33,7 @@ class BaseDB(ABC):
         pass
 
     @abstractmethod
-    def find(self, ndi_class, query):
-        pass
-    
-    @abstractmethod
-    def find_by_id(self, ndi_class, id_):
-        pass
-
-    @abstractmethod
     def update(self, ndi_object):
-        pass
-
-    @abstractmethod
-    def update_many(self, ndi_class, query, payload):
-        pass
-
-    @abstractmethod
-    def update_by_id(self, ndi_class, id_, payload):
         pass
 
     @abstractmethod
@@ -61,9 +45,25 @@ class BaseDB(ABC):
         pass
 
     @abstractmethod
-    def delete_many(self, ndi_class, query):
+    def find_by_id(self, ndi_class, id_):
         pass
-    
+
+    @abstractmethod
+    def update_by_id(self, ndi_class, id_, payload):
+        pass
+
     @abstractmethod
     def delete_by_id(self, ndi_class, id_):
+        pass
+
+    @abstractmethod
+    def find(self, ndi_class, query):
+        pass
+
+    @abstractmethod
+    def update_many(self, ndi_class, query, payload):
+        pass
+
+    @abstractmethod
+    def delete_many(self, ndi_class, query):
         pass
