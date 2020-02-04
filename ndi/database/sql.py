@@ -29,6 +29,7 @@ def with_open_session(func):
     return decorator
 
 class SQL(BaseDB):
+    """A generalized SQL database API."""
     def __init__(self, connection_string):
         self.db = create_engine(connection_string)
         self.tables = {}

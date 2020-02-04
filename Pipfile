@@ -17,6 +17,7 @@ jupyter = "*"
 matplotlib = "*"
 sqlalchemy = "*"
 psycopg2-binary = "*"
+sphinx-rtd-theme = "*"
 
 [requires]
 python_version = "3.7"
