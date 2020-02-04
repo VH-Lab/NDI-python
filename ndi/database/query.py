@@ -1,129 +1,97 @@
 class Query:
-    def __init__(self, field='', queries={}):
-        if field:
-            if isinstance(field, str):
-                self.__field = field
-            else:
-                raise TypeError(
-                    f'The field passed in NDI_Query must be a string')
-        self.__queries = queries
-        self.__resolved = bool(self.__queries)
+    def __init__(self, field):
+        if isinstance(field, str):
+            self.field = field
+        else:
+            raise TypeError(f'The field passed in NDI_Query must be a string')
+        self.__resolved = False
 
-    @property
-    def queries(self):
-        # Query structure
-        # Single query structure: {field: (operator, value)}
-        # Composite query structure: {conjunction: [query]}
-        # >>> a = Query('a') == 1
-        # >>> a.queries
-        # {'a': ('==', 1)}
-        # >>> b = Query('b') / 'two'
-        # >>> b.queries
-        # {'b': ('contains', 'two')}
-        # >>> (a & b).queries
-        # {
-        #     'and': [
-        #         {'a': ('==', 1)},
-        #         {'b': ('contains', 'two')}
-        #     ]
-        # }
-        # >>> c = (a | b) & (Query('c') >= 24)
-        # >>> c.queries
-        # {
-        #     'and': [
-        #         {
-        #             'or': [
-        #                 {'a': ('==', 1)},
-        #                 {'b': ('contains', 'two')}
-        #             ]
-        #         },
-        #         {'c': ('>=', 24)}
-        #     ]
-        # }
+    def __call__(self):
         if self.__resolved:
-            return self.__queries
+            return self.__query
         else:
             raise SyntaxError(
-                f'The query field \'{self.__field}\' has not been resolved yet')
+                f'The query field \'{self.field}\' has not been resolved yet')
 
+    def __repr__(self):
+        return f'<Query {self()}>'
+    
     # Methods for combining ndi_queries
-    @classmethod
-    def __merge_queries(cls, conjunction, queries):
-        return cls(queries={conjunction: queries})
-
     def __and__(self, ndi_query):
-        return self.__merge_queries('and', [self.queries, ndi_query.queries])
+        return AndQuery([self, ndi_query])
 
     def __or__(self, ndi_query):
-        return self.__merge_queries('or', [self.queries, ndi_query.queries])
+        return OrQuery([self, ndi_query])
 
     # Methods for creating conditional statements
-    def __set_filter(self, operator, value):
-        if self.__field:
-            self.__queries = {self.__field: (operator, value)}
+    def __set_condition(self, operator, value):
+        if not self.__resolved:
+            self.operator = operator
+            self.value = value
+            self.__query = (self.field, operator, value)
             self.__resolved = True
             return self
         else:
-            raise AttributeError('NDI_Query does not have a __field attribute')
+            raise SyntaxError(f'This query has already been resolved')
 
     def equals(self, value):
-        return self.__set_filter('==', value)
+        return self.__set_condition('==', value)
 
     def __eq__(self, value):
         # Q(field) == value
         return self.equals(value)
 
     def not_equals(self, value):
-        return self.__set_filter('!=', value)
+        return self.__set_condition('!=', value)
 
     def __ne__(self, value):
         # Q(field) != value
         return self.not_equals(value)
 
     def contains(self, value):
-        return self.__set_filter('contains', value)
+        return self.__set_condition('contains', value)
 
     def __truediv__(self, value):
         # Q(field) / value
         return self.contains(value)
 
     def match(self, value):
-        return self.__set_filter('match', value)
+        return self.__set_condition('match', value)
 
     def __getitem__(self, value):
         # Q(field)[value]
         return self.match(value)
 
     def greater_than(self, value):
-        return self.__set_filter('>', value)
+        return self.__set_condition('>', value)
 
     def __gt__(self, value):
         # Q(field) > value
         return self.greater_than(value)
 
     def greater_than_or_equal_to(self, value):
-        return self.__set_filter('>=', value)
+        return self.__set_condition('>=', value)
 
     def __ge__(self, value):
         # Q(field) >= value
         return self.greater_than_or_equal_to(value)
 
     def less_than(self, value):
-        return self.__set_filter('<', value)
+        return self.__set_condition('<', value)
 
     def __lt__(self, value):
         # Q(field) < value
         return self.less_than(value)
 
     def less_than_or_equal_to(self, value):
-        return self.__set_filter('<=', value)
+        return self.__set_condition('<=', value)
 
     def __le__(self, value):
         # Q(field) <= value
         return self.less_than_or_equal_to(value)
 
     def exists(self, value=True):
-        return self.__set_filter('exists', value)
+        return self.__set_condition('exists', value)
 
     def __pos__(self):
         # +Q(field)
@@ -132,3 +100,52 @@ class Query:
     def __neg__(self):
         # -Q(field)
         return self.exists(False)
+
+class CompositeQuery(Query):
+    def __init__(self, queries):
+        self._queries = queries
+
+    def __iter__(self):
+        return iter(self._queries)
+
+
+class AndQuery(CompositeQuery):
+    def __init__(self, queries):
+        super().__init__(queries)
+
+    def __and__(self, ndi_query):
+        if isinstance(ndi_query, AndQuery):
+            self._queries = [*self._queries, *ndi_query()]
+        else:
+            self._queries.append(ndi_query)
+        return self
+
+    def __or__(self, ndi_query):
+        if isinstance(ndi_query, OrQuery):
+            return OrQuery([self, *ndi_query()])
+        else:
+            return OrQuery([self, ndi_query])
+
+    def __repr__(self):
+        return f'<AndQuery {self._queries}>'
+
+
+class OrQuery(CompositeQuery):
+    def __init__(self, queries):
+        super().__init__(queries)
+
+    def __and__(self, ndi_query):
+        if isinstance(ndi_query, AndQuery):
+            return AndQuery([self, *ndi_query()])
+        else:
+            return AndQuery([self, ndi_query])
+
+    def __or__(self, ndi_query):
+        if isinstance(ndi_query, OrQuery):
+            self._queries = [*self._queries, *ndi_query()]
+        else:
+            self._queries.append(ndi_query)
+        return self
+
+    def __repr__(self):
+        return f'<OrQuery {self._queries}>'
