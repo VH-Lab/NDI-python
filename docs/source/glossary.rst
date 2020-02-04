@@ -18,7 +18,7 @@ Glossary
     A class derived from :class:`NDI_Object`, whose purpose is to act as a wrapper for a :term:`flatbuffer class`. It serves as simplified means of quickly converting between an :term:`NDI object` and and its :term:`flatbuffer` bytearrays.
 
   NDI object
-    An instance of a class derived from :class:`NDI_Object`.
+    An instance of an :term:`NDI class`.
 
   test term
     for ref string
@@ -27,10 +27,12 @@ Glossary
     for ref string
 
   flatbuffer
-    A cross-platform data serialization format. Flatbuffers are highly efficient at accessing large amounts of serialized data at minimal memory and processing cost. It achieves this by relying upon predefined schema that are known to all parties involved.
+    A cross-platform data serialization format. Flatbuffers are highly efficient at accessing large amounts of serialized data at minimal memory and processing cost. It achieves this by relying upon predefined schema that are known to all parties involved. See the docs `here <https://google.github.io/flatbuffers/>`_
 
   database
     A repository of data structured by :term:`collection`. In this library, a database could refer to any store of information that follows the schema defined in `ndi-schema <>`_. It could be implemented as a posgres or mongo database, a file system, a cache, or any other form of stored data.
+    .. note::
+      The current library implements SQL and FileSystem databases.
 
   collection
     A subset of structured data in a :term:`database` that takes its structure from a flatbuffer table in `ndi-schema <>`_. In a NoSQL database this would fall under the same name, but in a SQL database this might be refered to as a table.
@@ -45,7 +47,7 @@ Glossary
     TODO: finish
 
   payload
-    A dict whose keys are a subset of the fields in a given :term:`collection`, and whose values must comply with the types defined for those fields in the corresponding table defined by the `ndi-schema <>`_. The 'id' field is required. For example, the following :term:`NDI schema`:
+    A dict whose keys are a subset of the fields in a given :term:`collection`, and whose values must comply with the types defined for those fields in the corresponding table defined by the `ndi-schema <>`_. For example, the following :term:`NDI schema`:
     ::
       enum ProbeType:ubyte {
         ntrode,
@@ -74,12 +76,10 @@ Glossary
         'name': 'probe_1',
         'type': 'patch',
       }
-      p1_minimum = {
-        'id': '123j4h1h4g5hg35c7h',
-      }
+      p_empty = {}
 
   CRUD
-    A term for the collection of :term:`database` operations involving the Creation, Deletion, Reading, or Updating, of a :term:`document`.
+    A term for the collection of :term:`database` operations that Create, Read, Update, or Delete a :term:`document`.
 
 
 

@@ -24,8 +24,8 @@ class NDI_Object(ABC):
         """
         It should create an instance of the class inheriting from :class:`NDI_Object` from a given flatbuffer of the correct schema.
         ::
-            ndi_object = GetRootAsNDIObject(flatbuffer, 0)
-            return cls._reconstruct(ndi_object)
+            flatbuffer_object = GetRootAsNDIObject(flatbuffer, 0)
+            return cls._reconstruct(flatbuffer_object)
 
         :return: An instance of the child class.
         """
