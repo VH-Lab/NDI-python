@@ -31,6 +31,7 @@ Databases
 
    file_system.FileSystem
    sql.SQL
+   query.Query
 
 NDI Objects
 ------------------
