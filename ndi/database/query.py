@@ -1,3 +1,6 @@
+class QueryUnresolvedError(Exception):
+    pass
+
 class Query:
     """Class used to create Query objects for querying a database
 
@@ -5,7 +8,7 @@ class Query:
     The *field* property is set by instantiating a class and passing it a field name.
     The *operator* and *value* are set by using an instance method or operator and passing it a value.
     A query object is considered unresolved until a method is called.
-    Methods called on resolved queries will raise a *SyntaxError*.
+    Methods called on resolved queries will raise a *QueryUnresolvedError*.
     """
     def __init__(self, field):
         """Starts a query object.
@@ -33,14 +36,14 @@ class Query:
             q()
             -> ('a', '==', 'apple')
 
-        :raises SyntaxError: When an instantiated field has not been resolved
+        :raises QueryUnresolvedError: When an instantiated field has not been resolved
         :return: ``(field, operator, value)``
         :rtype: tuple
         """
         if self.__resolved:
             return self.__query
         else:
-            raise SyntaxError(
+            raise QueryUnresolvedError(
                 f'The query field \'{self.field}\' has not been resolved yet')
 
     def __call__(self):
@@ -62,14 +65,14 @@ class Query:
 
         :param ndi_query: 
         :type ndi_query: :class:`Query`
-        :raises SyntaxError: When an instantiated field has not been resolved
+        :raises QueryUnresolvedError: When an instantiated field has not been resolved
         :return: 
         :rtype: :class:`AndQuery`
         """
         if self.__resolved:
             return AndQuery([self, ndi_query])
         else:
-            raise SyntaxError(
+            raise QueryUnresolvedError(
                 f'The query field \'{self.field}\' has not been resolved yet')
 
     def __and__(self, ndi_query):
@@ -87,14 +90,14 @@ class Query:
 
         :param ndi_query: 
         :type ndi_query: :class:`Query`
-        :raises SyntaxError: When an instantiated field has not been resolved
+        :raises QueryUnresolvedError: When an instantiated field has not been resolved
         :return: 
         :rtype: :class:`OrQuery`
         """
         if self.__resolved:
             return OrQuery([self, ndi_query])
         else:
-            raise SyntaxError(
+            raise QueryUnresolvedError(
                 f'The query field \'{self.field}\' has not been resolved yet')
 
     def __or__(self, ndi_query):
@@ -109,7 +112,7 @@ class Query:
             self.__resolved = True
             return self
         else:
-            raise SyntaxError(f'This query has already been resolved')
+            raise QueryUnresolvedError(f'This query has already been resolved')
 
     def equals(self, value):
         """Creates an 'equals' condition for the specified field::
@@ -151,26 +154,18 @@ class Query:
         """Creates a 'contains' condition for the specified field::
 
             a = Query('a').contains('apple')
-            # OR
-            a = Query('a') / 'apple'
 
-        :param value: A string for the field to contain in the database
+        :param value: A string or substring for the field to contain in the database
         :type value: str
         :return: Resolved query object
         :rtype: :class:`Query`
         """
         return self.__set_condition('contains', value)
 
-    def __truediv__(self, value):
-        # Q(field) / value
-        return self.contains(value)
-
     def match(self, value):
         """Creates a regex 'match' condition for the specified field::
 
             a = Query('a').match(r'^[a-z]{5}$')
-            # OR
-            a = Query('a')[r'^[a-z]{5}$']
 
         :param value: A regex expression for the field to match in the database
         :type value: regexp
@@ -178,10 +173,6 @@ class Query:
         :rtype: :class:`Query`
         """
         return self.__set_condition('match', value)
-
-    def __getitem__(self, value):
-        # Q(field)[value]
-        return self.match(value)
 
     def greater_than(self, value):
         """Creates a 'greater-than' condition for the specified field::
