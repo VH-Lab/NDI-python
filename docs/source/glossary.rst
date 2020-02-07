@@ -43,8 +43,8 @@ Glossary
   document
     TODO: finish
 
-  query
-    TODO: finish
+  NDI query
+    An instance of :class:`Query`, :class:`AndQuery`, or :class:`OrQuery`. Contains a query or list of queries, where a single query has properties *field*, *operator*, and *value*. Used for ``find``, ``update_many``, and ``delete_many`` database methods.
 
   payload
     A dict whose keys are a subset of the fields in a given :term:`collection`, and whose values must comply with the types defined for those fields in the corresponding table defined by the `ndi-schema <>`_. For example, the following :term:`NDI schema`:
@@ -80,6 +80,3 @@ Glossary
 
   CRUD
     A term for the collection of :term:`database` operations that Create, Read, Update, or Delete a :term:`document`.
-
-
-

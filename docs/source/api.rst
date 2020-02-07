@@ -22,7 +22,7 @@ DAQ Readers
 
    mock_daq_reader.MockReader
 
-Databases
+Databases and Tools
 ------------------
 
 .. currentmodule:: ndi.database
