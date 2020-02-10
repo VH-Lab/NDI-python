@@ -1,4 +1,5 @@
 class QueryUnresolvedError(Exception):
+    """The error raised when a :class:`Query` *field* has not been resolved."""
     pass
 
 class Query:
