@@ -1,6 +1,6 @@
 from .base_db import BaseDB
 from pathlib import Path
-from .utils import handle_iter, check_ndi_object
+from .utils import handle_iter, check_ndi_object, check_ndi_class
 from ..database.query import AndQuery, OrQuery
 import re
 class FileSystem(BaseDB):
@@ -105,38 +105,38 @@ class FileSystem(BaseDB):
         """
         self._collections[type(ndi_object)].delete(ndi_object)
 
-    def find(self, ndi_class, query={}):
-        """Extracts all documents matching the given :term:`query` in the specified :term:`collection`.
+    def find(self, ndi_class, query=None):
+        """Extracts all documents matching the given :term:`NDI query` in the specified :term:`collection`.
 
         .. currentmodule:: ndi.base_db
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
         :type ndi_class: :class:`ndi.base_db`
-        :param query: See :term:`query`, defaults to find-all
+        :param ndi_query: See :term:`NDI query`, defaults to find-all
         :type query: dict, optional
         :rtype: List<:term:`NDI object`>
         """
         return self._collections[ndi_class].find(query)
 
-    def update_many(self, ndi_class, query={}, payload={}):
-        """Updates all documents matching the given :term:`query` in the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
+    def update_many(self, ndi_class, query=None, payload={}):
+        """Updates all documents matching the given :term:`NDI query` in the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
 
         .. currentmodule:: ndi.base_db
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
         :type ndi_class: :class:`ndi.base_db`
-        :param query: See :term:`query`, defaults to update-all
+        :param ndi_query: See :term:`NDI query`, defaults to update-all
         :type query: dict, optional
         :param payload: Field and update values to be updated, defaults to {}
         :type payload: :term:`payload`, optional
         """
         self._collections[ndi_class].update_many(query, payload)
 
-    def delete_many(self, ndi_class, query={}):
-        """Deletes all documents matching the given :term:`query` in the specified :term:`collection`.
+    def delete_many(self, ndi_class, query=None):
+        """Deletes all documents matching the given :term:`NDI query` in the specified :term:`collection`.
 
         .. currentmodule:: ndi.base_db
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
         :type ndi_class: :class:`BaseDB`
-        :param query: See :term:`query`, defaults to {}
+        :param ndi_query: See :term:`NDI query`, defaults to {}
         :type query: dict, optional
         """
         self._collections[ndi_class].delete_many(query)
@@ -177,7 +177,16 @@ class FileSystem(BaseDB):
 
 
 class Collection:
+    """Collection class for File System database
+    """
     def __init__(self, db_dir, ndi_class):
+        """Initializes a collection
+        
+        :param db_dir: Path to create new collection directory
+        :type db_dir: str
+        :param ndi_class: Any subclass of :class:`NDI_Object`
+        :type ndi_class: type
+        """
         self.collection_dir = Path(db_dir / f'{ndi_class.__name__.lower()}s',)
         self.ndi_class = ndi_class
 
@@ -185,8 +194,13 @@ class Collection:
         self.collection_dir.mkdir(parents=True, exist_ok=True)
 
     @handle_iter
-    @check_ndi_object
+    @check_ndi_class
     def add(self, ndi_object):
+        """Takes any :term:`NDI object`\ (s) that is an instance of this collection's :term:`NDI class` and adds them to the database.
+
+        :param ndi_object: The object(s) to be added to the database.
+        :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
+        """
         file_path = self.collection_dir / f'{ndi_object.id}.dat'
         if not file_path.exists():
             self.upsert(ndi_object)
@@ -194,8 +208,13 @@ class Collection:
             raise FileExistsError(f'File \'{file_path}\' already exists')
 
     @handle_iter
-    @check_ndi_object
+    @check_ndi_class
     def update(self, ndi_object):
+        """Takes any :term:`NDI object`\ (s) that is an instance of this collection's :term:`NDI class` and updates their :term:`document` in the database.
+
+        :param ndi_object: The object(s) to be updated in the database.
+        :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
+        """
         file_path = self.collection_dir / f'{ndi_object.id}.dat'
         if file_path.exists():
             self.upsert(ndi_object)
@@ -203,17 +222,33 @@ class Collection:
             raise FileNotFoundError(f'File \'{file_path}\' does not exist')
 
     @handle_iter
-    @check_ndi_object
+    @check_ndi_class
     def upsert(self, ndi_object):
+        """Takes any :term:`NDI object`\ (s) that is an instance of this collection's :term:`NDI class` and updates their :term:`document` in the database. If an object doesn't have a document representation, it is added to the collection.
+
+        :param ndi_object: The object(s) to be upserted into the database.
+        :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
+        """
         (self.collection_dir /
          f'{ndi_object.id}.dat').write_bytes(ndi_object.serialize())
 
     @handle_iter
-    @check_ndi_object
+    @check_ndi_class
     def delete(self, ndi_object):
+        """Takes any :term:`NDI object`\ (s) that is an instance of this collection's :term:`NDI class` and deletes their :term:`document` in the database.
+
+        :param ndi_object: The object(s) to be removed from the database.
+        :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
+        """
         self.delete_by_id(ndi_object.id)
 
     def find(self, ndi_query={}):
+        """Extracts all documents matching the given :term:`NDI query` in the specified :term:`collection`.
+
+        :param ndi_query: Not passing a query will return all :term:`document`s from the :term:`collection`.
+        :type ndi_query: :term:`NDI query`, optional
+        :rtype: List<:term:`NDI object`>
+        """
         ndi_objects = [
             self.ndi_class.from_flatbuffer(file.read_bytes())
             for file in self.collection_dir.glob('*.dat')
@@ -229,26 +264,56 @@ class Collection:
         ]
 
     def update_many(self, ndi_query={}, payload={}):
+        """Updates all documents matching the given :term:`NDI query` in the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
+
+        :param ndi_query: Not passing a query will update all :term:`document`s from the :term:`collection.
+        :type query: :term:`NDI query`, optional
+        :param payload: Field and update values to be updated, defaults to {}. Not passing a :term:`payload` will result in no updates.
+        :type payload: :term:`payload`, optional
+        """
         ndi_objects = self.find(ndi_query)
         for ndi_object in ndi_objects:
             for key, value in payload.items():
-                ndi_object.__dict__[key] = value
+                setattr(ndi_object, key, value)
         self.update(ndi_objects)
 
     def delete_many(self, ndi_query={}):
+        """Deletes all documents matching the given :term:`NDI query` in the specified :term:`collection`.
+
+        :param ndi_query: Not passing a query will delete all :term:`document`s from the :term:`collection.
+        :type query: :term:`payload`, optional
+        """
         ndi_objects = self.find(ndi_query)
         self.delete(ndi_objects)
 
     def find_by_id(self, id_):
+        """Retrieves the :term:`NDI object` with the given id from the specified :term:`collection`.
+
+        :param id_: The identifier of the :term:`document` to extract.
+        :type id_: str
+        :rtype: :term:`NDI object`
+        """
         return self.ndi_class.from_flatbuffer((self.collection_dir / f'{id_}.dat').read_bytes())
 
     def update_by_id(self, id_, payload={}):
+        """Updates the :term:`NDI object` with the given id from the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
+
+        :param id_: The identifier of the :term:`document` to update.
+        :type id_: str
+        :param payload: Field and update values to be updated, defaults to {}. Not passing a :term:`payload` will result in no updates.
+        :type payload: :term:`payload`, optional
+        """
         ndi_object = self.find_by_id(id_)
         for key, value in payload.items():
-            ndi_object.__dict__[key] = value
+            setattr(ndi_object, key, value)
         self.update(ndi_object)
 
     def delete_by_id(self, id_):
+        """Deletes the :term:`NDI object` with the given id from the specified :term:`collection`.
+
+        :param id_: The identifier of the :term:`document` to delete.
+        :type id_: str
+        """
         (self.collection_dir / f'{id_}.dat').unlink()
 
     def __parse_query(self, operator_object, ndi_query):
