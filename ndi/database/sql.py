@@ -1,16 +1,23 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Table, Column, ForeignKey
-from sqlalchemy import String, LargeBinary
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import Table, Column, ForeignKey, Integer, String, LargeBinary
+from sqlalchemy import and_, or_
 from .base_db import BaseDB
 from contextlib import contextmanager
+from functools import wraps
 from ndi import Experiment, DaqSystem, Probe, Epoch, Channel
 from ndi.utils import class_to_collection_name
+from ndi.database.utils import handle_iter, check_ndi_object, listify, check_ndi_objects
+from ndi.database.query import Query, AndQuery, OrQuery, CompositeQuery
 
 class SQL(BaseDB):
     """Interface for SQL Databases.
-    Adheres to standard methods in BaseDB Abstract Class."""
+    
+    .. currentmodule:: ndi.database.base_db
+    Inherits from the :class:`BaseDB` abstract class.
+    """
+
     def __init__(self, connection_string):
         """Sets up a SQL database with collections and binds a sqlAlchemy sessionmaker.
         
@@ -18,8 +25,8 @@ class SQL(BaseDB):
         :type connection_string: str
         """
         self.db = create_engine(connection_string)
-        self.Base = declarative_base()
         self.Session = sessionmaker(bind=self.db)
+        self.Base = declarative_base()
         self.__create_collections()
 
     def execute(self, query):
@@ -29,6 +36,75 @@ class SQL(BaseDB):
         :type query: str
         """
         self.db.execute(query)
+
+    _collections_columns = {
+        Experiment: {
+            'id': Column(String, primary_key=True),
+            'name': Column(String),
+            'flat_buffer': Column(LargeBinary),
+        },
+        DaqSystem: {
+            'id': Column(String, primary_key=True),
+            'flat_buffer': Column(LargeBinary),
+            'experiment_id': Column(String, ForeignKey('experiments.id')),
+        },
+        Probe: {
+            'id': Column(String, primary_key=True),
+            'flat_buffer': Column(LargeBinary),
+            'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
+        },
+        Epoch: {
+            'id': Column(String, primary_key=True),
+            'flat_buffer': Column(LargeBinary),
+            'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
+        },
+        Channel: {
+            'id': Column(String, primary_key=True),
+            'flat_buffer': Column(LargeBinary),
+            'probe_id': Column(String, ForeignKey('probes.id')),
+            'epoch_id': Column(String, ForeignKey('epochs.id')),
+            'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
+        }
+    }
+
+    def get_tables(self):
+        return self.Base.metadata.sorted_tables
+
+    def __create_collections(self):
+        """Create Base Collections described in :class:`ndi.database.BaseDB`."""
+        for collection, columns in self._collections_columns.items():
+            self.create_collection(collection, columns, defer_create_all=True)
+        self.Base.metadata.create_all(self.db)
+
+    def create_collection(self, ndi_class, fields, defer_create_all=False):
+        """Creates a table given an ndi_object and the desired fields and stores it in _collections.
+        
+        Args:
+            ndi_class(:class:`ndi.ndi_class`): The NDI Class this collection will be built on. 
+                CRUD operations on this database will require this class to specify the table to operate on.
+
+        Kwargs:
+            field_name (:class:`sqlalchemy.Column`): The sqlAlchemy ORM Column instance that defines the given field_name.
+                Multiple field_name=Column() arguments may be given for multiple fields.
+
+        Returns:
+            :class:`ndi.database.sql.Table`. The table object for the newly created collection.
+        """
+        self._collections[ndi_class] = Collection(self.Base, self.Session, ndi_class, fields)
+        if not defer_create_all:
+            self.Base.metadata.create_all(self.db)
+        return self._collections[ndi_class]
+
+    def _group_by_collection(self, ndi_objects):
+        objects_by_collection = {}
+        for ndi_object in ndi_objects:
+            Collection = self._get_collection(ndi_object)
+            if Collection in objects_by_collection:
+                objects_by_collection[Collection].append(ndi_object)
+            else:
+                objects_by_collection[Collection] = [ndi_object]
+        return objects_by_collection
+
 
     def add_experiment(self, experiment):
         """Add an NDI Experiment Object to the database.
@@ -53,88 +129,159 @@ class SQL(BaseDB):
         
         return 
 
-    def __create_collections(self):
-        """Create Base Collections described in :class:`ndi.database.BaseDB`."""
-        collections_columns = {
-            Experiment: {
-                'flat_buffer': Column(LargeBinary)
-            },
-            DaqSystem: {
-                'experiment_id': Column(String, ForeignKey('experiments.id')),
-                'flat_buffer': Column(LargeBinary)
-            },
-            Probe: {
-                'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
-                'flat_buffer': Column(LargeBinary)
-            },
-            Epoch: {
-                'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
-                'flat_buffer': Column(LargeBinary)
-            },
-            Channel: {
-                'probe_id': Column(String, ForeignKey('probes.id')),
-                'flat_buffer': Column(LargeBinary)
-            }
-        }
-        for collection, columns in collections_columns.items():
-            self.create_collection(collection, **columns)
-
-    def create_collection(self, ndi_class, **fields):
-        """Creates a table given an ndi_object and the desired fields and stores it in _collections.
+    @listify
+    @check_ndi_objects
+    def add(self, ndi_objects):
+        """.. currentmodule:: ndi.base_db
+        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and adds them to the database. Objects may belong to different :term:`NDI classes`.
         
-        Args:
-            ndi_class(:class:`ndi.ndi_class`): The NDI Class this collection will be built on. 
-                CRUD operations on this database will require this class to specify the table to operate on.
-
-        Kwargs:
-            field_name (:class:`sqlalchemy.Column`): The sqlAlchemy ORM Column instance that defines the given field_name.
-                Multiple field_name=Column() arguments may be given for multiple fields.
-
-        Returns:
-            :class:`ndi.database.sql.Table`. The table object for the newly created collection.
+        :param ndi_object: The object(s) to be added to the database.
+        :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
         """
-        table_name = class_to_collection_name(ndi_class)
-        self._collections[ndi_class] = Table(self.Base, self.Session, table_name, **fields)
-        return self._collections[ndi_class]
+        additions_by_collection = self._group_by_collection(ndi_objects)
+        for Collection, ndi_objects in additions_by_collection.items():
+            Collection.add(ndi_objects)
+        
 
-    def get_tables(self):
-        return self.Base.metadata.sorted_tables
+    @listify
+    @check_ndi_objects
+    def update(self, ndi_objects):
+        """.. currentmodule:: ndi.base_db
+        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. Objects may belong to different :term:`NDI classes`. 
+        
+        :param ndi_object: The object(s) to be updated in the database.
+        :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
+        """
+        updates_by_collection = self._group_by_collection(ndi_objects)
+        for Collection, ndi_objects in updates_by_collection.items():
+            Collection.update(ndi_objects)
 
-    def add(self, ndi_object):
-        ndi_class = type(ndi_object)
-        print(ndi_class.__name__)
-        print(ndi_object.__dict__)
-        for name in ndi_object.__dict__:
-            print(name)
-        pass
 
-    def find(self, ndi_class, **query):
-        pass
+    @handle_iter
+    @check_ndi_object
+    def upsert(self, ndi_object):
+        """.. currentmodule:: ndi.base_db
+        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. If an object doesn't have a document representation, it is added to the collection. Objects may belong to different :term:`NDI classes`. 
+        
+        :param ndi_object: The object(s) to be upserted into the database.
+        :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
+        """
+        self._collections[type(ndi_object)]
+
+    @listify
+    @check_ndi_objects
+    def delete(self, ndi_objects):
+        """.. currentmodule:: ndi.base_db
+        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and deletes their :term:`document` in the database. Objects may belong to different :term:`NDI classes`. 
+        
+        :param ndi_object: The object(s) to be removed from the database.
+        :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
+        """
+        deletions_by_collection = self._group_by_collection(ndi_objects)
+        for Collection, ndi_objects in deletions_by_collection.items():
+            Collection.delete(ndi_objects)
+
+    def find(self, ndi_class, query=None):
+        """Extracts all documents matching the given :term:`query` in the specified :term:`collection`.
+        
+        .. currentmodule:: ndi.base_db
+        :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
+        :type ndi_class: :class:`ndi.base_db`
+        :param query: See :term:`query`, defaults to find-all
+        :type query: dict, optional
+        :rtype: List<:term:`NDI object`>
+        """
+        flatbuffers = self._collections[ndi_class].find(query=query)
+        ndi_objects = list(map(lambda fb: ndi_class.from_flatbuffer(fb), flatbuffers))
+        return ndi_objects
+    
+    def update_many(self, ndi_class, query={}, payload={}):
+        """Updates all documents matching the given :term:`query` in the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
+        
+        .. currentmodule:: ndi.base_db
+        :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
+        :type ndi_class: :class:`ndi.base_db`
+        :param query: See :term:`query`, defaults to update-all
+        :type query: dict, optional
+        :param payload: Field and update values to be updated, defaults to {}
+        :type payload: :term:`payload`, optional
+        """
+        self._collections[ndi_class]
+    
+    def delete_many(self, ndi_class, query={}):
+        """Deletes all documents matching the given :term:`query` in the specified :term:`collection`.
+        
+        .. currentmodule:: ndi.base_db
+        :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
+        :type ndi_class: :class:`BaseDB`
+        :param query: See :term:`query`, defaults to {}
+        :type query: dict, optional
+        """
+        self._collections[ndi_class]
 
     def find_by_id(self, ndi_class, id_):
-        pass
+        """Retrieves the :term:`NDI object` with the given id from the specified :term:`collection`.
 
-    def update(self):
-        # params tbd
-        pass
+        .. currentmodule:: ndi.base_db
+        :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to search.
+        :type ndi_class: :class:`BaseDB`
+        :param id_: The identifier of the :term:`document` to extract.
+        :type id_: str
+        :rtype: :term:`NDI object`
+        """
+        return self._collections[ndi_class]
 
-    def update_by_id(self, ndi_class, id, payload):
-        pass
+    def update_by_id(self, ndi_class, id_, payload={}):
+        """Updates the :term:`NDI object` with the given id from the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
 
-    def upsert(self, ndi_objects):
-        pass
-
-    def delete(self, ndi_entity, **query):
-        pass
+        .. currentmodule:: ndi.base_db
+        :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to update.
+        :type ndi_class: :class:`BaseDB`
+        :param id_: The identifier of the :term:`document` to update.
+        :type id_: str
+        """
+        self._collections[ndi_class]
 
     def delete_by_id(self, ndi_class, id_):
-        pass
+        """Deletes the :term:`NDI object` with the given id from the specified :term:`collection`.
+
+        .. currentmodule:: ndi.base_db
+        :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
+        :type ndi_class: :class:`BaseDB`
+        :param id_: The identifier of the :term:`document` to delete.
+        :type id_: str
+        """
+        self._collections[ndi_class]
+
+    def _get_collection(self, ndi_object):
+        return self._collections[type(ndi_object)]
 
 
+def recast_ndi_objects_to_documents(func):
+    @wraps(func)
+    def decorator(self, ndi_objects):
+        items = list(map(self.create_document_from_ndi_object, ndi_objects))
+        func(self, items)
+    return decorator
 
+def translate_query(func):
+    @wraps(func)
+    def decorator(self, *args, query=None, sqla_query=None, **kwargs):
+        if isinstance(query, Query) or isinstance(query, CompositeQuery):
+            query = self.generate_sqla_filter(query)
+        elif query is None:
+            if sqla_query is not None:
+                query = sqla_query
+            else: pass
+        else:
+            raise TypeError(f'{query} must be of type Query or CompositeQuery.')
+
+        return func(self, *args, query=query, **kwargs)
+    return decorator
 
 def with_session(func):
     """Handle session instantiation, commit, and close operations for a class method."""
+    @wraps(func)
     def decorator(self, *args, **kwargs):
         session = self.Session()
         output = func(self, session, *args, **kwargs)
@@ -145,6 +292,7 @@ def with_session(func):
 
 def with_open_session(func):
     """Handle session setup/teardown as a context manager for a class method."""
+    @wraps(func)
     @contextmanager
     def decorator(self, *args, **kwargs):
         session = self.Session()
@@ -153,178 +301,118 @@ def with_open_session(func):
         session.close()
     return decorator
 
-class Table:
-    def __init__(self, Base, Session, table_name, **fields):
-        self.table = type(table_name, (Base,), {
+class Collection:
+    def __init__(self, Base, Session, ndi_class, fields):
+        self.Session = Session
+        table_name = class_to_collection_name(ndi_class)
+        self.table =  type(table_name, (Base,), {
             '__tablename__': table_name,
-            'id': Column(String, primary_key=True),
             **fields
         })
-        self.Session = Session
-
-    @with_session
-    def find(self, **kwargs):
-        results = session.query(self.filter).filter_by(**kwargs).all()
-        return results
-
-    @with_session
-    def find_by_id(self, id):
-        results = session.query(self.filter).get(id)
-        return results
-
-    @with_session
-    def add(self, session, payload):
-        if type(payload) is list:
-            for item in payload:
-                session.add(item)
-        else:
-            return session.add(payload)
-
-    @with_session
-    def upsert(self, filters, payload):
-        results = session.query(self.filter).filter_by(**filters)
-        if len(results.all()) == 0:
-            self.add(Table(**payload))
-        else:
-            results.update(payload, synchronize_session='evaluate')
-
-    @with_session
-    def upsert_by_id(self, id, payload):
-        results = session.query(self.filter).get(id)
-        if len(results.all()) == 0:
-            self.add(Table(**payload))
-        else:
-            results.update(payload, synchronize_session='evaluate')
-
-    @with_session
-    def update(self, filters, payload):
-        return session.query(self.filter).filter_by(**filters).update(payload, synchronize_session='evaluate')
-
-    @with_session
-    def update_by_id(self, id, payload):
-        return session.query(self.filter).get(id).update(payload, synchronize_session='evaluate')
-
-    @with_session
-    def delete(self, session, **kwargs):
-        results = session.query(self.filter).filter_by(**kwargs).all()
-        for instance in results:
-            session.delete(instance)
-
-    @with_session
-    def delete_by_id(self, session, id):
-        instance = session.query(self.filter).get(id)
-        session.delete(instance)
-
-    @with_session
-    def delete_all(self):
-        session.query(self.filter).delete()
-
-
-
-
-
-
-
-# class SQL(BaseDB):
-#     def __init__(self, connection_string):
-#         self.db = create_engine(connection_string)
-#         self.tables = {}
-#         self.create_collections()
-#         self.Session = sessionmaker(bind=self.db)
-
-#     def execute(self, query):
-#         self.db.execute(query)
-
-#     def add_experiment(self):
-#         return 
-
-#     def create_collections(self):
-#         self.create_table('experiments', {
-#             'flat_buffer': Column(LargeBinary)
-#         })
-#         self.create_table('daq_systems', {
-#             'experiment_id': Column(Integer, ForeignKey('experiments.id')),
-#             'flat_buffer': Column(LargeBinary)
-#         })
-#         self.create_table('epochs', {
-#             'daq_system_id': Column(Integer, ForeignKey('daq_systems.id')),
-#             'flat_buffer': Column(LargeBinary)
-#         })
-#         self.create_table('probes', {
-#             'daq_system_id': Column(Integer, ForeignKey('daq_systems.id')),
-#             'flat_buffer': Column(LargeBinary)
-#         })
-#         self.create_table('channels', {
-#             'probe_id': Column(Integer, ForeignKey('probes.id')),
-#             'flat_buffer': Column(LargeBinary)
-#         })
+        self.fields = fields
     
-#     def create_table(self, table_name, columns):
-#         self.tables[table_name] = type(table_name, (Base,), {
-#             '__tablename__': table_name,
-#             'id': Column(Integer, primary_key=True),
-#             **columns
-#         })
-#         Base.metadata.create_all(self.db)
-#         return self.tables[table_name]
+    def create_document(self, fields):
+        return self.table(**fields)
 
-#     def get_tables(self):
-#         return Base.metadata.sorted_tables
+    def create_document_from_ndi_object(self, ndi_object):
+        metadata_fields = { key: getattr(ndi_object, key)
+            for key in self.fields
+            if key != 'flat_buffer' }
+        fields = {
+            'flat_buffer': ndi_object.serialize(),
+            **metadata_fields
+        }
+        return self.table(**fields)
+    
+    def extract_document_fields(self, documents):
+        extract = lambda doc: { key: getattr(doc, key)
+            for key in self.fields }
+        if isinstance(documents, list):
+            return list(map(extract, documents))
+        else:
+            return extract(documents)
 
-#     @with_open_session
-#     def find(self, session, Table, **kwargs):
-#         results = session.query(Table).filter_by(**kwargs).all()
-#         return results
+    def extract_flatbuffers(self, documents):
+        extract = lambda doc: getattr(doc, 'flat_buffer')
+        if isinstance(documents, list):
+            return list(map(extract, documents))
+        else:
+            return extract(documents)
 
-#     @with_open_session
-#     def find_by_id(self, session, Table, id):
-#         results = session.query(Table).get(id)
-#         return results
+    _sqla_filter_ops = {
+        # composite types
+        AndQuery: lambda conditions: and_(*conditions),
+        OrQuery: lambda conditions: or_(*conditions),
+        # operators
+        '==': lambda field, value: field == value,
+        '!=': lambda x: x,
+        'contains': lambda x: x,
+        'match': lambda x: x,
+        '>': lambda x: x,
+        '>=': lambda x: x,
+        '<': lambda x: x,
+        '<=': lambda x: x,
+        'exists': lambda x: x,
+        'in': lambda x: x,
+    }
 
-#     @with_session
-#     def add(self, session, payload):
-#         if type(payload) is list:
-#             for item in payload:
-#                 session.add(item)
-#         else:
-#             return session.add(payload)
+    def generate_sqla_filter(self, query):
+        def recurse(q):
+            if isinstance(q, CompositeQuery):
+                nested_queries = [recurse(nested_q) for nested_q in q]
+                return self._sqla_filter_ops[type(q)](nested_queries)
+            else:
+                field, operator, value = q.query
+                column = self.fields[field]
+                return self._sqla_filter_ops[operator](column, value)
+        return recurse(query)
+                
+    
+    def ____(self):
+        field = db._collections[Experiment].fields
+        filters = and_(
+            field['id'] == 'e84a37ea33884cfb8d4ecbc746652662', 
+            or_(
+                field['name'] == 'notMine',
+                field['name'] == 'nope too', 
+                field['name'] == 'myExperiment3'))
+        db._collections[Experiment].find({}, as_flatbuffers=False, sqla_filter_expression=filters)
 
-#     @with_session
-#     def upsert(self, session, Table, filters, payload):
-#         results = session.query(Table).filter_by(**filters)
-#         if len(results.all()) == 0:
-#             self.add(Table(**payload))
-#         else:
-#             results.update(payload, synchronize_session='evaluate')
+    @recast_ndi_objects_to_documents
+    @with_session
+    def add(self, session, items):
+        ids = list(map(lambda item: getattr(item, 'id'), items))
+        print(f'adding to {self.table.__tablename__}:')
+        for id in ids:
+            print(f'  {id}')
+        session.add_all(items)
 
-#     @with_session
-#     def upsert_by_id(self, session, Table, id, payload):
-#         results = session.query(Table).get(id)
-#         if len(results.all()) == 0:
-#             self.add(Table(**payload))
-#         else:
-#             results.update(payload, synchronize_session='evaluate')
+    @recast_ndi_objects_to_documents
+    @with_session
+    def update(self, session, items):
+        q = session.query(self.table)
+        for item in items:
+            doc = q.get(item.id)
+            for key in self.fields:
+                setattr(doc, key, getattr(item, key))
 
-#     @with_session
-#     def update(self, session, Table, filters, payload):
-#         return session.query(Table).filter_by(**filters).update(payload, synchronize_session='evaluate')
+    @recast_ndi_objects_to_documents
+    @with_session
+    def upsert(self, session, items):
+        pass
 
-#     @with_session
-#     def update_by_id(self, session, Table, id, payload):
-#         return session.query(Table).get(id).update(payload, synchronize_session='evaluate')
+    @with_session
+    @translate_query
+    def find(self, session, query=None, as_flatbuffers=True):
+        documents = session.query(self.table).filter(query).all()
+        return self.extract_flatbuffers(documents) if as_flatbuffers else self.extract_document_fields(documents)
 
-#     @with_session
-#     def delete(self, session, Table, **kwargs):
-#         results = session.query(Table).filter_by(**kwargs).all()
-#         for instance in results:
-#             session.delete(instance)
-
-#     @with_session
-#     def delete_by_id(self, session, Table, id):
-#         instance = session.query(Table).get(id)
-#         session.delete(instance)
-
-#     @with_session
-#     def delete_all(self, session, Table):
-#         session.query(Table).delete()
-        
+    @recast_ndi_objects_to_documents
+    @with_session
+    def delete(self, session, items):
+        for item in items:
+            doc = session.query(self.table).get(item.id)
+            session.delete(doc)
+    
+    def update_many():
+        pass
