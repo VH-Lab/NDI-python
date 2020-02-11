@@ -73,7 +73,7 @@ class Channel(NDI_Object):
         return cls(id_=channel.Id().decode('utf8'),
                    name=channel.Name().decode('utf8'),
                    number=channel.Number(),
-                   type_=ChannelType[channel.ChannelType()],
+                   type_=ChannelType[channel.Type()],
                    clock_type=ClockType[channel.ClockType()],
                    source_file=channel.SourceFile().decode('utf8'),
                    epoch_id=channel.EpochId().decode('utf8'),

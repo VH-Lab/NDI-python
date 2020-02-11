@@ -25,3 +25,11 @@ def class_to_collection_name(ndi_object):
   :rtype: str
   """
   return f'{pascal_to_snake_case(ndi_object.__name__)}s'
+
+def flatten(nested_list):
+  """[summary]
+  
+  :param nested_list: [description]
+  :type nested_list: [type]
+  """
+  return [ item for l in nested_list for item in l ]

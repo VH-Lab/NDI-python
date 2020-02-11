@@ -7,7 +7,7 @@ from .base_db import BaseDB
 from contextlib import contextmanager
 from functools import wraps
 from ndi import Experiment, DaqSystem, Probe, Epoch, Channel
-from ndi.utils import class_to_collection_name
+from ndi.utils import class_to_collection_name, flatten
 from ndi.database.utils import handle_iter, check_ndi_object, listify, check_ndi_objects
 from ndi.database.query import Query, AndQuery, OrQuery, CompositeQuery
 
@@ -40,18 +40,22 @@ class SQL(BaseDB):
     _collections_columns = {
         Experiment: {
             'id': Column(String, primary_key=True),
-            'name': Column(String),
             'flat_buffer': Column(LargeBinary),
+            'name': Column(String),
         },
         DaqSystem: {
             'id': Column(String, primary_key=True),
             'flat_buffer': Column(LargeBinary),
             'experiment_id': Column(String, ForeignKey('experiments.id')),
+            'name': Column(String),
         },
         Probe: {
             'id': Column(String, primary_key=True),
             'flat_buffer': Column(LargeBinary),
             'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
+            'name': Column(String),
+            'reference': Column(Integer),
+            'type': Column(String),
         },
         Epoch: {
             'id': Column(String, primary_key=True),
@@ -64,6 +68,11 @@ class SQL(BaseDB):
             'probe_id': Column(String, ForeignKey('probes.id')),
             'epoch_id': Column(String, ForeignKey('epochs.id')),
             'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
+            'name': Column(String),
+            'number': Column(Integer),
+            'type': Column(String),
+            'clock_type': Column(String),
+            'source_file': Column(String),
         }
     }
 
@@ -106,32 +115,34 @@ class SQL(BaseDB):
         return objects_by_collection
 
 
-    def add_experiment(self, experiment):
+    @listify
+    @check_ndi_objects
+    def add_experiment(self, experiments):
         """Add an NDI Experiment Object to the database.
         
         :param experiment: NDI Experiment Object
         :type experiment: :class:`ndi.Experiment`
         """
-        self.add(experiment)
-        for daqsystem in experiment.daqsystems:
-            self._collections[type(daqsystem)].add(daqsystem)
-            daqreader = daqsystem.daq_reader()
+        daq_systems = [ ds for e in experiments for ds in e.daq_systems ]
 
-            for probe in daqreader.get_probes():
-                self._collections[type(probe)].add(probe)
+        def extract_dependants(ds):
+            return ( ds.daq_reader.get_probes(),
+                     ds.daq_reader.get_epochs(),
+                     ds.daq_reader.get_channels() )
+        grouped_dependants = zip(*map(extract_dependants, daq_systems))
+        flattened_dependants = [ flatten(group) for group in grouped_dependants ]
+        probes, epochs, channels = flattened_dependants
 
-            for epoch in daqreader.get_epochs():
-                self._collections[type(epoch)].add(epoch)
-        
-            for channel in daqreader.get_channels():
-                channel.id = channel.probe_id + channel.epoch_id
-                self._collections[type(channel)].add(channel)
-        
-        return 
+        # self.add([*experiments, *daq_systems, *probes, *epochs, *channels], session=session)
+
+        self.add(experiments)
+        self.add(daq_systems)
+        self.add([*probes, *epochs])
+        self.add(channels)
 
     @listify
     @check_ndi_objects
-    def add(self, ndi_objects):
+    def add(self, ndi_objects, session=None):
         """.. currentmodule:: ndi.base_db
         Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and adds them to the database. Objects may belong to different :term:`NDI classes`.
         
@@ -140,7 +151,7 @@ class SQL(BaseDB):
         """
         additions_by_collection = self._group_by_collection(ndi_objects)
         for Collection, ndi_objects in additions_by_collection.items():
-            Collection.add(ndi_objects)
+            Collection.add(ndi_objects, session=session)
         
 
     @listify
@@ -259,9 +270,9 @@ class SQL(BaseDB):
 
 def recast_ndi_objects_to_documents(func):
     @wraps(func)
-    def decorator(self, ndi_objects):
+    def decorator(self, ndi_objects, *args, **kwargs):
         items = list(map(self.create_document_from_ndi_object, ndi_objects))
-        func(self, items)
+        func(self, items, *args, **kwargs)
     return decorator
 
 def translate_query(func):
@@ -275,18 +286,20 @@ def translate_query(func):
             else: pass
         else:
             raise TypeError(f'{query} must be of type Query or CompositeQuery.')
-
         return func(self, *args, query=query, **kwargs)
     return decorator
 
 def with_session(func):
     """Handle session instantiation, commit, and close operations for a class method."""
     @wraps(func)
-    def decorator(self, *args, **kwargs):
-        session = self.Session()
+    def decorator(self, *args, session=None, **kwargs):
+        enclosed_session = session is None
+        if enclosed_session: 
+            session = self.Session()
         output = func(self, session, *args, **kwargs)
-        session.commit()
-        session.close()
+        if enclosed_session:
+            session.commit()
+            session.close()
         return output
     return decorator
 
@@ -294,11 +307,14 @@ def with_open_session(func):
     """Handle session setup/teardown as a context manager for a class method."""
     @wraps(func)
     @contextmanager
-    def decorator(self, *args, **kwargs):
-        session = self.Session()
+    def decorator(self, *args, session=None, **kwargs):
+        enclosed_session = session is None
+        if enclosed_session:
+            session = self.Session()
         yield func(self, session, *args, **kwargs)
-        session.commit()
-        session.close()
+        if enclosed_session:
+            session.commit()
+            session.close()
     return decorator
 
 class Collection:
@@ -366,25 +382,20 @@ class Collection:
                 column = self.fields[field]
                 return self._sqla_filter_ops[operator](column, value)
         return recurse(query)
-                
-    
-    def ____(self):
-        field = db._collections[Experiment].fields
-        filters = and_(
-            field['id'] == 'e84a37ea33884cfb8d4ecbc746652662', 
-            or_(
-                field['name'] == 'notMine',
-                field['name'] == 'nope too', 
-                field['name'] == 'myExperiment3'))
-        db._collections[Experiment].find({}, as_flatbuffers=False, sqla_filter_expression=filters)
+
+    def _functionalize_query(self, query):
+        def filter_(expr):
+            if query is not None: print(query)
+            return expr if query is None else expr.filter(query)
+        return filter_
 
     @recast_ndi_objects_to_documents
     @with_session
     def add(self, session, items):
-        ids = list(map(lambda item: getattr(item, 'id'), items))
         print(f'adding to {self.table.__tablename__}:')
-        for id in ids:
-            print(f'  {id}')
+        for item in items:
+            id = getattr(item, 'id')
+            print(f'  {id[0:7]}...', item)
         session.add_all(items)
 
     @recast_ndi_objects_to_documents
@@ -404,7 +415,8 @@ class Collection:
     @with_session
     @translate_query
     def find(self, session, query=None, as_flatbuffers=True):
-        documents = session.query(self.table).filter(query).all()
+        filter_ = self._functionalize_query(query)
+        documents = filter_(session.query(self.table)).all()
         return self.extract_flatbuffers(documents) if as_flatbuffers else self.extract_document_fields(documents)
 
     @recast_ndi_objects_to_documents
