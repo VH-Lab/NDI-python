@@ -17,6 +17,12 @@ Submodules
    :show-inheritance:
 
 
+.. automodule:: ndi.database.query
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
 .. automodule:: ndi.database.sql
    :members:
    :undoc-members:
