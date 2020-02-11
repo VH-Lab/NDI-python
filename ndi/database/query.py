@@ -30,12 +30,12 @@ class Query:
 
             q = Query('a') == 'apple'
             q.query
-            -> ('a', '==', 'apple')
+            -> ('a', 'equals', 'apple')
 
         The tuple can also be access by calling the instance::
 
             q()
-            -> ('a', '==', 'apple')
+            -> ('a', 'equals', 'apple')
 
         :raises QueryUnresolvedError: When an instantiated field has not been resolved
         :return: ``(field, operator, value)``
@@ -127,7 +127,7 @@ class Query:
         :return: Resolved query object
         :rtype: :class:`Query`
         """
-        return self.__set_condition('==', value)
+        return self.__set_condition('equals', value)
 
     def __eq__(self, value):
         # Q(field) == value
@@ -145,7 +145,7 @@ class Query:
         :return: Resolved query object
         :rtype: :class:`Query`
         """
-        return self.__set_condition('!=', value)
+        return self.__set_condition('not_equals', value)
 
     def __ne__(self, value):
         # Q(field) != value
@@ -187,7 +187,7 @@ class Query:
         :return: Resolved query object
         :rtype: :class:`Query`
         """
-        return self.__set_condition('>', value)
+        return self.__set_condition('greater_than', value)
 
     def __gt__(self, value):
         # Q(field) > value
@@ -205,7 +205,7 @@ class Query:
         :return: Resolved query object
         :rtype: :class:`Query`
         """
-        return self.__set_condition('>=', value)
+        return self.__set_condition('greater_than_or_equal_to', value)
 
     def __ge__(self, value):
         # Q(field) >= value
@@ -223,7 +223,7 @@ class Query:
         :return: Resolved query object
         :rtype: :class:`Query`
         """
-        return self.__set_condition('<', value)
+        return self.__set_condition('less_than', value)
 
     def __lt__(self, value):
         # Q(field) < value
@@ -241,7 +241,7 @@ class Query:
         :return: Resolved query object
         :rtype: :class:`Query`
         """
-        return self.__set_condition('<=', value)
+        return self.__set_condition('less_than_or_equal_to', value)
 
     def __le__(self, value):
         # Q(field) <= value
@@ -293,7 +293,7 @@ class Query:
         :return: Resolved query object
         :rtype: :class:`Query`
         """
-        return self.__set_condition('in', value)
+        return self.__set_condition('in_', value)
 
     def __rshift__(self, value):
         return self.in_(value)
@@ -309,8 +309,8 @@ class CompositeQuery:
         a = (Query('a') == 'apple') & (Query('b') == 'bear')
         for query in a:
             print(query())
-        -> ('a', '==', 'apple')
-        -> ('b', '==', 'bear')
+        -> ('a', 'equals', 'apple')
+        -> ('b', 'equals', 'bear')
     """
     __class__ = Query
 
@@ -395,7 +395,7 @@ class OrQuery(CompositeQuery):
         :rtype: :class:`AndQuery`
         """
         if isinstance(ndi_query, AndQuery):
-            return AndQuery([self, *ndi_query()])
+            return AndQuery([self, *ndi_query])
         else:
             return AndQuery([self, ndi_query])
 
@@ -415,7 +415,7 @@ class OrQuery(CompositeQuery):
         :rtype: :class:`OrQuery`
         """
         if isinstance(ndi_query, OrQuery):
-            self.queries = [*self.queries, *ndi_query()]
+            self.queries = [*self.queries, *ndi_query]
         else:
             self.queries.append(ndi_query)
         return self

@@ -1,16 +1,17 @@
 from .base_db import BaseDB
 from pathlib import Path
 from .utils import handle_iter, check_ndi_object
-
+from ..database.query import AndQuery, OrQuery
+import re
 class FileSystem(BaseDB):
     """File system database API.
-    
+
     .. currentmodule:: ndi.database.base_db
     Inherits from the :class:`BaseDB` abstract class.
     """
     def __init__(self, exp_dir, db_name='.ndi'):
         """FileSystem constructor: initializes a named FileSystem instance and connects to it at the given path. If it doesn't already exist, it creates a new file system database at the given path.
-        
+
         :param exp_dir: A path to the file system database directory.
         :type exp_dir: str
         :param db_name: defaults to '.ndi'
@@ -37,7 +38,6 @@ class FileSystem(BaseDB):
         :param experiment: 
         :type experiment: :class:`Experiment`
         """
-        # TODO: handle List[experiment]
         self._collections[type(experiment)].add(experiment)
         for daq_system in experiment.daq_systems:
             self._collections[type(daq_system)].add(daq_system)
@@ -55,7 +55,7 @@ class FileSystem(BaseDB):
 
     def create_collection(self, ndi_class):
         """Instantiates a :term:`collection` from the given :term:`NDI class` using its properties to set the :term:`field`s. 
-        
+
         :param ndi_class: The :term:`NDI class` that will define the new collection.
         :type ndi_class: :class:`BaseDB`
         """
@@ -66,7 +66,7 @@ class FileSystem(BaseDB):
     def add(self, ndi_object):
         """.. currentmodule:: ndi.base_db
         Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and adds them to the database. Objects may belong to different :term:`NDI classes`.
-        
+
         :param ndi_object: The object(s) to be added to the database.
         :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
         """
@@ -77,7 +77,7 @@ class FileSystem(BaseDB):
     def update(self, ndi_object):
         """.. currentmodule:: ndi.base_db
         Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. Objects may belong to different :term:`NDI classes`. 
-        
+
         :param ndi_object: The object(s) to be updated in the database.
         :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
         """
@@ -88,7 +88,7 @@ class FileSystem(BaseDB):
     def upsert(self, ndi_object):
         """.. currentmodule:: ndi.base_db
         Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. If an object doesn't have a document representation, it is added to the collection. Objects may belong to different :term:`NDI classes`. 
-        
+
         :param ndi_object: The object(s) to be upserted into the database.
         :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
         """
@@ -99,7 +99,7 @@ class FileSystem(BaseDB):
     def delete(self, ndi_object):
         """.. currentmodule:: ndi.base_db
         Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and deletes their :term:`document` in the database. Objects may belong to different :term:`NDI classes`. 
-        
+
         :param ndi_object: The object(s) to be removed from the database.
         :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
         """
@@ -107,7 +107,7 @@ class FileSystem(BaseDB):
 
     def find(self, ndi_class, query={}):
         """Extracts all documents matching the given :term:`query` in the specified :term:`collection`.
-        
+
         .. currentmodule:: ndi.base_db
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
         :type ndi_class: :class:`ndi.base_db`
@@ -116,10 +116,10 @@ class FileSystem(BaseDB):
         :rtype: List<:term:`NDI object`>
         """
         return self._collections[ndi_class].find(query)
-    
+
     def update_many(self, ndi_class, query={}, payload={}):
         """Updates all documents matching the given :term:`query` in the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
-        
+
         .. currentmodule:: ndi.base_db
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
         :type ndi_class: :class:`ndi.base_db`
@@ -129,10 +129,10 @@ class FileSystem(BaseDB):
         :type payload: :term:`payload`, optional
         """
         self._collections[ndi_class].update_many(query, payload)
-    
+
     def delete_many(self, ndi_class, query={}):
         """Deletes all documents matching the given :term:`query` in the specified :term:`collection`.
-        
+
         .. currentmodule:: ndi.base_db
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
         :type ndi_class: :class:`BaseDB`
@@ -203,40 +203,40 @@ class Collection:
             raise FileNotFoundError(f'File \'{file_path}\' does not exist')
 
     @handle_iter
-    @check_ndi_object  
+    @check_ndi_object
     def upsert(self, ndi_object):
-        (self.collection_dir / f'{ndi_object.id}.dat').write_bytes(ndi_object.serialize())
-    
+        (self.collection_dir /
+         f'{ndi_object.id}.dat').write_bytes(ndi_object.serialize())
+
     @handle_iter
     @check_ndi_object
     def delete(self, ndi_object):
         self.delete_by_id(ndi_object.id)
 
-    def find(self, query={}):
+    def find(self, ndi_query={}):
         ndi_objects = [
             self.ndi_class.from_flatbuffer(file.read_bytes())
             for file in self.collection_dir.glob('*.dat')
         ]
 
-        if not query:
+        if not ndi_query:
             return ndi_objects
 
         return [
             ndi_object
             for ndi_object in ndi_objects
-            for key, value in query.items()
-            if getattr(ndi_object, key) == value
+            if self.__parse_query(self.__Operator(ndi_object), ndi_query)
         ]
 
-    def update_many(self, query={}, payload={}):
-        ndi_objects = self.find(query)
+    def update_many(self, ndi_query={}, payload={}):
+        ndi_objects = self.find(ndi_query)
         for ndi_object in ndi_objects:
             for key, value in payload.items():
                 ndi_object.__dict__[key] = value
         self.update(ndi_objects)
 
-    def delete_many(self, query={}):
-        ndi_objects = self.find(query)
+    def delete_many(self, ndi_query={}):
+        ndi_objects = self.find(ndi_query)
         self.delete(ndi_objects)
 
     def find_by_id(self, id_):
@@ -250,3 +250,60 @@ class Collection:
 
     def delete_by_id(self, id_):
         (self.collection_dir / f'{id_}.dat').unlink()
+
+    def __parse_query(self, operator_object, ndi_query):
+        if isinstance(ndi_query, AndQuery):
+            return self.__and_query(operator_object, ndi_query)
+        elif isinstance(ndi_query, OrQuery):
+            return self.__or_query(operator_object, ndi_query)
+        else:
+            return self.__test_query(operator_object, ndi_query)
+
+    @staticmethod
+    def __test_query(operator_object, ndi_query):
+        field, operator, value = ndi_query()
+        return getattr(operator_object, operator)(field, value)
+    
+    def __and_query(self, operator_object, and_query):
+        return all([
+            self.__parse_query(operator_object, query) for query in and_query
+        ])
+    
+    def __or_query(self, operator_object, or_query):
+        return any([
+            self.__parse_query(operator_object, query) for query in or_query
+        ])
+
+    class __Operator:
+        def __init__(self, ndi_object):
+            self.object = ndi_object
+
+        def equals(self, field, value):
+            return getattr(self.object, field) == value
+
+        def not_equals(self, field, value):
+            return getattr(self.object, field) != value
+
+        def contains(self, field, value):
+            return value in getattr(self.object, field)
+
+        def match(self, field, value):
+            return re.match(value, getattr(self.object, field))
+
+        def greater_than(self, field, value):
+            return getattr(self.object, field) > value
+
+        def greater_than_or_equal_to(self, field, value):
+            return getattr(self.object, field) >= value
+        
+        def less_than(self, field, value):
+            return getattr(self.object, field) < value
+
+        def less_than_or_equal_to(self, field, value):
+            return getattr(self.object, field) <= value
+        
+        def exists(self, field, value):
+            return hasattr(self.object, field) == value
+        
+        def in_(self, field, value):
+            return getattr(self.object, field) in value
