@@ -40,7 +40,7 @@ class SQL(BaseDB):
     _collections_columns = {
         Experiment: {
             'id': Column(String, primary_key=True),
-            'flatbuffer': Column(LargeBinary),
+            'flat_buffer': Column(LargeBinary),
             'name': Column(String),
         },
         DaqSystem: {
@@ -271,7 +271,7 @@ class SQL(BaseDB):
 def recast_ndi_objects_to_documents(func):
     @wraps(func)
     def decorator(self, ndi_objects, *args, **kwargs):
-        items = [ self.create_document_from_ndi_object(o) for o in ndi_objects ]
+        items = list(map(self.create_document_from_ndi_object, ndi_objects))
         func(self, items, *args, **kwargs)
     return decorator
 
