@@ -48,3 +48,24 @@ def check_ndi_object(func):
         else:
             raise TypeError(f'\'{ndi_object}\' is not an instance of an \'NDI_Object\' child class.')
     return decorator
+
+def check_ndi_class(func):
+    """.. currentmodule:: ndi.ndi_object
+    Decorator: meant to prevent :class:`NDI_Object` collection :term:`CRUD` methods from being called with non-standard input. Throws an error if the first argument passed to wrapped function is not the correct :term:`NDI class`.
+
+    :param func: The wrapped function.
+    :type func: function
+
+    :param ndi_object: The first argument passed to the wrapped function.
+    :type ndi_object: :term:`NDI object`
+
+    :raises TypeError: \'{ndi_object}\' is not an instance of \'{self.ndi_class}\'.
+    :return: func(ndi_object)
+    """
+    @wraps(func)
+    def decorator(self, ndi_object):
+        if isinstance(ndi_object, self.ndi_class):
+            return func(self, ndi_object)
+        else:
+            raise TypeError(f'\'{ndi_object}\' is not an instance of \'{self.ndi_class}\'')
+    return decorator

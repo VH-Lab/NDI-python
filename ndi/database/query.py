@@ -2,6 +2,7 @@ class QueryUnresolvedError(Exception):
     """The error raised when a :class:`Query` *field* has not been resolved."""
     pass
 
+
 class Query:
     """Class used to create Query objects for querying a database
 
@@ -11,9 +12,10 @@ class Query:
     A query object is considered unresolved until a method is called.
     Methods called on resolved queries will raise a *QueryUnresolvedError*.
     """
+
     def __init__(self, field):
         """Starts a query object.
-        
+
         :param field: A field to query the database
         :type field: str
         :raises TypeError: When field is not a str
@@ -21,7 +23,8 @@ class Query:
         if field and isinstance(field, str):
             self.field = field
         else:
-            raise TypeError(f'The field passed in NDI_Query must be a non-empty string')
+            raise TypeError(
+                f'The field passed in NDI_Query must be a non-empty string')
         self.__resolved = False
 
     @property
@@ -81,7 +84,7 @@ class Query:
 
     def or_(self, ndi_query):
         """Combines query objects with :class:`OrQuery`::
-        
+
             a = Query('a') == 'apple'
             b = Query('b') == 'bear'
 
@@ -117,7 +120,7 @@ class Query:
 
     def equals(self, value):
         """Creates an 'equals' condition for the specified field::
-        
+
             a = Query('a').equals('apple')
             # OR
             a = Query('a') == 'apple'
@@ -177,7 +180,7 @@ class Query:
 
     def greater_than(self, value):
         """Creates a 'greater-than' condition for the specified field::
-        
+
             a = Query('a').greater_than(5)
             # OR
             a = Query('a') > 5
@@ -283,7 +286,7 @@ class Query:
         """Creates an 'in' condition for the specified field.
 
         Checks if a field value is in a list of values::
-        
+
             a = Query('a').in_(['apple', 'ant', 'aardvark'])
             # OR
             a = Query('a') >> ['apple', 'ant', 'aardvark']
@@ -305,12 +308,12 @@ class CompositeQuery:
 
     Composite queries have the property *queries*, which is a list of :class:`Query` instances.
     Composite queries be iterated on::
-    
+
         a = (Query('a') == 'apple') & (Query('b') == 'bear')
         for query in a:
             print(query())
-        -> ('a', '==', 'apple')
-        -> ('b', '==', 'bear')
+        -> ('a', 'equals', 'apple')
+        -> ('b', 'equals', 'bear')
     """
     __class__ = Query
 
@@ -326,17 +329,18 @@ class CompositeQuery:
 
 class AndQuery(CompositeQuery):
     """Query class for where database results need to match all the containing queries
-    
+
     Not meant to be instantiated directly.
     """
+
     def __init__(self, queries):
         super().__init__(queries)
 
     def and_(self, ndi_query):
         """Combines query objects.
-        
+
         Merges queries if the incoming ndi_query is also an :class:`AndQuery`.
-        
+
         Otherwise, adds incoming ndi_query to list of queries
 
         :param ndi_query: 
@@ -376,9 +380,10 @@ class AndQuery(CompositeQuery):
 
 class OrQuery(CompositeQuery):
     """Query class for where database results need to match any of the containing queries
-    
+
     Not meant to be instantiated directly.
     """
+
     def __init__(self, queries):
         super().__init__(queries)
 
@@ -395,7 +400,7 @@ class OrQuery(CompositeQuery):
         :rtype: :class:`AndQuery`
         """
         if isinstance(ndi_query, AndQuery):
-            return AndQuery([self, *ndi_query()])
+            return AndQuery([self, *ndi_query])
         else:
             return AndQuery([self, ndi_query])
 
@@ -415,7 +420,7 @@ class OrQuery(CompositeQuery):
         :rtype: :class:`OrQuery`
         """
         if isinstance(ndi_query, OrQuery):
-            self.queries = [*self.queries, *ndi_query()]
+            self.queries = [*self.queries, *ndi_query]
         else:
             self.queries.append(ndi_query)
         return self

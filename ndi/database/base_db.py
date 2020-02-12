@@ -100,8 +100,8 @@ class BaseDB(ABC):
         :type ndi_class: :class:`NDI_Object`
         :param id_:
         :type id_: str
-        :param payload: Containing values mapped to fields in the specified ndi_class.
-        :type payload: dict
+        :param payload: Containing fields with values to update to in the specified ndi_class. Not passing a dict will result in no updates.
+        :type payload: :term:`payload`, optional
         """
         pass
 
@@ -117,34 +117,36 @@ class BaseDB(ABC):
         pass
 
     @abstractmethod
-    def find(self, ndi_class, query):
-        """It should be able to utilize a :term:`query` to retrive data from the :term:`collection` of the given :term:`NDI class`.
+    def find(self, ndi_class, ndi_query):
+        """It should be able to utilize a :term:`NDI query` to retrive data from the :term:`collection` of the given :term:`NDI class`.
 
         :param ndi_class:
         :type ndi_class: :class:`NDI_Object`
-        :param query:
-        :type query: dict? TBD
+        :param ndi_query: A set of conditions to find on. Not passing a query will return all :term:`document`s from the :term:`collection.
+        :type ndi_query: :term:`NDI query`, optional
         """
         pass
 
     @abstractmethod
-    def update_many(self, ndi_class, query, payload):
-        """It should be able to update all :term:`document`s matching the given :term:`query` in the :term:`collection` of the given :term:`NDI class`.
+    def update_many(self, ndi_class, ndi_query, payload):
+        """It should be able to update all :term:`document`s matching the given :term:`NDI query` in the :term:`collection` of the given :term:`NDI class`.
 
         :param ndi_class:
         :type ndi_class: :class:`NDI_Object`
-        :param query:
-        :type query: dict? TBD
+        :param ndi_query: A set of conditions to update on. Not passing a query will update all :term:`document`s from the :term:`collection.
+        :type ndi_query: :term:`NDI query`, optional
+        :param payload: Containing fields with values to update to in the specified ndi_class. Not passing a dict will result in no updates.
+        :type payload: :term:`payload`, optional
         """
         pass
 
     @abstractmethod
     def delete_many(self, ndi_class, query):
-        """It should be able to delete all :term:`document`s matching the given :term:`query` in the :term:`collection` of the given :term:`NDI class`.
+        """It should be able to delete all :term:`document`s matching the given :term:`NDI query` in the :term:`collection` of the given :term:`NDI class`.
 
         :param ndi_class:
         :type ndi_class: :class:`NDI_Object`
-        :param query:
-        :type query: dict? TBD
+        :param ndi_query: A set of conditions to delete on. Not passing a query will delete all :term:`document`s from the :term:`collection.
+        :type ndi_query: :term:`NDI query`, optional
         """
         pass
