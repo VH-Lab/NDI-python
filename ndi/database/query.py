@@ -2,6 +2,7 @@ class QueryUnresolvedError(Exception):
     """The error raised when a :class:`Query` *field* has not been resolved."""
     pass
 
+
 class Query:
     """Class used to create Query objects for querying a database
 
@@ -11,9 +12,10 @@ class Query:
     A query object is considered unresolved until a method is called.
     Methods called on resolved queries will raise a *QueryUnresolvedError*.
     """
+
     def __init__(self, field):
         """Starts a query object.
-        
+
         :param field: A field to query the database
         :type field: str
         :raises TypeError: When field is not a str
@@ -21,7 +23,8 @@ class Query:
         if field and isinstance(field, str):
             self.field = field
         else:
-            raise TypeError(f'The field passed in NDI_Query must be a non-empty string')
+            raise TypeError(
+                f'The field passed in NDI_Query must be a non-empty string')
         self.__resolved = False
 
     @property
@@ -30,12 +33,12 @@ class Query:
 
             q = Query('a') == 'apple'
             q.query
-            -> ('a', 'equals', 'apple')
+            -> ('a', '==', 'apple')
 
         The tuple can also be access by calling the instance::
 
             q()
-            -> ('a', 'equals', 'apple')
+            -> ('a', '==', 'apple')
 
         :raises QueryUnresolvedError: When an instantiated field has not been resolved
         :return: ``(field, operator, value)``
@@ -81,7 +84,7 @@ class Query:
 
     def or_(self, ndi_query):
         """Combines query objects with :class:`OrQuery`::
-        
+
             a = Query('a') == 'apple'
             b = Query('b') == 'bear'
 
@@ -117,7 +120,7 @@ class Query:
 
     def equals(self, value):
         """Creates an 'equals' condition for the specified field::
-        
+
             a = Query('a').equals('apple')
             # OR
             a = Query('a') == 'apple'
@@ -127,7 +130,7 @@ class Query:
         :return: Resolved query object
         :rtype: :class:`Query`
         """
-        return self.__set_condition('equals', value)
+        return self.__set_condition('==', value)
 
     def __eq__(self, value):
         # Q(field) == value
@@ -145,7 +148,7 @@ class Query:
         :return: Resolved query object
         :rtype: :class:`Query`
         """
-        return self.__set_condition('not_equals', value)
+        return self.__set_condition('!=', value)
 
     def __ne__(self, value):
         # Q(field) != value
@@ -177,7 +180,7 @@ class Query:
 
     def greater_than(self, value):
         """Creates a 'greater-than' condition for the specified field::
-        
+
             a = Query('a').greater_than(5)
             # OR
             a = Query('a') > 5
@@ -187,7 +190,7 @@ class Query:
         :return: Resolved query object
         :rtype: :class:`Query`
         """
-        return self.__set_condition('greater_than', value)
+        return self.__set_condition('>', value)
 
     def __gt__(self, value):
         # Q(field) > value
@@ -205,7 +208,7 @@ class Query:
         :return: Resolved query object
         :rtype: :class:`Query`
         """
-        return self.__set_condition('greater_than_or_equal_to', value)
+        return self.__set_condition('>=', value)
 
     def __ge__(self, value):
         # Q(field) >= value
@@ -223,7 +226,7 @@ class Query:
         :return: Resolved query object
         :rtype: :class:`Query`
         """
-        return self.__set_condition('less_than', value)
+        return self.__set_condition('<', value)
 
     def __lt__(self, value):
         # Q(field) < value
@@ -241,7 +244,7 @@ class Query:
         :return: Resolved query object
         :rtype: :class:`Query`
         """
-        return self.__set_condition('less_than_or_equal_to', value)
+        return self.__set_condition('<=', value)
 
     def __le__(self, value):
         # Q(field) <= value
@@ -283,7 +286,7 @@ class Query:
         """Creates an 'in' condition for the specified field.
 
         Checks if a field value is in a list of values::
-        
+
             a = Query('a').in_(['apple', 'ant', 'aardvark'])
             # OR
             a = Query('a') >> ['apple', 'ant', 'aardvark']
@@ -293,7 +296,7 @@ class Query:
         :return: Resolved query object
         :rtype: :class:`Query`
         """
-        return self.__set_condition('in_', value)
+        return self.__set_condition('in', value)
 
     def __rshift__(self, value):
         return self.in_(value)
@@ -305,7 +308,7 @@ class CompositeQuery:
 
     Composite queries have the property *queries*, which is a list of :class:`Query` instances.
     Composite queries be iterated on::
-    
+
         a = (Query('a') == 'apple') & (Query('b') == 'bear')
         for query in a:
             print(query())
@@ -326,17 +329,18 @@ class CompositeQuery:
 
 class AndQuery(CompositeQuery):
     """Query class for where database results need to match all the containing queries
-    
+
     Not meant to be instantiated directly.
     """
+
     def __init__(self, queries):
         super().__init__(queries)
 
     def and_(self, ndi_query):
         """Combines query objects.
-        
+
         Merges queries if the incoming ndi_query is also an :class:`AndQuery`.
-        
+
         Otherwise, adds incoming ndi_query to list of queries
 
         :param ndi_query: 
@@ -376,9 +380,10 @@ class AndQuery(CompositeQuery):
 
 class OrQuery(CompositeQuery):
     """Query class for where database results need to match any of the containing queries
-    
+
     Not meant to be instantiated directly.
     """
+
     def __init__(self, queries):
         super().__init__(queries)
 

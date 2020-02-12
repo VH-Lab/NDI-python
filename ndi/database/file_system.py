@@ -1,14 +1,17 @@
 from .base_db import BaseDB
 from pathlib import Path
 from .utils import handle_iter, check_ndi_object, check_ndi_class
-from ..database.query import AndQuery, OrQuery
+from ..database.query import CompositeQuery, AndQuery, OrQuery
 import re
+
+
 class FileSystem(BaseDB):
     """File system database API.
 
     .. currentmodule:: ndi.database.base_db
     Inherits from the :class:`BaseDB` abstract class.
     """
+
     def __init__(self, exp_dir, db_name='.ndi'):
         """FileSystem constructor: initializes a named FileSystem instance and connects to it at the given path. If it doesn't already exist, it creates a new file system database at the given path.
 
@@ -179,9 +182,10 @@ class FileSystem(BaseDB):
 class Collection:
     """Collection class for File System database
     """
+
     def __init__(self, db_dir, ndi_class):
         """Initializes a collection
-        
+
         :param db_dir: Path to create new collection directory
         :type db_dir: str
         :param ndi_class: Any subclass of :class:`NDI_Object`
@@ -260,7 +264,7 @@ class Collection:
         return [
             ndi_object
             for ndi_object in ndi_objects
-            if self.__parse_query(self.__Operator(ndi_object), ndi_query)
+            if self.__parse_query(ndi_object, ndi_query)
         ]
 
     def update_many(self, ndi_query={}, payload={}):
@@ -316,59 +320,31 @@ class Collection:
         """
         (self.collection_dir / f'{id_}.dat').unlink()
 
-    def __parse_query(self, operator_object, ndi_query):
-        if isinstance(ndi_query, AndQuery):
-            return self.__and_query(operator_object, ndi_query)
-        elif isinstance(ndi_query, OrQuery):
-            return self.__or_query(operator_object, ndi_query)
-        else:
-            return self.__test_query(operator_object, ndi_query)
+    # Query Parsing Methods
+    def __parse_query(self, ndi_object, ndi_query):
+        if isinstance(ndi_query, CompositeQuery):
+            return self.__composite_query(ndi_object, ndi_query)
+        return self.__test_query(ndi_object, ndi_query)
 
-    @staticmethod
-    def __test_query(operator_object, ndi_query):
+    def __test_query(self, ndi_object, ndi_query):
         field, operator, value = ndi_query()
-        return getattr(operator_object, operator)(field, value)
+        return self.__operations[operator](ndi_object, field, value)
+
+    def __composite_query(self, ndi_object, ndi_query):
+        return {
+            AndQuery: all,
+            OrQuery: any
+        }[type(ndi_query)]([self.__parse_query(ndi_object, query) for query in ndi_query])
     
-    def __and_query(self, operator_object, and_query):
-        return all([
-            self.__parse_query(operator_object, query) for query in and_query
-        ])
-    
-    def __or_query(self, operator_object, or_query):
-        return any([
-            self.__parse_query(operator_object, query) for query in or_query
-        ])
-
-    class __Operator:
-        def __init__(self, ndi_object):
-            self.object = ndi_object
-
-        def equals(self, field, value):
-            return getattr(self.object, field) == value
-
-        def not_equals(self, field, value):
-            return getattr(self.object, field) != value
-
-        def contains(self, field, value):
-            return value in getattr(self.object, field)
-
-        def match(self, field, value):
-            return re.match(value, getattr(self.object, field))
-
-        def greater_than(self, field, value):
-            return getattr(self.object, field) > value
-
-        def greater_than_or_equal_to(self, field, value):
-            return getattr(self.object, field) >= value
-        
-        def less_than(self, field, value):
-            return getattr(self.object, field) < value
-
-        def less_than_or_equal_to(self, field, value):
-            return getattr(self.object, field) <= value
-        
-        def exists(self, field, value):
-            return hasattr(self.object, field) == value
-        
-        def in_(self, field, value):
-            return getattr(self.object, field) in value
+    __operations = {
+            '==': lambda ndi_object, field, value: getattr(ndi_object, field) == value,
+            '!=': lambda ndi_object, field, value: getattr(ndi_object, field) != value,
+            'contains': lambda ndi_object, field, value: value in getattr(ndi_object, field),
+            'match': lambda ndi_object, field, value: re.match(value, getattr(ndi_object, field)),
+            '>': lambda ndi_object, field, value: getattr(ndi_object, field) > value,
+            '>=': lambda ndi_object, field, value: getattr(ndi_object, field) >= value,
+            '<': lambda ndi_object, field, value: getattr(ndi_object, field) < value,
+            '<=': lambda ndi_object, field, value: getattr(ndi_object, field) <= value,
+            'exists': lambda ndi_object, field, value: hasattr(ndi_object, field) == value,
+            'in': lambda ndi_object, field, value: getattr(ndi_object, field) in value
+        }
