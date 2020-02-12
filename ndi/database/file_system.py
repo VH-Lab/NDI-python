@@ -331,20 +331,19 @@ class Collection:
         return self.__operations[operator](ndi_object, field, value)
 
     def __composite_query(self, ndi_object, ndi_query):
-        return {
-            AndQuery: all,
-            OrQuery: any
-        }[type(ndi_query)]([self.__parse_query(ndi_object, query) for query in ndi_query])
-    
+        return self.__operations[type(ndi_query)]([self.__parse_query(ndi_object, query) for query in ndi_query])
+
     __operations = {
-            '==': lambda ndi_object, field, value: getattr(ndi_object, field) == value,
-            '!=': lambda ndi_object, field, value: getattr(ndi_object, field) != value,
-            'contains': lambda ndi_object, field, value: value in getattr(ndi_object, field),
-            'match': lambda ndi_object, field, value: re.match(value, getattr(ndi_object, field)),
-            '>': lambda ndi_object, field, value: getattr(ndi_object, field) > value,
-            '>=': lambda ndi_object, field, value: getattr(ndi_object, field) >= value,
-            '<': lambda ndi_object, field, value: getattr(ndi_object, field) < value,
-            '<=': lambda ndi_object, field, value: getattr(ndi_object, field) <= value,
-            'exists': lambda ndi_object, field, value: hasattr(ndi_object, field) == value,
-            'in': lambda ndi_object, field, value: getattr(ndi_object, field) in value
-        }
+        AndQuery: all,
+        OrQuery: any,
+        '==': lambda ndi_object, field, value: getattr(ndi_object, field) == value,
+        '!=': lambda ndi_object, field, value: getattr(ndi_object, field) != value,
+        'contains': lambda ndi_object, field, value: value in getattr(ndi_object, field),
+        'match': lambda ndi_object, field, value: re.match(value, getattr(ndi_object, field)),
+        '>': lambda ndi_object, field, value: getattr(ndi_object, field) > value,
+        '>=': lambda ndi_object, field, value: getattr(ndi_object, field) >= value,
+        '<': lambda ndi_object, field, value: getattr(ndi_object, field) < value,
+        '<=': lambda ndi_object, field, value: getattr(ndi_object, field) <= value,
+        'exists': lambda ndi_object, field, value: hasattr(ndi_object, field) == value,
+        'in': lambda ndi_object, field, value: getattr(ndi_object, field) in value
+    }
