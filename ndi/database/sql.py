@@ -40,18 +40,18 @@ class SQL(BaseDB):
     _collections_columns = {
         Experiment: {
             'id': Column(String, primary_key=True),
-            'flat_buffer': Column(LargeBinary),
+            'flatbuffer': Column(LargeBinary),
             'name': Column(String),
         },
         DaqSystem: {
             'id': Column(String, primary_key=True),
-            'flat_buffer': Column(LargeBinary),
+            'flatbuffer': Column(LargeBinary),
             'experiment_id': Column(String, ForeignKey('experiments.id')),
             'name': Column(String),
         },
         Probe: {
             'id': Column(String, primary_key=True),
-            'flat_buffer': Column(LargeBinary),
+            'flatbuffer': Column(LargeBinary),
             'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
             'name': Column(String),
             'reference': Column(Integer),
@@ -59,12 +59,12 @@ class SQL(BaseDB):
         },
         Epoch: {
             'id': Column(String, primary_key=True),
-            'flat_buffer': Column(LargeBinary),
+            'flatbuffer': Column(LargeBinary),
             'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
         },
         Channel: {
             'id': Column(String, primary_key=True),
-            'flat_buffer': Column(LargeBinary),
+            'flatbuffer': Column(LargeBinary),
             'probe_id': Column(String, ForeignKey('probes.id')),
             'epoch_id': Column(String, ForeignKey('epochs.id')),
             'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
@@ -203,7 +203,7 @@ class SQL(BaseDB):
         :rtype: List<:term:`NDI object`>
         """
         flatbuffers = self._collections[ndi_class].find(query=query)
-        ndi_objects = list(map(lambda fb: ndi_class.from_flatbuffer(fb), flatbuffers))
+        ndi_objects = [ ndi_class.from_flatbuffer(fb) for fb in flatbuffers ]
         return ndi_objects
     
     def update_many(self, ndi_class, query={}, payload={}):
@@ -272,13 +272,14 @@ def recast_ndi_objects_to_documents(func):
     @wraps(func)
     def decorator(self, ndi_objects, *args, **kwargs):
         items = list(map(self.create_document_from_ndi_object, ndi_objects))
+        items = [ self.create_document_from_ndi_object(o) for o in ndi_objects ]
         func(self, items, *args, **kwargs)
     return decorator
 
 def translate_query(func):
     @wraps(func)
     def decorator(self, *args, query=None, sqla_query=None, **kwargs):
-        if isinstance(query, Query) or isinstance(query, CompositeQuery):
+        if isinstance(query, Query):
             query = self.generate_sqla_filter(query)
         elif query is None:
             if sqla_query is not None:
@@ -333,25 +334,25 @@ class Collection:
     def create_document_from_ndi_object(self, ndi_object):
         metadata_fields = { key: getattr(ndi_object, key)
             for key in self.fields
-            if key != 'flat_buffer' }
+            if key != 'flatbuffer' }
         fields = {
-            'flat_buffer': ndi_object.serialize(),
+            'flatbuffer': ndi_object.serialize(),
             **metadata_fields
         }
-        return self.table(**fields)
+        return self.create_document(fields)
     
     def extract_document_fields(self, documents):
         extract = lambda doc: { key: getattr(doc, key)
             for key in self.fields }
         if isinstance(documents, list):
-            return list(map(extract, documents))
+            return [ extract(doc) for doc in documents ]
         else:
             return extract(documents)
 
     def extract_flatbuffers(self, documents):
-        extract = lambda doc: getattr(doc, 'flat_buffer')
+        extract = lambda doc: getattr(doc, 'flatbuffer')
         if isinstance(documents, list):
-            return list(map(extract, documents))
+            return [ extract(doc) for doc in documents ]
         else:
             return extract(documents)
 
@@ -425,6 +426,3 @@ class Collection:
         for item in items:
             doc = session.query(self.table).get(item.id)
             session.delete(doc)
-    
-    def update_many():
-        pass
