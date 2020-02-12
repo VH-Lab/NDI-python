@@ -44,7 +44,7 @@ class FileSystem(BaseDB):
         self._collections[type(experiment)].add(experiment)
         for daq_system in experiment.daq_systems:
             self._collections[type(daq_system)].add(daq_system)
-            daqreader = daq_system.daq_reader()
+            daqreader = daq_system.daq_reader
 
             for collection in ['probes', 'epochs', 'channels']:
                 self.add(getattr(daqreader, f'get_{collection}')())
