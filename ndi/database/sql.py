@@ -271,14 +271,7 @@ class SQL(BaseDB):
 def recast_ndi_objects_to_documents(func):
     @wraps(func)
     def decorator(self, ndi_objects, *args, **kwargs):
-        items = list(map(self.create_document_from_ndi_object, ndi_objects))
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
         items = [ self.create_document_from_ndi_object(o) for o in ndi_objects ]
-=======
->>>>>>> addExperiment & pipeline notebook
->>>>>>> addExperiment & pipeline notebook
         func(self, items, *args, **kwargs)
     return decorator
 
