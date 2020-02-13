@@ -385,7 +385,6 @@ class Collection:
 
     def _functionalize_query(self, query):
         def filter_(expr):
-            if query is not None: print(query)
             return expr if query is None else expr.filter(query)
         return filter_
 
