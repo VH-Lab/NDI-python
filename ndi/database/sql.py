@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy import Table, Column, ForeignKey, Integer, String, LargeBinary
 from sqlalchemy import and_, or_
 from .base_db import BaseDB
@@ -27,7 +27,7 @@ class SQL(BaseDB):
         self.db = create_engine(connection_string)
         self.Session = sessionmaker(bind=self.db)
         self.Base = declarative_base()
-        self.__create_collections()
+        self.__create_collections(self.__configure_collections())
 
     def execute(self, query):
         """Runs a custom sql query.
@@ -37,52 +37,79 @@ class SQL(BaseDB):
         """
         self.db.execute(query)
 
-    _collections_columns = {
-        Experiment: {
-            'id': Column(String, primary_key=True),
-            'flat_buffer': Column(LargeBinary),
-            'name': Column(String),
-        },
-        DaqSystem: {
-            'id': Column(String, primary_key=True),
-            'flatbuffer': Column(LargeBinary),
-            'experiment_id': Column(String, ForeignKey('experiments.id')),
-            'name': Column(String),
-        },
-        Probe: {
-            'id': Column(String, primary_key=True),
-            'flatbuffer': Column(LargeBinary),
-            'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
-            'name': Column(String),
-            'reference': Column(Integer),
-            'type': Column(String),
-        },
-        Epoch: {
-            'id': Column(String, primary_key=True),
-            'flatbuffer': Column(LargeBinary),
-            'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
-        },
-        Channel: {
-            'id': Column(String, primary_key=True),
-            'flatbuffer': Column(LargeBinary),
-            'probe_id': Column(String, ForeignKey('probes.id')),
-            'epoch_id': Column(String, ForeignKey('epochs.id')),
-            'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
-            'name': Column(String),
-            'number': Column(Integer),
-            'type': Column(String),
-            'clock_type': Column(String),
-            'source_file': Column(String),
+    def __configure_collections(self):
+        return {
+            Experiment: {
+                'id': Column(String, primary_key=True),
+                'flatbuffer': Column(LargeBinary),
+                'name': Column(String),
+                
+                'daq_systems': self.define_relationship(DaqSystem, cascade='all, delete, delete-orphan'),
+            },
+            DaqSystem: {
+                'id': Column(String, primary_key=True),
+                'flatbuffer': Column(LargeBinary),
+                'name': Column(String),
+
+                'experiment_id': Column(String, ForeignKey('experiments.id')),
+                'experiment': self.define_relationship(Experiment, back_populates='daq_systems'),
+
+                'probes': self.define_relationship(Probe, cascade='all, delete, delete-orphan'),
+                'epochs': self.define_relationship(Epoch, cascade='all, delete, delete-orphan'),
+                'channels': self.define_relationship(Channel, cascade='all, delete, delete-orphan'),
+            },
+            Probe: {
+                'id': Column(String, primary_key=True),
+                'flatbuffer': Column(LargeBinary),
+                'name': Column(String),
+                'reference': Column(Integer),
+                'type': Column(String),
+
+                'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
+                'daq_system': self.define_relationship(DaqSystem),
+
+                'channels': self.define_relationship(Channel, cascade='all, delete, delete-orphan'),
+            },
+            Epoch: {
+                'id': Column(String, primary_key=True),
+                'flatbuffer': Column(LargeBinary),
+
+                'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
+                'daq_system': self.define_relationship(DaqSystem),
+
+                'channels': self.define_relationship(Channel, cascade='all, delete, delete-orphan'),
+            },
+            Channel: {
+                'id': Column(String, primary_key=True),
+                'flatbuffer': Column(LargeBinary),
+                'name': Column(String),
+                'number': Column(Integer),
+                'type': Column(String),
+                'clock_type': Column(String),
+                'source_file': Column(String),
+
+                'probe_id': Column(String, ForeignKey('probes.id')),
+                'probe': self.define_relationship(Probe),
+                'epoch_id': Column(String, ForeignKey('epochs.id')),
+                'epoch': self.define_relationship(Epoch),
+                'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
+                'daq_system': self.define_relationship(DaqSystem),
+            }
         }
-    }
+    def __get_columns(self, config):
+        return { key: item for key, item in config.items() if isinstance(item, Column)}
+    def __get_relationships(self, config):
+        return { key: item for key, item in config.items() if not isinstance(item, Column)}
 
-    def get_tables(self):
-        return self.Base.metadata.sorted_tables
-
-    def __create_collections(self):
+    def __create_collections(self, collection_configs):
         """Create Base Collections described in :class:`ndi.database.BaseDB`."""
-        for collection, columns in self._collections_columns.items():
-            self.create_collection(collection, columns, defer_create_all=True)
+        for ndi_class, config in collection_configs.items():
+            columns = self.__get_columns(config)
+            self.create_collection(ndi_class, columns, defer_create_all=True)
+        self.Base.metadata.create_all(self.db)
+        for ndi_class, config in collection_configs.items():
+            relationships = self.__get_relationships(config)
+            self.set_relationships(ndi_class, relationships)
         self.Base.metadata.create_all(self.db)
 
     def create_collection(self, ndi_class, fields, defer_create_all=False):
@@ -103,6 +130,14 @@ class SQL(BaseDB):
         if not defer_create_all:
             self.Base.metadata.create_all(self.db)
         return self._collections[ndi_class]
+    
+    def define_relationship(self, ndi_class, **kwargs):
+        return relationship(class_to_collection_name(ndi_class), **kwargs)
+    def set_relationships(self, ndi_class, relationships):
+        self._collections[ndi_class].set_relationships(relationships)
+
+    def get_tables(self):
+        return self.Base.metadata.sorted_tables
 
     def _group_by_collection(self, ndi_objects):
         objects_by_collection = {}
@@ -206,7 +241,7 @@ class SQL(BaseDB):
         ndi_objects = [ ndi_class.from_flatbuffer(fb) for fb in flatbuffers ]
         return ndi_objects
     
-    def update_many(self, ndi_class, query={}, payload={}):
+    def update_many(self, ndi_class, query=None, payload={}):
         """Updates all documents matching the given :term:`query` in the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
         
         .. currentmodule:: ndi.base_db
@@ -219,7 +254,7 @@ class SQL(BaseDB):
         """
         self._collections[ndi_class]
     
-    def delete_many(self, ndi_class, query={}):
+    def delete_many(self, ndi_class, query=None):
         """Deletes all documents matching the given :term:`query` in the specified :term:`collection`.
         
         .. currentmodule:: ndi.base_db
@@ -228,7 +263,7 @@ class SQL(BaseDB):
         :param query: See :term:`query`, defaults to {}
         :type query: dict, optional
         """
-        self._collections[ndi_class]
+        self._collections[ndi_class].delete_many(query=query)
 
     def find_by_id(self, ndi_class, id_):
         """Retrieves the :term:`NDI object` with the given id from the specified :term:`collection`.
@@ -267,6 +302,14 @@ class SQL(BaseDB):
     def _get_collection(self, ndi_object):
         return self._collections[type(ndi_object)]
 
+
+
+
+
+
+# ============ #
+#  Collection  #
+# ============ #
 
 def recast_ndi_objects_to_documents(func):
     @wraps(func)
@@ -321,14 +364,22 @@ class Collection:
     def __init__(self, Base, Session, ndi_class, fields):
         self.Session = Session
         table_name = class_to_collection_name(ndi_class)
-        self.table =  type(table_name, (Base,), {
+        self.table = type(table_name, (Base,), {
             '__tablename__': table_name,
             **fields
         })
         self.fields = fields
     
+    def set_relationships(self, relationships):
+        for key, config in relationships.items():
+            setattr(self.table, key, config)
+
+    def _field_is_column(self, key):
+        return isinstance(getattr(self.table, key), Column)
+    
     def create_document(self, fields):
-        return self.table(**fields)
+        for key, item in self.fields.items():
+            return self.table(**fields)
 
     def create_document_from_ndi_object(self, ndi_object):
         metadata_fields = { key: getattr(ndi_object, key)
@@ -411,6 +462,13 @@ class Collection:
     def upsert(self, session, items):
         pass
 
+    @recast_ndi_objects_to_documents
+    @with_session
+    def delete(self, session, items):
+        for item in items:
+            doc = session.query(self.table).get(item.id)
+            session.delete(doc)
+
     @with_session
     @translate_query
     def find(self, session, query=None, as_flatbuffers=True):
@@ -418,9 +476,10 @@ class Collection:
         documents = filter_(session.query(self.table)).all()
         return self.extract_flatbuffers(documents) if as_flatbuffers else self.extract_document_fields(documents)
 
-    @recast_ndi_objects_to_documents
     @with_session
-    def delete(self, session, items):
-        for item in items:
-            doc = session.query(self.table).get(item.id)
+    @translate_query
+    def delete_many(self, session, query=None):
+        filter_ = self._functionalize_query(query)
+        documents = filter_(session.query(self.table)).all()
+        for doc in documents:
             session.delete(doc)
