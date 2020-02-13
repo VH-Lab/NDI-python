@@ -32,8 +32,8 @@ class DaqSystem(NDI_Object):
         super().__init__(id_)
         self.name = name
         self.file_navigator = file_navigator
-        self.daq_reader = daq_reader
         self.experiment_id = experiment_id
+        self.add_daq_reader(daq_reader)
 
     @classmethod
     def from_flatbuffer(cls, flatbuffer):
@@ -77,7 +77,7 @@ class DaqSystem(NDI_Object):
         id_ = builder.CreateString(self.id)
         name = builder.CreateString(self.name)
         file_navigator = self.file_navigator._build(builder)
-        daq_reader = builder.CreateString(self.daq_reader.__name__)
+        daq_reader = builder.CreateString(type(self.daq_reader).__name__)
         experiment_id = builder.CreateString(self.experiment_id)
 
         build_daq_system.DaqSystemStart(builder)
@@ -87,3 +87,6 @@ class DaqSystem(NDI_Object):
         build_daq_system.DaqSystemAddDaqReader(builder, daq_reader)
         build_daq_system.DaqSystemAddExperimentId(builder, experiment_id)
         return build_daq_system.DaqSystemEnd(builder)
+
+    def add_daq_reader(self, daq_reader):
+        self.daq_reader = daq_reader(self.id)

@@ -69,3 +69,22 @@ def check_ndi_class(func):
         else:
             raise TypeError(f'\'{ndi_object}\' is not an instance of \'{self.ndi_class}\'')
     return decorator
+
+def listify(func):
+    @wraps(func)
+    def decorator(self, arg, *args, **kwargs):
+        if not isinstance(arg, list):
+            func(self, [arg], *args, **kwargs)
+        else:
+            func(self, arg, *args, **kwargs)
+    return decorator
+
+def check_ndi_objects(func):
+    @wraps(func)
+    def decorator(self, ndi_objects, *args, **kwargs):
+        if len(ndi_objects):
+            for item in ndi_objects:
+                if not isinstance(item, NDI_Object):
+                    raise TypeError(f'\'{item}\' is not an instance of an \'NDI_Object\' child class.')
+            func(self, ndi_objects, *args, **kwargs)
+    return decorator

@@ -44,10 +44,10 @@ class FileSystem(BaseDB):
         self._collections[type(experiment)].add(experiment)
         for daq_system in experiment.daq_systems:
             self._collections[type(daq_system)].add(daq_system)
-            daqreader = daq_system.daq_reader()
+            daq_reader = daq_system.daq_reader
 
             for collection in ['probes', 'epochs', 'channels']:
-                self.add(getattr(daqreader, f'get_{collection}')())
+                self.add(getattr(daq_reader, f'get_{collection}')())
 
     def __create_collections(self):
         """.. currentmodule:: ndi.base_db:
