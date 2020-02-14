@@ -445,16 +445,16 @@ class Collection:
         AndQuery: lambda conditions: and_(*conditions),
         OrQuery: lambda conditions: or_(*conditions),
         # operators
-        '==': lambda field, value: field == value,
-        '!=': lambda x: x,
-        'contains': lambda x: x,
-        'match': lambda x: x,
-        '>': lambda x: x,
-        '>=': lambda x: x,
-        '<': lambda x: x,
-        '<=': lambda x: x,
-        'exists': lambda x: x,
-        'in': lambda x: x,
+        '==':       lambda field, value: field == value,
+        '!=':       lambda field, value: field != value,
+        'contains': lambda field, value: field.contains(value),
+        'match':    lambda field, value: field.match(value),
+        '>':        lambda field, value: field > value,
+        '>=':       lambda field, value: field >= value,
+        '<':        lambda field, value: field < value,
+        '<=':       lambda field, value: field <= value,
+        'exists':   lambda field, value: field,
+        'in':       lambda field, value: field.in_(value),
     }
 
     def generate_sqla_filter(self, query):
