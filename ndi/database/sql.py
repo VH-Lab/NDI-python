@@ -11,12 +11,75 @@ from ndi.utils import class_to_collection_name, flatten
 from ndi.database.utils import handle_iter, check_ndi_object, listify, check_ndi_objects
 from ndi.database.query import Query, AndQuery, OrQuery, CompositeQuery
 
+
+# ============ #
+#  Decorators  #
+# ============ #
+
+def recast_ndi_objects_to_documents(func):
+    @wraps(func)
+    def decorator(self, ndi_objects, *args, **kwargs):
+        items = [ self.create_document_from_ndi_object(o) for o in ndi_objects ]
+        func(self, items, *args, **kwargs)
+    return decorator
+
+def translate_query(func):
+    @wraps(func)
+    def decorator(self, *args, query=None, sqla_query=None, **kwargs):
+        if isinstance(query, Query):
+            query = self.generate_sqla_filter(query)
+        elif query is None:
+            if sqla_query is not None:
+                query = sqla_query
+            else: pass
+        else:
+            raise TypeError(f'{query} must be of type Query or CompositeQuery.')
+        return func(self, *args, query=query, **kwargs)
+    return decorator
+
+def with_session(func):
+    """Handle session instantiation, commit, and close operations for a class method."""
+    @wraps(func)
+    def decorator(self, *args, session=None, **kwargs):
+        enclosed_session = session is None
+        if enclosed_session: 
+            session = self.Session()
+        output = func(self, session, *args, **kwargs)
+        if enclosed_session:
+            session.commit()
+            session.close()
+        return output
+    return decorator
+
+def with_open_session(func):
+    """Handle session setup/teardown as a context manager for a class method."""
+    @wraps(func)
+    @contextmanager
+    def decorator(self, *args, session=None, **kwargs):
+        enclosed_session = session is None
+        if enclosed_session:
+            session = self.Session()
+        yield func(self, session, *args, **kwargs)
+        if enclosed_session:
+            session.commit()
+            session.close()
+    return decorator
+
+
+
+
+# ============== #
+#  SQL Database  #
+# ============== #
+
 class SQL(BaseDB):
     """Interface for SQL Databases.
     
     .. currentmodule:: ndi.database.base_db
     Inherits from the :class:`BaseDB` abstract class.
     """
+
+    relationships = {}
 
     def __init__(self, connection_string):
         """Sets up a SQL database with collections and binds a sqlAlchemy sessionmaker.
@@ -28,6 +91,10 @@ class SQL(BaseDB):
         self.Session = sessionmaker(bind=self.db)
         self.Base = declarative_base()
         self.__create_collections(self.__configure_collections())
+
+    @with_open_session
+    def _sqla_open_session(self, session):
+        return session
 
     def execute(self, query):
         """Runs a custom sql query.
@@ -44,7 +111,7 @@ class SQL(BaseDB):
                 'flatbuffer': Column(LargeBinary),
                 'name': Column(String),
                 
-                'daq_systems': self.define_relationship(DaqSystem, cascade='all, delete, delete-orphan'),
+                'daq_systems': self.define_relationship(DaqSystem, lazy='joined', cascade='all, delete, delete-orphan'),
             },
             DaqSystem: {
                 'id': Column(String, primary_key=True),
@@ -52,7 +119,7 @@ class SQL(BaseDB):
                 'name': Column(String),
 
                 'experiment_id': Column(String, ForeignKey('experiments.id')),
-                'experiment': self.define_relationship(Experiment, back_populates='daq_systems'),
+                'experiment': self.define_relationship(Experiment),
 
                 'probes': self.define_relationship(Probe, cascade='all, delete, delete-orphan'),
                 'epochs': self.define_relationship(Epoch, cascade='all, delete, delete-orphan'),
@@ -132,12 +199,17 @@ class SQL(BaseDB):
         return self._collections[ndi_class]
     
     def define_relationship(self, ndi_class, **kwargs):
-        return relationship(class_to_collection_name(ndi_class), **kwargs)
+        rel = relationship(class_to_collection_name(ndi_class), **kwargs)
+        setattr(rel, '_ndi_class', ndi_class)
+        return rel
     def set_relationships(self, ndi_class, relationships):
         self._collections[ndi_class].set_relationships(relationships)
 
     def get_tables(self):
-        return self.Base.metadata.sorted_tables
+        return { ndi_class: collection.table for ndi_class, collection in self._collections.items() }
+    def get_table(self, ndi_class):
+        collection = self._collections[ndi_class]
+        return collection.table
 
     def _group_by_collection(self, ndi_objects):
         objects_by_collection = {}
@@ -227,7 +299,7 @@ class SQL(BaseDB):
         for Collection, ndi_objects in deletions_by_collection.items():
             Collection.delete(ndi_objects)
 
-    def find(self, ndi_class, query=None):
+    def find(self, ndi_class, query=None, as_sql_data=False):
         """Extracts all documents matching the given :term:`query` in the specified :term:`collection`.
         
         .. currentmodule:: ndi.base_db
@@ -237,9 +309,12 @@ class SQL(BaseDB):
         :type query: dict, optional
         :rtype: List<:term:`NDI object`>
         """
-        flatbuffers = self._collections[ndi_class].find(query=query)
-        ndi_objects = [ ndi_class.from_flatbuffer(fb) for fb in flatbuffers ]
-        return ndi_objects
+        results = self._collections[ndi_class].find(query=query, as_flatbuffers = not as_sql_data)
+        if as_sql_data:
+            return results
+        else:
+            ndi_objects = [ ndi_class.from_flatbuffer(flatbuffer) for flatbuffer in results ]
+            return ndi_objects
     
     def update_many(self, ndi_class, query=None, payload={}):
         """Updates all documents matching the given :term:`query` in the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
@@ -311,68 +386,27 @@ class SQL(BaseDB):
 #  Collection  #
 # ============ #
 
-def recast_ndi_objects_to_documents(func):
-    @wraps(func)
-    def decorator(self, ndi_objects, *args, **kwargs):
-        items = [ self.create_document_from_ndi_object(o) for o in ndi_objects ]
-        func(self, items, *args, **kwargs)
-    return decorator
-
-def translate_query(func):
-    @wraps(func)
-    def decorator(self, *args, query=None, sqla_query=None, **kwargs):
-        if isinstance(query, Query):
-            query = self.generate_sqla_filter(query)
-        elif query is None:
-            if sqla_query is not None:
-                query = sqla_query
-            else: pass
-        else:
-            raise TypeError(f'{query} must be of type Query or CompositeQuery.')
-        return func(self, *args, query=query, **kwargs)
-    return decorator
-
-def with_session(func):
-    """Handle session instantiation, commit, and close operations for a class method."""
-    @wraps(func)
-    def decorator(self, *args, session=None, **kwargs):
-        enclosed_session = session is None
-        if enclosed_session: 
-            session = self.Session()
-        output = func(self, session, *args, **kwargs)
-        if enclosed_session:
-            session.commit()
-            session.close()
-        return output
-    return decorator
-
-def with_open_session(func):
-    """Handle session setup/teardown as a context manager for a class method."""
-    @wraps(func)
-    @contextmanager
-    def decorator(self, *args, session=None, **kwargs):
-        enclosed_session = session is None
-        if enclosed_session:
-            session = self.Session()
-        yield func(self, session, *args, **kwargs)
-        if enclosed_session:
-            session.commit()
-            session.close()
-    return decorator
-
 class Collection:
     def __init__(self, Base, Session, ndi_class, fields):
         self.Session = Session
-        table_name = class_to_collection_name(ndi_class)
-        self.table = type(table_name, (Base,), {
-            '__tablename__': table_name,
+        self.ndi_class = ndi_class
+        self.table_name = class_to_collection_name(ndi_class)
+        self.table = type(self.table_name, (Base,), {
+            '__tablename__': self.table_name,
             **fields
         })
         self.fields = fields
+        self.relationship_keys = {}
     
     def set_relationships(self, relationships):
-        for key, config in relationships.items():
-            setattr(self.table, key, config)
+        for key, relation in relationships.items():
+            setattr(self.table, key, relation)
+            self.relationship_keys[relation._ndi_class] = key
+
+    @with_open_session
+    def sqla_open_session(self, session):
+        return (session, self.table, self.relationship_keys)
+
 
     def _field_is_column(self, key):
         return isinstance(getattr(self.table, key), Column)
@@ -475,6 +509,12 @@ class Collection:
         filter_ = self._functionalize_query(query)
         documents = filter_(session.query(self.table)).all()
         return self.extract_flatbuffers(documents) if as_flatbuffers else self.extract_document_fields(documents)
+
+    @with_open_session
+    @translate_query
+    def sqla_find(self, session, query=None):
+        filter_ = self._functionalize_query(query)
+        return filter_(session.query(self.table)).all()
 
     @with_session
     @translate_query
