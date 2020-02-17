@@ -205,6 +205,12 @@ class SQL(BaseDB):
         if not defer_create_all:
             self.Base.metadata.create_all(self.db)
         return self._collections[ndi_class]
+
+    @listify
+    def drop_collection(self, ndi_classes):
+        for ndi_class in ndi_classes:
+            self._collections[ndi_class].table.__table__.drop(self.db)
+            self._collections.pop(ndi_class)
     
     def define_relationship(self, ndi_class, **kwargs):
         rel = relationship(class_to_collection_name(ndi_class), **kwargs)
@@ -416,6 +422,11 @@ class Collection:
         for key, relation in relationships.items():
             setattr(self.table, key, relation)
             self.relationship_keys[relation._ndi_class] = key
+
+    @listify
+    def remove_relationships(self, relationship_keys):
+        for key in relationship_keys:
+            delattr(self.table, key)
 
     @with_open_session
     def sqla_open_session(self, session):
