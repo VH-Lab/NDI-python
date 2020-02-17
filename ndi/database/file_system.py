@@ -68,6 +68,15 @@ class FileSystem(BaseDB):
         """
         self._collections[ndi_class] = Collection(self.db_dir, ndi_class)
 
+    def drop_collection(self, ndi_class):
+        """Deletes the :term:`collection` corresponding to the given :term:`NDI class`.
+
+        :param ndi_class: The :term:`NDI class` whose corresponding collection will be deleted
+        :type ndi_class: type
+        """
+        self._collections[ndi_class].drop()
+        del self._collections[ndi_class]
+
     @handle_iter
     @check_ndi_object
     def add(self, ndi_object):
@@ -210,6 +219,12 @@ class Collection:
 
         # Initializing Collection
         self.collection_dir.mkdir(parents=True, exist_ok=True)
+
+    def drop(self):
+        """Deletes all entries in the collection and then deletes the directory
+        """
+        self.delete_many()
+        self.collection_dir.rmdir()
 
     @handle_iter
     @check_ndi_class
