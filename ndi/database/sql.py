@@ -8,8 +8,16 @@ from contextlib import contextmanager
 from functools import wraps
 from ndi import Experiment, DaqSystem, Probe, Epoch, Channel
 from ndi.utils import class_to_collection_name, flatten
-from ndi.database.utils import handle_iter, check_ndi_object, listify, check_ndi_objects
+from ndi.database.utils import handle_iter, check_ndi_object, listify, check_ndi_objects, update_flatbuffer
 from ndi.database.query import Query, AndQuery, OrQuery, CompositeQuery
+
+
+
+# =========== #
+#  Constants  #
+# =========== #
+
+FLATBUFFER_KEY = 'flatbuffer'
 
 
 # ============ #
@@ -108,14 +116,14 @@ class SQL(BaseDB):
         return {
             Experiment: {
                 'id': Column(String, primary_key=True),
-                'flatbuffer': Column(LargeBinary),
+                FLATBUFFER_KEY: Column(LargeBinary),
                 'name': Column(String),
                 
                 'daq_systems': self.define_relationship(DaqSystem, lazy='joined', cascade='all, delete, delete-orphan'),
             },
             DaqSystem: {
                 'id': Column(String, primary_key=True),
-                'flatbuffer': Column(LargeBinary),
+                FLATBUFFER_KEY: Column(LargeBinary),
                 'name': Column(String),
 
                 'experiment_id': Column(String, ForeignKey('experiments.id')),
@@ -127,7 +135,7 @@ class SQL(BaseDB):
             },
             Probe: {
                 'id': Column(String, primary_key=True),
-                'flatbuffer': Column(LargeBinary),
+                FLATBUFFER_KEY: Column(LargeBinary),
                 'name': Column(String),
                 'reference': Column(Integer),
                 'type': Column(String),
@@ -139,7 +147,7 @@ class SQL(BaseDB):
             },
             Epoch: {
                 'id': Column(String, primary_key=True),
-                'flatbuffer': Column(LargeBinary),
+                FLATBUFFER_KEY: Column(LargeBinary),
 
                 'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
                 'daq_system': self.define_relationship(DaqSystem),
@@ -148,7 +156,7 @@ class SQL(BaseDB):
             },
             Channel: {
                 'id': Column(String, primary_key=True),
-                'flatbuffer': Column(LargeBinary),
+                FLATBUFFER_KEY: Column(LargeBinary),
                 'name': Column(String),
                 'number': Column(Integer),
                 'type': Column(String),
@@ -275,16 +283,18 @@ class SQL(BaseDB):
             Collection.update(ndi_objects)
 
 
-    @handle_iter
-    @check_ndi_object
-    def upsert(self, ndi_object):
+    @listify
+    @check_ndi_objects
+    def upsert(self, ndi_objects):
         """.. currentmodule:: ndi.base_db
         Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. If an object doesn't have a document representation, it is added to the collection. Objects may belong to different :term:`NDI classes`. 
         
         :param ndi_object: The object(s) to be upserted into the database.
         :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
         """
-        self._collections[type(ndi_object)]
+        upserts_by_collection = self._group_by_collection(ndi_objects)
+        for Collection, ndi_objects in upserts_by_collection.items():
+            Collection.upsert(ndi_objects)
 
     @listify
     @check_ndi_objects
@@ -299,7 +309,7 @@ class SQL(BaseDB):
         for Collection, ndi_objects in deletions_by_collection.items():
             Collection.delete(ndi_objects)
 
-    def find(self, ndi_class, query=None, as_sql_data=False):
+    def find(self, ndi_class, query=None, order_by=None, as_sql_data=False):
         """Extracts all documents matching the given :term:`query` in the specified :term:`collection`.
         
         .. currentmodule:: ndi.base_db
@@ -309,14 +319,14 @@ class SQL(BaseDB):
         :type query: dict, optional
         :rtype: List<:term:`NDI object`>
         """
-        results = self._collections[ndi_class].find(query=query, as_flatbuffers = not as_sql_data)
+        results = self._collections[ndi_class].find(query=query, order_by=order_by, as_flatbuffers = not as_sql_data)
         if as_sql_data:
             return results
         else:
             ndi_objects = [ ndi_class.from_flatbuffer(flatbuffer) for flatbuffer in results ]
             return ndi_objects
     
-    def update_many(self, ndi_class, query=None, payload={}):
+    def update_many(self, ndi_class, query=None, payload={}, order_by=None):
         """Updates all documents matching the given :term:`query` in the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
         
         .. currentmodule:: ndi.base_db
@@ -327,7 +337,9 @@ class SQL(BaseDB):
         :param payload: Field and update values to be updated, defaults to {}
         :type payload: :term:`payload`, optional
         """
-        self._collections[ndi_class]
+        results = self._collections[ndi_class].update_many(query=query, payload=payload, order_by=order_by)
+        ndi_objects = [ ndi_class.from_flatbuffer(flatbuffer) for flatbuffer in results ]
+        return ndi_objects
     
     def delete_many(self, ndi_class, query=None):
         """Deletes all documents matching the given :term:`query` in the specified :term:`collection`.
@@ -340,7 +352,7 @@ class SQL(BaseDB):
         """
         self._collections[ndi_class].delete_many(query=query)
 
-    def find_by_id(self, ndi_class, id_):
+    def find_by_id(self, ndi_class, id_, as_sql_data=False):
         """Retrieves the :term:`NDI object` with the given id from the specified :term:`collection`.
 
         .. currentmodule:: ndi.base_db
@@ -350,7 +362,8 @@ class SQL(BaseDB):
         :type id_: str
         :rtype: :term:`NDI object`
         """
-        return self._collections[ndi_class]
+        result = self._collections[ndi_class].find_by_id(id_, as_flatbuffer = not as_sql_data)
+        return result if as_sql_data else ndi_class.from_flatbuffer(result)
 
     def update_by_id(self, ndi_class, id_, payload={}):
         """Updates the :term:`NDI object` with the given id from the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
@@ -361,7 +374,8 @@ class SQL(BaseDB):
         :param id_: The identifier of the :term:`document` to update.
         :type id_: str
         """
-        self._collections[ndi_class]
+        result = self._collections[ndi_class].update_by_id(id_, payload=payload)
+        return ndi_class.from_flatbuffer(result)
 
     def delete_by_id(self, ndi_class, id_):
         """Deletes the :term:`NDI object` with the given id from the specified :term:`collection`.
@@ -372,7 +386,7 @@ class SQL(BaseDB):
         :param id_: The identifier of the :term:`document` to delete.
         :type id_: str
         """
-        self._collections[ndi_class]
+        self._collections[ndi_class].delete_by_id(id_)
 
     def _get_collection(self, ndi_object):
         return self._collections[type(ndi_object)]
@@ -418,9 +432,9 @@ class Collection:
     def create_document_from_ndi_object(self, ndi_object):
         metadata_fields = { key: getattr(ndi_object, key)
             for key in self.fields
-            if key != 'flatbuffer' }
+            if key != FLATBUFFER_KEY }
         fields = {
-            'flatbuffer': ndi_object.serialize(),
+            FLATBUFFER_KEY: ndi_object.serialize(),
             **metadata_fields
         }
         return self.create_document(fields)
@@ -434,7 +448,7 @@ class Collection:
             return extract(documents)
 
     def extract_flatbuffers(self, documents):
-        extract = lambda doc: getattr(doc, 'flatbuffer')
+        extract = lambda doc: getattr(doc, FLATBUFFER_KEY)
         if isinstance(documents, list):
             return [ extract(doc) for doc in documents ]
         else:
@@ -476,10 +490,6 @@ class Collection:
     @recast_ndi_objects_to_documents
     @with_session
     def add(self, session, items):
-        print(f'adding to {self.table.__tablename__}:')
-        for item in items:
-            id = getattr(item, 'id')
-            print(f'  {id[0:7]}...', item)
         session.add_all(items)
 
     @recast_ndi_objects_to_documents
@@ -494,7 +504,15 @@ class Collection:
     @recast_ndi_objects_to_documents
     @with_session
     def upsert(self, session, items):
-        pass
+        q = session.query(self.table)
+        for item in items:
+            doc = q.get(item.id)
+            if doc is None:
+                session.add(item)
+            else:
+                for key in self.fields:
+                    setattr(doc, key, getattr(item, key))
+        
 
     @recast_ndi_objects_to_documents
     @with_session
@@ -505,16 +523,16 @@ class Collection:
 
     @with_session
     @translate_query
-    def find(self, session, query=None, as_flatbuffers=True):
+    def find(self, session, query=None, order_by=None, as_flatbuffers=True):
         filter_ = self._functionalize_query(query)
-        documents = filter_(session.query(self.table)).all()
+        documents = filter_(session.query(self.table)).order_by(order_by).all()
         return self.extract_flatbuffers(documents) if as_flatbuffers else self.extract_document_fields(documents)
 
     @with_open_session
     @translate_query
-    def sqla_find(self, session, query=None):
+    def sqla_find(self, session, query=None, order_by=None):
         filter_ = self._functionalize_query(query)
-        return filter_(session.query(self.table)).all()
+        return filter_(session.query(self.table)).order_by(order_by).all()
 
     @with_session
     @translate_query
@@ -523,3 +541,37 @@ class Collection:
         documents = filter_(session.query(self.table)).all()
         for doc in documents:
             session.delete(doc)
+
+    @with_session
+    def find_by_id(self, session, id_, as_flatbuffer=True):
+        document = session.query(self.table).get(id_)
+        return self.extract_flatbuffers(document) if as_flatbuffer else self.extract_document_fields(document)
+
+    @with_session
+    def update_by_id(self, session, id_, payload={}):
+        document = session.query(self.table).get(id_)
+        self.__update_sqla_partial_document(document, payload)
+        return self.extract_flatbuffers(document)
+
+    @with_session
+    def delete_by_id(self, session, id_):
+        document = session.query(self.table).get(id_)
+        session.delete(document)
+
+    @with_session
+    @translate_query
+    def update_many(self, session, query={}, payload={}, order_by=None):
+        filter_ = self._functionalize_query(query)
+        documents = filter_(session.query(self.table)).order_by(order_by).all()
+        for d in documents:
+            self.__update_sqla_partial_document(d, payload)
+        return self.extract_flatbuffers(documents)
+
+    def __update_sqla_partial_document(self, document, payload):
+        # NOT PURE: modifies document in place
+        for key, value in payload.items():
+            setattr(document, key, value)
+        if hasattr(document, FLATBUFFER_KEY):
+            old_flatbuffer = getattr(document, FLATBUFFER_KEY)
+            updated_flatbuffer = update_flatbuffer(self.ndi_class, old_flatbuffer, payload)
+            setattr(document, FLATBUFFER_KEY, updated_flatbuffer)

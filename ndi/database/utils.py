@@ -88,3 +88,24 @@ def check_ndi_objects(func):
                     raise TypeError(f'\'{item}\' is not an instance of an \'NDI_Object\' child class.')
             func(self, ndi_objects, *args, **kwargs)
     return decorator
+
+def update_flatbuffer(ndi_class, flatbuffer, payload):
+    ndi_object = ndi_class.from_flatbuffer(flatbuffer)
+    for key, value in payload.items():
+        setattr(ndi_object, key, value)
+    return ndi_object.serialize()
+
+def print_everything_in(db):
+    for collection in db._collections:
+        results = db.find(collection)
+        print(collection.__name__ + 's')
+        for doc in results:
+            try: print(f'  - {doc.name}')
+            except AttributeError: print(f'  - {doc.id}')
+        if len(results) == 0:
+            print('  ---NONE---')
+        print('')
+
+def destroy_everything_in(db):
+    for collection in db._collections:
+        db.delete_many(collection)

@@ -1,1 +1,1 @@
-from .mock_daq_reader import MockReader
+from .mock_daq_reader import MockReader, EmptyMockReader
