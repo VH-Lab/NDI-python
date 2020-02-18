@@ -80,3 +80,9 @@ Glossary
 
   CRUD
     A term for the collection of :term:`database` operations that Create, Read, Update, or Delete a :term:`document`.
+
+  SQLA document
+    A SQL Alchemy representation of a table row.
+
+  SQLA table
+    A SQL Alchemy representation of a table (`docs <https://docs.sqlalchemy.org/en/13/core/metadata.html>`_\ ).

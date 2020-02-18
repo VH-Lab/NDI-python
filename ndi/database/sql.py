@@ -87,7 +87,7 @@ class SQL(BaseDB):
     relationships = {}
 
     def __init__(self, connection_string):
-        """Sets up a SQL database with collections and binds a sqlAlchemy sessionmaker.
+        """Sets up a SQL database with collections, binds a sqlAlchemy sessionmaker, and instantiates a slqAlchemy metadata Base.
         
         :param connection_string: A standard SQL Server connection string.
         :type connection_string: str
@@ -99,17 +99,30 @@ class SQL(BaseDB):
 
     @with_open_session
     def _sqla_open_session(self, session):
+        """Exposes a session for use in a :code:`'with'` statement.
+        ::
+            with db._sqla_open_session() as session:
+                # session work
+        
+        Handles session setup, commit, and close. Only for use by developers wanting to access the underlying sqlAlchemy layer.
+        
+        :param session: Recieved from decorator.
+        :type session: :class:`sqlalchemy.orm.session.Session`
+        :return: A sqlAlchemy session instance.
+        :rtype: Iterator[:class:`sqlalchemy.orm.session.Session`]
+        """
         return session
 
     def execute(self, query):
-        """Runs a custom sql query.
+        """Runs a `sqlAlchemy query <https://docs.sqlalchemy.org/en/13/core/connections.html>`_. Only for use by developers wanting to access the underlying sqlAlchemy layer.
         
         :param query: A SQL query in the format of the given database.
         :type query: str
         """
-        self.db.execute(query)
+        return self.db.execute(query)
 
     def __configure_collections(self):
+        """Postponing documentation pending NDI_Collection."""
         return {
             Experiment: {
                 'id': Column(String, primary_key=True),
@@ -170,13 +183,17 @@ class SQL(BaseDB):
         }
 
     def __get_columns(self, config):
+        """Postponing documentation pending NDI_Collection."""
         return { key: item for key, item in config.items() if isinstance(item, Column)}
 
     def __get_relationships(self, config):
+        """Postponing documentation pending NDI_Collection."""
         return { key: item for key, item in config.items() if not isinstance(item, Column)}
 
     def __create_collections(self, collection_configs):
-        """Create Base Collections described in :class:`ndi.database.BaseDB`."""
+        """Creates :class:`Collection`\ s from the given configs and adds them to the database.
+        Postponing further documentation pending NDI_Collection.
+        """
         for ndi_class, config in collection_configs.items():
             columns = self.__get_columns(config)
             self.create_collection(ndi_class, columns, defer_create_all=True)
@@ -187,18 +204,21 @@ class SQL(BaseDB):
         self.Base.metadata.create_all(self.db)
 
     def create_collection(self, ndi_class, fields, defer_create_all=False):
-        """Creates a table given an ndi_object and the desired fields and stores it in _collections.
-        
-        Args:
-            ndi_class(:class:`ndi.ndi_class`): The NDI Class this collection will be built on. 
-                CRUD operations on this database will require this class to specify the table to operate on.
+        """Creates a :class:`Collection` and stores it in _collections.
 
-        Kwargs:
-            field_name (:class:`sqlalchemy.Column`): The sqlAlchemy ORM Column instance that defines the given field_name.
-                Multiple field_name=Column() arguments may be given for multiple fields.
+        Postponing further documentation pending NDI_Collection.
+        
+        :param ndi_class: The NDI Class this collection will be built on. 
+            CRUD operations on this database will require this class to specify the table to operate on.
+        :type ndi_class: :term:`NDI class`
+        :param fields:
+        :type fields:
+
+        :Keyword Arguments:
+            * **defer_create_all** (*bool, optional*) -- ; If set to :code:`True`, user must manually issue the `CREATE statement(s) <https://docs.sqlalchemy.org/en/13/core/metadata.html#creating-and-dropping-database-tables>`_ for the table. Defaults to :code:`False`\ .
 
         Returns:
-            :class:`ndi.database.sql.Table`. The table object for the newly created collection.
+            :class:`Collection`. The table object for the newly created collection.
         """
         self._collections[ndi_class] = Collection(self.Base, self.Session, ndi_class, fields)
         if not defer_create_all:
@@ -207,25 +227,98 @@ class SQL(BaseDB):
 
     @handle_iter
     def drop_collection(self, ndi_class):
-        self._collections[ndi_class].table.__table__.drop(self.db)
-        del self._collections[ndi_class]
+        """Drops collection(s) from the database.
+        
+        
+        .. currentmodule:: ndi.ndi_object
+
+        :param ndi_classes: One or many :term:`NDI class`\ es associated with collections(s) in the database.
+        :type ndi_classes: List<:class:`NDI_Object`\ > | :class:`NDI_Object`
+        """
+        for ndi_class in ndi_classes:
+            self._collections[ndi_class].table.__table__.drop(self.db)
+            self._collections.pop(ndi_class)
     
     def define_relationship(self, ndi_class, **kwargs):
+        """.. currentmodule:: ndi.database.sql
+        
+        Creates an unset :func:`sqlalchemy.orm.relationship` pointing at the given :term:`NDI class`. Set relationships with :func:`SQL.set_relationships`.
+
+        Postponing further documentation pending NDI_Collection.
+        
+        :param ndi_class: [description]
+        :type ndi_class: [type]
+        :return: [description]
+        :rtype: [type]
+        """
         rel = relationship(class_to_collection_name(ndi_class), **kwargs)
         setattr(rel, '_ndi_class', ndi_class)
         return rel
 
     def set_relationships(self, ndi_class, relationships):
+        """Sets one or many relationships on the given :term:`NDI class`.
+
+        Postponing further documentation pending NDI_Collection.
+        
+        .. currentmodule:: ndi.database.sql
+
+        :param ndi_class: The :term:`NDI class` associated with the :class:`Collection` the relationships are being set to.
+
+        .. currentmodule:: ndi.ndi_object
+
+        :type ndi_class: :class:`NDI_Object`
+        :param relationships: The relationship key/value pairs, where keys resolve to backref labels and values are objects created by :func:`SQL.define_relationship`.
+        :type relationships: dict
+        """
         self._collections[ndi_class].set_relationships(relationships)
 
-    def get_tables(self):
+    def _get_tables(self):
+        """Gets the :term:`SQLA table`\ s in the database.
+
+        .. currentmodule:: ndi.database.sql
+
+        .. note::
+           This bypasses the :class:`Collection` layer and is only useful for very specific operations involving the sqlalchemy layer.
+        
+        :return: NDI class keys and their :term:`SQLA table` values.
+        :rtype: dict
+        """
         return { ndi_class: collection.table for ndi_class, collection in self._collections.items() }
 
     def get_table(self, ndi_class):
+        """Gets a :term:`SQLA table`.
+
+        .. note::
+           This bypasses the :class:`Collection` layer and is only useful for very specific operations involving the sqlalchemy layer.
+
+        .. currentmodule:: ndi.ndi_object
+        
+        :param ndi_class: The :term:`NDI class` associated with the desired table.
+        :type ndi_class: :class:`NDI_Object`
+        :return: :term:`SQLA table`
+        :rtype: :class:`sqlalchemy.Table`
+        """
         collection = self._collections[ndi_class]
         return collection.table
 
     def _group_by_collection(self, ndi_objects):
+        """Groups an assortment of :term:`NDI object`\ s by their :term:`NDI class`.
+
+        ::
+            p1 = Probe(*args, **kwargs)
+            p2 = Probe(*args, **kwargs)
+            p3 = Probe(*args, **kwargs)
+
+            e1 = Epoch(*args, **kwargs)
+            e2 = Epoch(*args, **kwargs)
+
+            db._group_by_collection([p1, e2, p2, p3, e1])
+            # returns {Probe: [p1, p2, p3], Epoch: [e2, e1]}
+        
+        :param ndi_objects:
+        :type ndi_objects: List<:term:`NDI object`>
+        :rtype: dict
+        """
         objects_by_collection = {}
         for ndi_object in ndi_objects:
             Collection = self._get_collection(ndi_object)
@@ -239,10 +332,12 @@ class SQL(BaseDB):
     @listify
     @check_ndi_objects
     def add_experiment(self, experiments):
-        """Add an NDI Experiment Object to the database.
+        """.. currentmodule:: ndi.experiment
         
-        :param experiment: NDI Experiment Object
-        :type experiment: :class:`ndi.Experiment`
+        Add one or many :class:`Experiment` instances to the database. Extracts its contents to their respective collections (ei. Probes, Channels, etc.).
+        
+        :param experiment: 
+        :type experiment: List<:class:`Experiment`> | :class:`Experiment`
         """
         daq_systems = [ ds for e in experiments for ds in e.daq_systems ]
 
@@ -323,6 +418,8 @@ class SQL(BaseDB):
         :type ndi_class: :class:`ndi.base_db`
         :param query: See :term:`query`, defaults to find-all
         :type query: dict, optional
+        :param as_sql_data: See :term:`NDI query`, defaults to find-all
+        :type as_sql_data: dict, optional
         :rtype: List<:term:`NDI object`>
         """
         results = self._collections[ndi_class].find(query=query, order_by=order_by, as_flatbuffers = not as_sql_data)
