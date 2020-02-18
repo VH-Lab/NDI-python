@@ -300,6 +300,17 @@ class SQL(BaseDB):
         """
         collection = self._collections[ndi_class]
         return collection.table
+    
+    def _get_collection(self, ndi_object):
+        """.. currentmodule:: ndi.database.sql
+
+        Gets the :class:`Collection` associated with the :term:`NDI class` of the given :term:`NDI object`.
+        
+        :param ndi_object:
+        :type ndi_object: :term:`NDI object`
+        :rtype: :class:`Collection`
+        """
+        return self._collections[type(ndi_object)]
 
     def _group_by_collection(self, ndi_objects):
         """Groups an assortment of :term:`NDI object`\ s by their :term:`NDI class`.
@@ -418,11 +429,14 @@ class SQL(BaseDB):
         :type ndi_class: :class:`ndi.base_db`
         :param query: See :term:`query`, defaults to find-all
         :type query: dict, optional
-        :param as_sql_data: See :term:`NDI query`, defaults to find-all
-        :type as_sql_data: dict, optional
-        :rtype: List<:term:`NDI object`>
+        :param order_by: Field name to order results by. Defaults to None.
+        :type order_by: str, optional
+        :param as_sql_data: If set to ``True``, find will return contents of SQL table row as a dict; otherwise, will return :term:`NDI object`\ s. Defaults to ``False``.
+        :type as_sql_data: bool, optional
+        :rtype: List<:term:`NDI object`> | dict
         """
-        results = self._collections[ndi_class].find(query=query, order_by=order_by, as_flatbuffers = not as_sql_data)
+        sqla_field = getattr(self._collections[ndi_class].table, order_by)
+        results = self._collections[ndi_class].find(query=query, order_by=sqla_field, as_flatbuffers = not as_sql_data)
         if as_sql_data:
             return results
         else:
@@ -439,8 +453,11 @@ class SQL(BaseDB):
         :type query: dict, optional
         :param payload: Field and update values to be updated, defaults to {}
         :type payload: :term:`payload`, optional
+        :param order_by: Field name to order results by. Defaults to None.
+        :type order_by: str, optional
         """
-        results = self._collections[ndi_class].update_many(query=query, payload=payload, order_by=order_by)
+        sqla_field = getattr(self._collections[ndi_class].table, order_by)
+        results = self._collections[ndi_class].update_many(query=query, payload=payload, order_by=sqla_field)
         ndi_objects = [ ndi_class.from_flatbuffer(flatbuffer) for flatbuffer in results ]
         return ndi_objects
     
@@ -463,6 +480,8 @@ class SQL(BaseDB):
         :type ndi_class: :class:`BaseDB`
         :param id_: The identifier of the :term:`document` to extract.
         :type id_: str
+        :param as_sql_data: If set to ``True``, find will return contents of SQL table row as a dict; otherwise, will return :term:`NDI object`\ s. Defaults to ``False``.
+        :type as_sql_data: bool, optional
         :rtype: :term:`NDI object`
         """
         result = self._collections[ndi_class].find_by_id(id_, as_flatbuffer = not as_sql_data)
@@ -476,6 +495,8 @@ class SQL(BaseDB):
         :type ndi_class: :class:`BaseDB`
         :param id_: The identifier of the :term:`document` to update.
         :type id_: str
+        :param payload: Field and update values to be updated, defaults to {}
+        :type payload: :term:`payload`, optional
         """
         result = self._collections[ndi_class].update_by_id(id_, payload=payload)
         ndi_object = ndi_class.from_flatbuffer(result)
@@ -492,8 +513,6 @@ class SQL(BaseDB):
         """
         self._collections[ndi_class].delete_by_id(id_)
 
-    def _get_collection(self, ndi_object):
-        return self._collections[type(ndi_object)]
 
 
 
