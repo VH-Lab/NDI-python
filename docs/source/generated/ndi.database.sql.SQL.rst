@@ -17,24 +17,30 @@ ndi.database.sql.SQL
       ~SQL.add
       ~SQL.add_experiment
       ~SQL.create_collection
-      ~SQL.create_collections
-      ~SQL.create_table
+      ~SQL.define_relationship
       ~SQL.delete
-      ~SQL.delete_all
       ~SQL.delete_by_id
       ~SQL.delete_many
+      ~SQL.drop_collection
       ~SQL.execute
       ~SQL.find
       ~SQL.find_by_id
+      ~SQL.get_table
       ~SQL.get_tables
+      ~SQL.set_relationships
       ~SQL.update
       ~SQL.update_by_id
       ~SQL.update_many
       ~SQL.upsert
-      ~SQL.upsert_by_id
    
    
 
    
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~SQL.relationships
    
    

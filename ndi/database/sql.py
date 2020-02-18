@@ -4,11 +4,10 @@ from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy import Table, Column, ForeignKey, Integer, String, LargeBinary
 from sqlalchemy import and_, or_
 from .base_db import BaseDB
-from contextlib import contextmanager
 from functools import wraps
 from ndi import Experiment, DaqSystem, Probe, Epoch, Channel
 from ndi.utils import class_to_collection_name, flatten
-from ndi.database.utils import handle_iter, check_ndi_object, listify, check_ndi_objects, update_flatbuffer
+from ndi.database.utils import handle_iter, check_ndi_object, listify, check_ndi_objects, update_flatbuffer, recast_ndi_objects_to_documents, translate_query, with_session, with_open_session
 from ndi.database.query import Query, AndQuery, OrQuery, CompositeQuery
 
 
@@ -20,58 +19,6 @@ from ndi.database.query import Query, AndQuery, OrQuery, CompositeQuery
 FLATBUFFER_KEY = 'flatbuffer'
 
 
-# ============ #
-#  Decorators  #
-# ============ #
-
-def recast_ndi_objects_to_documents(func):
-    @wraps(func)
-    def decorator(self, ndi_objects, *args, **kwargs):
-        items = [ self.create_document_from_ndi_object(o) for o in ndi_objects ]
-        func(self, items, *args, **kwargs)
-    return decorator
-
-def translate_query(func):
-    @wraps(func)
-    def decorator(self, *args, query=None, sqla_query=None, **kwargs):
-        if isinstance(query, Query):
-            query = self.generate_sqla_filter(query)
-        elif query is None:
-            if sqla_query is not None:
-                query = sqla_query
-        else:
-            raise TypeError(f'{query} must be of type Query or CompositeQuery.')
-        return func(self, *args, query=query, **kwargs)
-    return decorator
-
-def with_session(func):
-    """Handle session instantiation, commit, and close operations for a class method."""
-    @wraps(func)
-    def decorator(self, *args, session=None, **kwargs):
-        if enclosed_session := session is None:
-            session = self.Session()
-        output = func(self, session, *args, **kwargs)
-        if enclosed_session:
-            session.commit()
-            session.close()
-        return output
-    return decorator
-
-def with_open_session(func):
-    """Handle session setup/teardown as a context manager for a class method."""
-    @wraps(func)
-    @contextmanager
-    def decorator(self, *args, session=None, **kwargs):
-        if enclosed_session := session is None:
-            session = self.Session()
-        yield func(self, session, *args, **kwargs)
-        if enclosed_session:
-            session.commit()
-            session.close()
-    return decorator
-
-
-
 
 # ============== #
 #  SQL Database  #
@@ -81,6 +28,7 @@ class SQL(BaseDB):
     """Interface for SQL Databases.
     
     .. currentmodule:: ndi.database.base_db
+
     Inherits from the :class:`BaseDB` abstract class.
     """
 
@@ -371,7 +319,8 @@ class SQL(BaseDB):
     @check_ndi_objects
     def add(self, ndi_objects, session=None):
         """.. currentmodule:: ndi.base_db
-        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and adds them to the database. Objects may belong to different :term:`NDI classes`.
+
+        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and adds them to the database. Objects may belong to different :term:`NDI class`\ es.
         
         :param ndi_object: The object(s) to be added to the database.
         :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
@@ -385,7 +334,8 @@ class SQL(BaseDB):
     @check_ndi_objects
     def update(self, ndi_objects):
         """.. currentmodule:: ndi.base_db
-        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. Objects may belong to different :term:`NDI classes`. 
+
+        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. Objects may belong to different :term:`NDI class`\ es. 
         
         :param ndi_object: The object(s) to be updated in the database.
         :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
@@ -399,7 +349,8 @@ class SQL(BaseDB):
     @check_ndi_objects
     def upsert(self, ndi_objects):
         """.. currentmodule:: ndi.base_db
-        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. If an object doesn't have a document representation, it is added to the collection. Objects may belong to different :term:`NDI classes`. 
+
+        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. If an object doesn't have a document representation, it is added to the collection. Objects may belong to different :term:`NDI class`\ es. 
         
         :param ndi_object: The object(s) to be upserted into the database.
         :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
@@ -412,7 +363,8 @@ class SQL(BaseDB):
     @check_ndi_objects
     def delete(self, ndi_objects):
         """.. currentmodule:: ndi.base_db
-        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and deletes their :term:`document` in the database. Objects may belong to different :term:`NDI classes`. 
+
+        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and deletes their :term:`document` in the database. Objects may belong to different :term:`NDI class`\ es. 
         
         :param ndi_object: The object(s) to be removed from the database.
         :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
@@ -422,12 +374,13 @@ class SQL(BaseDB):
             Collection.delete(ndi_objects)
 
     def find(self, ndi_class, query=None, order_by=None, as_sql_data=False):
-        """Extracts all documents matching the given :term:`query` in the specified :term:`collection`.
+        """Extracts all documents matching the given :term:`NDI query` in the specified :term:`collection`.
         
         .. currentmodule:: ndi.base_db
+
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
         :type ndi_class: :class:`ndi.base_db`
-        :param query: See :term:`query`, defaults to find-all
+        :param query: See :term:`NDI query`, defaults to find-all
         :type query: dict, optional
         :param order_by: Field name to order results by. Defaults to None.
         :type order_by: str, optional
@@ -444,12 +397,13 @@ class SQL(BaseDB):
             return ndi_objects
     
     def update_many(self, ndi_class, query=None, payload={}, order_by=None):
-        """Updates all documents matching the given :term:`query` in the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
+        """Updates all documents matching the given :term:`NDI query` in the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
         
         .. currentmodule:: ndi.base_db
+
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
         :type ndi_class: :class:`ndi.base_db`
-        :param query: See :term:`query`, defaults to update-all
+        :param query: See :term:`NDI query`, defaults to update-all
         :type query: dict, optional
         :param payload: Field and update values to be updated, defaults to {}
         :type payload: :term:`payload`, optional
@@ -462,12 +416,13 @@ class SQL(BaseDB):
         return ndi_objects
     
     def delete_many(self, ndi_class, query=None):
-        """Deletes all documents matching the given :term:`query` in the specified :term:`collection`.
+        """Deletes all documents matching the given :term:`NDI query` in the specified :term:`collection`.
         
         .. currentmodule:: ndi.base_db
+
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
         :type ndi_class: :class:`BaseDB`
-        :param query: See :term:`query`, defaults to {}
+        :param query: See :term:`NDI query`, defaults to {}
         :type query: dict, optional
         """
         self._collections[ndi_class].delete_many(query=query)
@@ -476,6 +431,7 @@ class SQL(BaseDB):
         """Retrieves the :term:`NDI object` with the given id from the specified :term:`collection`.
 
         .. currentmodule:: ndi.base_db
+
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to search.
         :type ndi_class: :class:`BaseDB`
         :param id_: The identifier of the :term:`document` to extract.
@@ -491,6 +447,7 @@ class SQL(BaseDB):
         """Updates the :term:`NDI object` with the given id from the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
 
         .. currentmodule:: ndi.base_db
+
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to update.
         :type ndi_class: :class:`BaseDB`
         :param id_: The identifier of the :term:`document` to update.
@@ -506,6 +463,7 @@ class SQL(BaseDB):
         """Deletes the :term:`NDI object` with the given id from the specified :term:`collection`.
 
         .. currentmodule:: ndi.base_db
+
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
         :type ndi_class: :class:`BaseDB`
         :param id_: The identifier of the :term:`document` to delete.

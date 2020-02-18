@@ -23,7 +23,7 @@ DAQ Readers
    mock_daq_reader.MockReader
 
 Databases and Tools
-------------------
+-------------------
 
 .. currentmodule:: ndi.database
 .. autosummary::

@@ -4,6 +4,8 @@ Database Utils Module
 """
 from ..ndi_object import NDI_Object
 from functools import wraps
+from contextlib import contextmanager
+from ndi.database.query import Query
 
 
 def handle_iter(func):
@@ -30,6 +32,7 @@ def handle_iter(func):
 
 def check_ndi_object(func):
     """.. currentmodule:: ndi.ndi_object
+
     Decorator: meant to prevent :class:`NDI_Object` database :term:`CRUD` methods from being called with non-standard input. Throws an error if the first argument passed to wrapped function is not an :term:`NDI object`.
     
     :param func: The wrapped function.
@@ -51,6 +54,7 @@ def check_ndi_object(func):
 
 def check_ndi_class(func):
     """.. currentmodule:: ndi.ndi_object
+    
     Decorator: meant to prevent :class:`NDI_Object` collection :term:`CRUD` methods from being called with non-standard input. Throws an error if the first argument passed to wrapped function is not the correct :term:`NDI class`.
 
     :param func: The wrapped function.
@@ -109,3 +113,66 @@ def print_everything_in(db):
 def destroy_everything_in(db):
     for collection in db._collections:
         db.delete_many(collection)
+
+
+
+
+"""
+SQL Database Specific
+=====================
+"""
+
+def recast_ndi_objects_to_documents(func):
+    """Decorator: meant to work with :class:`Collection` methods. Converts a list of :term:`NDI object`\ s into their :term:`SQLA document` equivalents.
+    
+    :param func:
+    :type func: function
+    :return: Returns return value of decorated function.
+    """
+    @wraps(func)
+    def decorator(self, ndi_objects, *args, **kwargs):
+        items = [ self.create_document_from_ndi_object(o) for o in ndi_objects ]
+        return func(self, items, *args, **kwargs)
+    return decorator
+
+def translate_query(func):
+    @wraps(func)
+    def decorator(self, *args, query=None, sqla_query=None, **kwargs):
+        if isinstance(query, Query):
+            query = self.generate_sqla_filter(query)
+        elif query is None:
+            if sqla_query is not None:
+                query = sqla_query
+            else: pass
+        else:
+            raise TypeError(f'{query} must be of type Query or CompositeQuery.')
+        return func(self, *args, query=query, **kwargs)
+    return decorator
+
+def with_session(func):
+    """Handle session instantiation, commit, and close operations for a class method."""
+    @wraps(func)
+    def decorator(self, *args, session=None, **kwargs):
+        enclosed_session = session is None
+        if enclosed_session: 
+            session = self.Session()
+        output = func(self, session, *args, **kwargs)
+        if enclosed_session:
+            session.commit()
+            session.close()
+        return output
+    return decorator
+
+def with_open_session(func):
+    """Handle session setup/teardown as a context manager for a class method."""
+    @wraps(func)
+    @contextmanager
+    def decorator(self, *args, session=None, **kwargs):
+        enclosed_session = session is None
+        if enclosed_session:
+            session = self.Session()
+        yield func(self, session, *args, **kwargs)
+        if enclosed_session:
+            session.commit()
+            session.close()
+    return decorator

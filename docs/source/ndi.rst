@@ -74,6 +74,12 @@ Submodules
    :show-inheritance:
 
 
+.. automodule:: ndi.utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
 Module contents
 ---------------
 

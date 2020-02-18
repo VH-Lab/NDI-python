@@ -14,6 +14,7 @@ ndi.daq\_system.DaqSystem
    .. autosummary::
    
       ~DaqSystem.__init__
+      ~DaqSystem.add_daq_reader
       ~DaqSystem.from_flatbuffer
       ~DaqSystem.serialize
    
