@@ -75,6 +75,14 @@ def check_ndi_class(func):
     return decorator
 
 def listify(func):
+    """.. currentmodule:: ndi.database.sql
+    
+    Decorator: meant to work with :class:`SQL` methods. Ensures that the first argument passed into the decorated function is a list. If the value is not a list, it is wrapped in one.
+    
+    :param func:
+    :type func: function
+    :return: Returns return value of decorated function.
+    """
     @wraps(func)
     def decorator(self, arg, *args, **kwargs):
         if not isinstance(arg, list):
@@ -84,6 +92,12 @@ def listify(func):
     return decorator
 
 def check_ndi_objects(func):
+    """Decorator: meant to work with :class:`SQL` methods. Ensures that every item in the first argument is a valid :term:`NDI object`.
+    
+    :param func:
+    :type func: function
+    :return: Returns return value of decorated function.
+    """
     @wraps(func)
     def decorator(self, ndi_objects, *args, **kwargs):
         if len(ndi_objects):
@@ -94,6 +108,12 @@ def check_ndi_objects(func):
     return decorator
 
 def update_flatbuffer(ndi_class, flatbuffer, payload):
+    """Decorator: meant to work with :class:`Collection` methods. Converts a list of :term:`NDI object`\ s into their :term:`SQLA document` equivalents.
+    
+    :param func:
+    :type func: function
+    :return: Returns return value of decorated function.
+    """
     ndi_object = ndi_class.from_flatbuffer(flatbuffer)
     for key, value in payload.items():
         setattr(ndi_object, key, value)
@@ -136,6 +156,12 @@ def recast_ndi_objects_to_documents(func):
     return decorator
 
 def translate_query(func):
+    """Decorator: meant to work with :class:`Collection` methods. Converts an :term:`NDI query` into an equivalent :term:`SQLA query`.
+    
+    :param func:
+    :type func: function
+    :return: Returns return value of decorated function.
+    """
     @wraps(func)
     def decorator(self, *args, query=None, sqla_query=None, **kwargs):
         if isinstance(query, Query):
@@ -150,7 +176,12 @@ def translate_query(func):
     return decorator
 
 def with_session(func):
-    """Handle session instantiation, commit, and close operations for a class method."""
+    """Handle session instantiation, commit, and close operations for a class method. Passes session as first argument into decorated func.
+    
+    :param func:
+    :type func: function
+    :return: Returns return value of decorated function.
+    """
     @wraps(func)
     def decorator(self, *args, session=None, **kwargs):
         enclosed_session = session is None
@@ -164,7 +195,12 @@ def with_session(func):
     return decorator
 
 def with_open_session(func):
-    """Handle session setup/teardown as a context manager for a class method."""
+    """Handle session setup/teardown as a context manager for a class method. Returns decorated func for use as a context manager with session as its first argument.
+    
+    :param func:
+    :type func: function
+    :return: Returns return value of decorated function.
+    """
     @wraps(func)
     @contextmanager
     def decorator(self, *args, session=None, **kwargs):
