@@ -47,6 +47,15 @@ class BaseDB(ABC):
         pass
 
     @abstractmethod
+    def drop_collection(self, ndi_class):
+        """.. currentmodule:: ndi.ndi_object
+        Clears all entries for the collection corresponding to the :term:`NDI class` passed and deletes the collection.
+
+        :param ndi_class:
+        :type ndi_class: :class:`NDI_Object`
+        """
+
+    @abstractmethod
     def add(self, ndi_object):
         """It should be able to add one or many instances of an :term:`NDI object` to the appropriate :term:`collection`.
         
