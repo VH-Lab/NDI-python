@@ -25,8 +25,8 @@ ndi.database.sql.SQL
       ~SQL.execute
       ~SQL.find
       ~SQL.find_by_id
-      ~SQL.get_table
-      ~SQL.get_tables
+      ~SQL._get_table
+      ~SQL.__get_tables
       ~SQL.set_relationships
       ~SQL.update
       ~SQL.update_by_id
