@@ -39,7 +39,6 @@ def translate_query(func):
         elif query is None:
             if sqla_query is not None:
                 query = sqla_query
-            else: pass
         else:
             raise TypeError(f'{query} must be of type Query or CompositeQuery.')
         return func(self, *args, query=query, **kwargs)
@@ -49,8 +48,7 @@ def with_session(func):
     """Handle session instantiation, commit, and close operations for a class method."""
     @wraps(func)
     def decorator(self, *args, session=None, **kwargs):
-        enclosed_session = session is None
-        if enclosed_session: 
+        if enclosed_session := session is None:
             session = self.Session()
         output = func(self, session, *args, **kwargs)
         if enclosed_session:
@@ -64,8 +62,7 @@ def with_open_session(func):
     @wraps(func)
     @contextmanager
     def decorator(self, *args, session=None, **kwargs):
-        enclosed_session = session is None
-        if enclosed_session:
+        if enclosed_session := session is None:
             session = self.Session()
         yield func(self, session, *args, **kwargs)
         if enclosed_session:
@@ -171,8 +168,10 @@ class SQL(BaseDB):
                 'daq_system': self.define_relationship(DaqSystem),
             }
         }
+
     def __get_columns(self, config):
         return { key: item for key, item in config.items() if isinstance(item, Column)}
+
     def __get_relationships(self, config):
         return { key: item for key, item in config.items() if not isinstance(item, Column)}
 
@@ -206,21 +205,22 @@ class SQL(BaseDB):
             self.Base.metadata.create_all(self.db)
         return self._collections[ndi_class]
 
-    @listify
-    def drop_collection(self, ndi_classes):
-        for ndi_class in ndi_classes:
-            self._collections[ndi_class].table.__table__.drop(self.db)
-            self._collections.pop(ndi_class)
+    @handle_iter
+    def drop_collection(self, ndi_class):
+        self._collections[ndi_class].table.__table__.drop(self.db)
+        self._collections.pop(ndi_class)
     
     def define_relationship(self, ndi_class, **kwargs):
         rel = relationship(class_to_collection_name(ndi_class), **kwargs)
         setattr(rel, '_ndi_class', ndi_class)
         return rel
+
     def set_relationships(self, ndi_class, relationships):
         self._collections[ndi_class].set_relationships(relationships)
 
     def get_tables(self):
         return { ndi_class: collection.table for ndi_class, collection in self._collections.items() }
+
     def get_table(self, ndi_class):
         collection = self._collections[ndi_class]
         return collection.table
@@ -441,9 +441,11 @@ class Collection:
             return self.table(**fields)
 
     def create_document_from_ndi_object(self, ndi_object):
-        metadata_fields = { key: getattr(ndi_object, key)
+        metadata_fields = {
+            key: getattr(ndi_object, key)
             for key in self.fields
-            if key != FLATBUFFER_KEY }
+            if key != FLATBUFFER_KEY 
+        }
         fields = {
             FLATBUFFER_KEY: ndi_object.serialize(),
             **metadata_fields
@@ -451,8 +453,10 @@ class Collection:
         return self.create_document(fields)
     
     def extract_document_fields(self, documents):
-        extract = lambda doc: { key: getattr(doc, key)
-            for key in self.fields }
+        extract = lambda doc: { 
+            key: getattr(doc, key)
+            for key in self.fields 
+        }
         if isinstance(documents, list):
             return [ extract(doc) for doc in documents ]
         else:
