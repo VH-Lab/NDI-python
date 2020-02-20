@@ -208,7 +208,7 @@ class SQL(BaseDB):
     @handle_iter
     def drop_collection(self, ndi_class):
         self._collections[ndi_class].table.__table__.drop(self.db)
-        self._collections.pop(ndi_class)
+        del self._collections[ndi_class]
     
     def define_relationship(self, ndi_class, **kwargs):
         rel = relationship(class_to_collection_name(ndi_class), **kwargs)
@@ -381,7 +381,8 @@ class SQL(BaseDB):
         :type id_: str
         """
         result = self._collections[ndi_class].update_by_id(id_, payload=payload)
-        return ndi_class.from_flatbuffer(result)
+        ndi_object = ndi_class.from_flatbuffer(result)
+        return ndi_object
 
     def delete_by_id(self, ndi_class, id_):
         """Deletes the :term:`NDI object` with the given id from the specified :term:`collection`.
@@ -437,8 +438,7 @@ class Collection:
         return isinstance(getattr(self.table, key), Column)
     
     def create_document(self, fields):
-        for key, item in self.fields.items():
-            return self.table(**fields)
+        return self.table(**fields)
 
     def create_document_from_ndi_object(self, ndi_object):
         metadata_fields = {

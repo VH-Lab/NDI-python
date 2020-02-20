@@ -102,7 +102,7 @@ def print_everything_in(db):
         for doc in results:
             try: print(f'  - {doc.name}')
             except AttributeError: print(f'  - {doc.id}')
-        if len(results) == 0:
+        if results:
             print('  ---NONE---')
         print('')
 
