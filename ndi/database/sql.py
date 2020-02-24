@@ -223,7 +223,7 @@ class SQL(BaseDB):
         """
         self._collections[ndi_class].set_relationships(relationships)
 
-    def _get_tables(self):
+    def get_tables(self):
         """Gets the :term:`SQLA table`\ s in the database.
 
         .. currentmodule:: ndi.database.sql
