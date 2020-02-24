@@ -4,11 +4,10 @@ from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy import Table, Column, ForeignKey, Integer, String, LargeBinary
 from sqlalchemy import and_, or_
 from .base_db import BaseDB
-from contextlib import contextmanager
 from functools import wraps
 from ndi import Experiment, DaqSystem, Probe, Epoch, Channel
 from ndi.utils import class_to_collection_name, flatten
-from ndi.database.utils import handle_iter, check_ndi_object, listify, check_ndi_objects, update_flatbuffer
+from ndi.database.utils import handle_iter, check_ndi_object, listify, check_ndi_objects, update_flatbuffer, recast_ndi_objects_to_documents, translate_query, with_session, with_open_session
 from ndi.database.query import Query, AndQuery, OrQuery, CompositeQuery
 
 
@@ -20,58 +19,6 @@ from ndi.database.query import Query, AndQuery, OrQuery, CompositeQuery
 FLATBUFFER_KEY = 'flatbuffer'
 
 
-# ============ #
-#  Decorators  #
-# ============ #
-
-def recast_ndi_objects_to_documents(func):
-    @wraps(func)
-    def decorator(self, ndi_objects, *args, **kwargs):
-        items = [ self.create_document_from_ndi_object(o) for o in ndi_objects ]
-        func(self, items, *args, **kwargs)
-    return decorator
-
-def translate_query(func):
-    @wraps(func)
-    def decorator(self, *args, query=None, sqla_query=None, **kwargs):
-        if isinstance(query, Query):
-            query = self.generate_sqla_filter(query)
-        elif query is None:
-            if sqla_query is not None:
-                query = sqla_query
-        else:
-            raise TypeError(f'{query} must be of type Query or CompositeQuery.')
-        return func(self, *args, query=query, **kwargs)
-    return decorator
-
-def with_session(func):
-    """Handle session instantiation, commit, and close operations for a class method."""
-    @wraps(func)
-    def decorator(self, *args, session=None, **kwargs):
-        if enclosed_session := session is None:
-            session = self.Session()
-        output = func(self, session, *args, **kwargs)
-        if enclosed_session:
-            session.commit()
-            session.close()
-        return output
-    return decorator
-
-def with_open_session(func):
-    """Handle session setup/teardown as a context manager for a class method."""
-    @wraps(func)
-    @contextmanager
-    def decorator(self, *args, session=None, **kwargs):
-        if enclosed_session := session is None:
-            session = self.Session()
-        yield func(self, session, *args, **kwargs)
-        if enclosed_session:
-            session.commit()
-            session.close()
-    return decorator
-
-
-
 
 # ============== #
 #  SQL Database  #
@@ -81,13 +28,18 @@ class SQL(BaseDB):
     """Interface for SQL Databases.
     
     .. currentmodule:: ndi.database.base_db
+
     Inherits from the :class:`BaseDB` abstract class.
+
+    This class aims to manage high-level database operations using the sqlalchemy (SQLA) library and serve as an interface between the NDI and SQLA systems. It maintains the SQLA engine and Session generator, directs :term:`CRUD` actions to their target :class:`Collection`\ s in the database, and is responsible for setting up, configuring, and destroying collections.
+
+    It is closely tied to its :class:`Collection` class, which handles low-level SQLA operations like CRUD implementations. Decorators on the Collection methods are where most of the translation between NDI and SQLA objects occurs (:term:`NDI object` -> :term:`SQLA document`, :term:`NDI query` -> :term:`SQLA query`, etc.). Each :term:`NDI class` translates to a Collection instance.
     """
 
     relationships = {}
 
     def __init__(self, connection_string):
-        """Sets up a SQL database with collections and binds a sqlAlchemy sessionmaker.
+        """Sets up a SQL database with collections, binds a sqlAlchemy sessionmaker, and instantiates a slqAlchemy metadata Base.
         
         :param connection_string: A standard SQL Server connection string.
         :type connection_string: str
@@ -99,17 +51,30 @@ class SQL(BaseDB):
 
     @with_open_session
     def _sqla_open_session(self, session):
+        """Exposes a session for use in a :code:`'with'` statement.
+        ::
+            with db._sqla_open_session() as session:
+                # session operations
+        
+        This method handles session setup, commit, and close. Only for use by developers wanting to access the underlying sqlAlchemy layer.
+        
+        :param session: Recieved from decorator.
+        :type session: :class:`sqlalchemy.orm.session.Session`
+        :return: A sqlAlchemy session instance.
+        :rtype: Iterator[:class:`sqlalchemy.orm.session.Session`]
+        """
         return session
 
     def execute(self, query):
-        """Runs a custom sql query.
+        """Runs a `sqlAlchemy query <https://docs.sqlalchemy.org/en/13/core/connections.html>`_. Only for use by developers wanting to access the underlying sqlAlchemy layer.
         
         :param query: A SQL query in the format of the given database.
         :type query: str
         """
-        self.db.execute(query)
+        return self.db.execute(query)
 
     def __configure_collections(self):
+        """Postponing documentation pending NDI_Collection."""
         return {
             Experiment: {
                 'id': Column(String, primary_key=True),
@@ -170,13 +135,17 @@ class SQL(BaseDB):
         }
 
     def __get_columns(self, config):
+        """Postponing documentation pending NDI_Collection."""
         return { key: item for key, item in config.items() if isinstance(item, Column)}
 
     def __get_relationships(self, config):
+        """Postponing documentation pending NDI_Collection."""
         return { key: item for key, item in config.items() if not isinstance(item, Column)}
 
     def __create_collections(self, collection_configs):
-        """Create Base Collections described in :class:`ndi.database.BaseDB`."""
+        """Creates :class:`Collection`\ s from the given configs and adds them to the database.
+        Postponing further documentation pending NDI_Collection.
+        """
         for ndi_class, config in collection_configs.items():
             columns = self.__get_columns(config)
             self.create_collection(ndi_class, columns, defer_create_all=True)
@@ -187,18 +156,21 @@ class SQL(BaseDB):
         self.Base.metadata.create_all(self.db)
 
     def create_collection(self, ndi_class, fields, defer_create_all=False):
-        """Creates a table given an ndi_object and the desired fields and stores it in _collections.
-        
-        Args:
-            ndi_class(:class:`ndi.ndi_class`): The NDI Class this collection will be built on. 
-                CRUD operations on this database will require this class to specify the table to operate on.
+        """Creates a :class:`Collection` and stores it in _collections.
 
-        Kwargs:
-            field_name (:class:`sqlalchemy.Column`): The sqlAlchemy ORM Column instance that defines the given field_name.
-                Multiple field_name=Column() arguments may be given for multiple fields.
+        Postponing further documentation pending NDI_Collection.
+        
+        :param ndi_class: The NDI Class this collection will be built on. 
+            CRUD operations on this database will require this class to specify the table to operate on.
+        :type ndi_class: :term:`NDI class`
+        :param fields:
+        :type fields:
+
+        :Keyword Arguments:
+            * **defer_create_all** (*bool, optional*) -- ; If set to :code:`True`, user must manually issue the `CREATE statement(s) <https://docs.sqlalchemy.org/en/13/core/metadata.html#creating-and-dropping-database-tables>`_ for the table. Defaults to :code:`False`\ .
 
         Returns:
-            :class:`ndi.database.sql.Table`. The table object for the newly created collection.
+            :class:`Collection`. The table object for the newly created collection.
         """
         self._collections[ndi_class] = Collection(self.Base, self.Session, ndi_class, fields)
         if not defer_create_all:
@@ -207,25 +179,108 @@ class SQL(BaseDB):
 
     @handle_iter
     def drop_collection(self, ndi_class):
-        self._collections[ndi_class].table.__table__.drop(self.db)
-        del self._collections[ndi_class]
+        """Drops collection(s) from the database.
+        
+        
+        .. currentmodule:: ndi.ndi_object
+
+        :param ndi_classes: One or many :term:`NDI class`\ es associated with collections(s) in the database.
+        :type ndi_classes: List<:class:`NDI_Object`\ > | :class:`NDI_Object`
+        """
+        for ndi_class in ndi_classes:
+            self._collections[ndi_class].table.__table__.drop(self.db)
+            self._collections.pop(ndi_class)
     
     def define_relationship(self, ndi_class, **kwargs):
+        """.. currentmodule:: ndi.database.sql
+        
+        Creates an unset :func:`sqlalchemy.orm.relationship` pointing at the given :term:`NDI class`. Set relationships with :func:`SQL.set_relationships`.
+
+        Postponing further documentation pending NDI_Collection.
+        
+        :param ndi_class: [description]
+        :type ndi_class: [type]
+        :return: [description]
+        :rtype: [type]
+        """
         rel = relationship(class_to_collection_name(ndi_class), **kwargs)
         setattr(rel, '_ndi_class', ndi_class)
         return rel
 
     def set_relationships(self, ndi_class, relationships):
+        """Sets one or many relationships on the given :term:`NDI class`.
+
+        
+        .. currentmodule:: ndi.database.sql
+
+        :param ndi_class: The :term:`NDI class` associated with the :class:`Collection` the relationships are being set to.
+
+        .. currentmodule:: ndi.ndi_object
+
+        :type ndi_class: :class:`NDI_Object`
+        :param relationships: The relationship key/value pairs, where keys resolve to backref labels and values are objects created by :func:`SQL.define_relationship`.
+        :type relationships: dict
+        """
         self._collections[ndi_class].set_relationships(relationships)
 
     def get_tables(self):
+        """Gets the :term:`SQLA table`\ s in the database.
+
+        .. currentmodule:: ndi.database.sql
+
+        .. note::
+           This bypasses the :class:`Collection` layer and is only useful for very specific operations involving the sqlalchemy layer.
+        
+        :return: NDI class keys and their :term:`SQLA table` values.
+        :rtype: dict
+        """
         return { ndi_class: collection.table for ndi_class, collection in self._collections.items() }
 
     def get_table(self, ndi_class):
+        """Gets a :term:`SQLA table`.
+
+        .. note::
+           This bypasses the :class:`Collection` layer and is only useful for very specific operations involving the sqlalchemy layer.
+
+        .. currentmodule:: ndi.ndi_object
+        
+        :param ndi_class: The :term:`NDI class` associated with the desired table.
+        :type ndi_class: :class:`NDI_Object`
+        :return: :term:`SQLA table`
+        :rtype: :class:`sqlalchemy.Table`
+        """
         collection = self._collections[ndi_class]
         return collection.table
+    
+    def _get_collection(self, ndi_object):
+        """.. currentmodule:: ndi.database.sql
+
+        Gets the :class:`Collection` associated with the :term:`NDI class` of the given :term:`NDI object`.
+        
+        :param ndi_object:
+        :type ndi_object: :term:`NDI object`
+        :rtype: :class:`Collection`
+        """
+        return self._collections[type(ndi_object)]
 
     def _group_by_collection(self, ndi_objects):
+        """Groups an assortment of :term:`NDI object`\ s by their :term:`NDI class`.
+
+        ::
+            p1 = Probe(*args, **kwargs)
+            p2 = Probe(*args, **kwargs)
+            p3 = Probe(*args, **kwargs)
+
+            e1 = Epoch(*args, **kwargs)
+            e2 = Epoch(*args, **kwargs)
+
+            db._group_by_collection([p1, e2, p2, p3, e1])
+            # returns {Probe: [p1, p2, p3], Epoch: [e2, e1]}
+        
+        :param ndi_objects:
+        :type ndi_objects: List<:term:`NDI object`>
+        :rtype: dict
+        """
         objects_by_collection = {}
         for ndi_object in ndi_objects:
             Collection = self._get_collection(ndi_object)
@@ -239,10 +294,12 @@ class SQL(BaseDB):
     @listify
     @check_ndi_objects
     def add_experiment(self, experiments):
-        """Add an NDI Experiment Object to the database.
+        """.. currentmodule:: ndi.experiment
         
-        :param experiment: NDI Experiment Object
-        :type experiment: :class:`ndi.Experiment`
+        Add one or many :class:`Experiment` instances to the database. Extracts its contents to their respective collections (ei. Probes, Channels, etc.).
+        
+        :param experiment: 
+        :type experiment: List<:class:`Experiment`> | :class:`Experiment`
         """
         daq_systems = [ ds for e in experiments for ds in e.daq_systems ]
 
@@ -265,7 +322,8 @@ class SQL(BaseDB):
     @check_ndi_objects
     def add(self, ndi_objects, session=None):
         """.. currentmodule:: ndi.base_db
-        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and adds them to the database. Objects may belong to different :term:`NDI classes`.
+
+        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and adds them to the database. Objects may belong to different :term:`NDI class`\ es.
         
         :param ndi_object: The object(s) to be added to the database.
         :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
@@ -279,7 +337,8 @@ class SQL(BaseDB):
     @check_ndi_objects
     def update(self, ndi_objects):
         """.. currentmodule:: ndi.base_db
-        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. Objects may belong to different :term:`NDI classes`. 
+
+        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. Objects may belong to different :term:`NDI class`\ es. 
         
         :param ndi_object: The object(s) to be updated in the database.
         :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
@@ -293,7 +352,8 @@ class SQL(BaseDB):
     @check_ndi_objects
     def upsert(self, ndi_objects):
         """.. currentmodule:: ndi.base_db
-        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. If an object doesn't have a document representation, it is added to the collection. Objects may belong to different :term:`NDI classes`. 
+
+        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. If an object doesn't have a document representation, it is added to the collection. Objects may belong to different :term:`NDI class`\ es. 
         
         :param ndi_object: The object(s) to be upserted into the database.
         :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
@@ -306,7 +366,8 @@ class SQL(BaseDB):
     @check_ndi_objects
     def delete(self, ndi_objects):
         """.. currentmodule:: ndi.base_db
-        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and deletes their :term:`document` in the database. Objects may belong to different :term:`NDI classes`. 
+
+        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and deletes their :term:`document` in the database. Objects may belong to different :term:`NDI class`\ es. 
         
         :param ndi_object: The object(s) to be removed from the database.
         :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
@@ -316,14 +377,19 @@ class SQL(BaseDB):
             Collection.delete(ndi_objects)
 
     def find(self, ndi_class, query=None, order_by=None, as_sql_data=False):
-        """Extracts all documents matching the given :term:`query` in the specified :term:`collection`.
+        """Extracts all documents matching the given :term:`NDI query` in the specified :term:`collection`.
         
         .. currentmodule:: ndi.base_db
+
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
         :type ndi_class: :class:`ndi.base_db`
-        :param query: See :term:`query`, defaults to find-all
+        :param query: See :term:`NDI query`, defaults to find-all
         :type query: dict, optional
-        :rtype: List<:term:`NDI object`>
+        :param order_by: Field name to order results by. Defaults to None.
+        :type order_by: str, optional
+        :param as_sql_data: If set to ``True``, find will return contents of SQL table row as a dict; otherwise, will return :term:`NDI object`\ s. Defaults to ``False``.
+        :type as_sql_data: bool, optional
+        :rtype: List<:term:`NDI object`> | dict
         """
         results = self._collections[ndi_class].find(query=query, order_by=order_by, as_flatbuffers = not as_sql_data)
         if as_sql_data:
@@ -333,27 +399,31 @@ class SQL(BaseDB):
             return ndi_objects
     
     def update_many(self, ndi_class, query=None, payload={}, order_by=None):
-        """Updates all documents matching the given :term:`query` in the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
+        """Updates all documents matching the given :term:`NDI query` in the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
         
         .. currentmodule:: ndi.base_db
+
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
         :type ndi_class: :class:`ndi.base_db`
-        :param query: See :term:`query`, defaults to update-all
+        :param query: See :term:`NDI query`, defaults to update-all
         :type query: dict, optional
         :param payload: Field and update values to be updated, defaults to {}
         :type payload: :term:`payload`, optional
+        :param order_by: Field name to order results by. Defaults to None.
+        :type order_by: str, optional
         """
         results = self._collections[ndi_class].update_many(query=query, payload=payload, order_by=order_by)
         ndi_objects = [ ndi_class.from_flatbuffer(flatbuffer) for flatbuffer in results ]
         return ndi_objects
     
     def delete_many(self, ndi_class, query=None):
-        """Deletes all documents matching the given :term:`query` in the specified :term:`collection`.
+        """Deletes all documents matching the given :term:`NDI query` in the specified :term:`collection`.
         
         .. currentmodule:: ndi.base_db
+
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
         :type ndi_class: :class:`BaseDB`
-        :param query: See :term:`query`, defaults to {}
+        :param query: See :term:`NDI query`, defaults to {}
         :type query: dict, optional
         """
         self._collections[ndi_class].delete_many(query=query)
@@ -362,10 +432,13 @@ class SQL(BaseDB):
         """Retrieves the :term:`NDI object` with the given id from the specified :term:`collection`.
 
         .. currentmodule:: ndi.base_db
+
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to search.
         :type ndi_class: :class:`BaseDB`
         :param id_: The identifier of the :term:`document` to extract.
         :type id_: str
+        :param as_sql_data: If set to ``True``, find will return contents of SQL table row as a dict; otherwise, will return :term:`NDI object`\ s. Defaults to ``False``.
+        :type as_sql_data: bool, optional
         :rtype: :term:`NDI object`
         """
         result = self._collections[ndi_class].find_by_id(id_, as_flatbuffer = not as_sql_data)
@@ -375,10 +448,13 @@ class SQL(BaseDB):
         """Updates the :term:`NDI object` with the given id from the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
 
         .. currentmodule:: ndi.base_db
+
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to update.
         :type ndi_class: :class:`BaseDB`
         :param id_: The identifier of the :term:`document` to update.
         :type id_: str
+        :param payload: Field and update values to be updated, defaults to {}
+        :type payload: :term:`payload`, optional
         """
         result = self._collections[ndi_class].update_by_id(id_, payload=payload)
         ndi_object = ndi_class.from_flatbuffer(result)
@@ -388,6 +464,7 @@ class SQL(BaseDB):
         """Deletes the :term:`NDI object` with the given id from the specified :term:`collection`.
 
         .. currentmodule:: ndi.base_db
+
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
         :type ndi_class: :class:`BaseDB`
         :param id_: The identifier of the :term:`document` to delete.
@@ -395,8 +472,6 @@ class SQL(BaseDB):
         """
         self._collections[ndi_class].delete_by_id(id_)
 
-    def _get_collection(self, ndi_object):
-        return self._collections[type(ndi_object)]
 
 
 
@@ -408,7 +483,34 @@ class SQL(BaseDB):
 # ============ #
 
 class Collection:
+    """.. ndi.database.sql
+
+    Collection class for :class:`SQL` database. :term:`CRUD` operations on this collection are passed on to is corresponding table in the database.
+
+    This class and its associated decorators attempt to encapsulate as much of the sqlalchemy logic as possible (not including database level systems like the Session and engine objects).
+    
+    Decorators on the Collection methods are where most of the translation between NDI and SQLA objects occurs (:term:`NDI object` -> :term:`SQLA document`, :term:`NDI query` -> :term:`SQLA query`, etc.). 
+    
+    Each Collection instance must have a corresponding :term:`NDI class`.
+    """
+
     def __init__(self, Base, Session, ndi_class, fields):
+        """Initializes a :class:`SQL` :class:`Collection`.
+
+        Postponing further documentation pending NDI_Collection.
+        
+        :param Base: `SQLA Metadata Base <https://docs.sqlalchemy.org/en/13/orm/extensions/declarative/api.html#api-reference>`_
+        :type Base: :class:`sqlalchemy.ext.declarative.api.DeclarativeMeta`
+        :param Session: `SQLA Session <https://docs.sqlalchemy.org/en/13/orm/session.html>`_
+        :type Session: :class:`sqlalchemy.orm.session.sessionmaker`
+        :param ndi_class: The associated :term:`NDI class`
+
+        .. currentmodule:: ndi.ndi_object
+        
+        :type ndi_class: :class:`NDI_Object`
+        :param fields: 
+        :type fields:
+        """
         self.Session = Session
         self.ndi_class = ndi_class
         self.table_name = class_to_collection_name(ndi_class)
@@ -420,27 +522,35 @@ class Collection:
         self.relationship_keys = {}
     
     def set_relationships(self, relationships):
+        """Set the collection's relationships to its :term:`SQLA table`.
+        
+        :param relationships: The relationship key/value pairs, where keys resolve to backref labels and values are objects created by :func:`SQL.define_relationship`.
+        :type relationships: dict
+        """
         for key, relation in relationships.items():
             setattr(self.table, key, relation)
             self.relationship_keys[relation._ndi_class] = key
-
-    @listify
-    def remove_relationships(self, relationship_keys):
-        for key in relationship_keys:
-            delattr(self.table, key)
-
-    @with_open_session
-    def sqla_open_session(self, session):
-        return (session, self.table, self.relationship_keys)
-
-
-    def _field_is_column(self, key):
-        return isinstance(getattr(self.table, key), Column)
     
     def create_document(self, fields):
+        """Create a :term:`SQLA document` with its respective fields/values
+
+        .. currentmodule:: ndi.database.sql
+        
+        :param fields: Contains key:value pairs representing the documents table values per column.
+        :type fields: dict
+        :return: A :term:`SQLA document`.
+        :rtype: :class:`sqlalchemy.ext.declarative.api.DeclarativeMeta`
+        """
         return self.table(**fields)
 
     def create_document_from_ndi_object(self, ndi_object):
+        """Converts an :term:`NDI object` to a :term:`SQLA document`.
+        
+        :param ndi_object:
+        :type ndi_object: :term:`NDI class`
+        :return: A :term:`SQLA document`.
+        :rtype: :class:`sqlalchemy.ext.declarative.api.DeclarativeMeta`
+        """
         metadata_fields = {
             key: getattr(ndi_object, key)
             for key in self.fields
@@ -453,6 +563,13 @@ class Collection:
         return self.create_document(fields)
     
     def extract_document_fields(self, documents):
+        """Convert one or many :term:`SQLA document`\ s into ``dict``s.
+        
+        :param documents: Documents as they are recieved from SQLA database operations.
+        :type documents: List<:term:`SQLA document`> | :term:`SQLA document`
+        :return: Documents simplified to ``dict``s, with only Columns/values kept.
+        :rtype: List<dict> | dict
+        """
         extract = lambda doc: { 
             key: getattr(doc, key)
             for key in self.fields 
@@ -463,6 +580,13 @@ class Collection:
             return extract(documents)
 
     def extract_flatbuffers(self, documents):
+        """Extract the flatbuffer(s) of one or many :term:`SQLA document`\ s.
+        
+        :param documents: Documents as they are recieved from SQLA database operations.
+        :type documents:  List<:term:`SQLA document`> | :term:`SQLA document`
+        :return: Document's flatbuffer serialization.
+        :rtype: List<bytearray> | bytearray
+        """
         extract = lambda doc: getattr(doc, FLATBUFFER_KEY)
         if isinstance(documents, list):
             return [ extract(doc) for doc in documents ]
@@ -487,6 +611,13 @@ class Collection:
     }
 
     def generate_sqla_filter(self, query):
+        """Convert an :term:`NDI query` to a :term:`SQLA query`.
+        
+        :param query:
+        :type query: :term:`NDI query`
+        :return:
+        :rtype: :term:`SQLA query`
+        """
         def recurse(q):
             if isinstance(q, CompositeQuery):
                 nested_queries = [recurse(nested_q) for nested_q in q]
@@ -498,6 +629,13 @@ class Collection:
         return recurse(query)
 
     def _functionalize_query(self, query):
+        """This function allows us to conditionally set a filter operation on a :term:`SQLA session query`. This allows us to interpret the absence of an :term:`NDI query` or :term:`SQLA query` as being equivalent to ``SELECT *`` within the queried table.
+        
+        :param query:
+        :type query: :term:`SQLA query` | None
+        :return: A :term:`SQLA session query`.
+        :rtype: sqlalchemy.orm.query.Query
+        """
         def filter_(expr):
             return expr if query is None else expr.filter(query)
         return filter_
@@ -505,11 +643,29 @@ class Collection:
     @recast_ndi_objects_to_documents
     @with_session
     def add(self, session, items):
+        """Adds :term:`NDI object`\ s to the :class:`Collection` as :term:`SQLA document`\ s.
+
+        .. currentmodule: ndi.database
+        
+        :param session: See :term:`SQLA session`. Argument passed by :func:`utils.with_session`.
+        :type session: :class:`sqlalchemy.orm.session.Session`
+        :param items: Argument is passed in as :term:`NDI object`\ s and is converted to :term:`SQLA document`\ s by :func:`utils.recast_ndi_objects_to_documents`.
+        :type items: List<:term:`SQLA document`>
+        """
         session.add_all(items)
 
     @recast_ndi_objects_to_documents
     @with_session
     def update(self, session, items):
+        """Updates (replaces) the :term:`document`\ s of the given :term:`NDI object`\ s in the :class:`Collection` based on the object's id.
+
+        .. currentmodule: ndi.database
+        
+        :param session: See :term:`SQLA session`. Argument passed by :func:`utils.with_session`.
+        :type session: :class:`sqlalchemy.orm.session.Session`
+        :param items: Argument is passed in as :term:`NDI object`\ s and is converted to :term:`SQLA document`\ s by :func:`utils.recast_ndi_objects_to_documents`.
+        :type items: List<:term:`SQLA document`>
+        """
         q = session.query(self.table)
         for item in items:
             doc = q.get(item.id)
@@ -519,6 +675,15 @@ class Collection:
     @recast_ndi_objects_to_documents
     @with_session
     def upsert(self, session, items):
+        """Updates (replaces) the :term:`document`\ s of the given :term:`NDI object`\ s in the :class:`Collection`. Objects that do not already exist are added.
+
+        .. currentmodule: ndi.database
+        
+        :param session: See :term:`SQLA session`. Argument passed by :func:`utils.with_session`.
+        :type session: :class:`sqlalchemy.orm.session.Session`
+        :param items: Argument is passed in as :term:`NDI object`\ s and is converted to :term:`SQLA document`\ s by :func:`utils.recast_ndi_objects_to_documents`.
+        :type items: List<:term:`SQLA document`>
+        """
         q = session.query(self.table)
         for item in items:
             doc = q.get(item.id)
@@ -532,6 +697,15 @@ class Collection:
     @recast_ndi_objects_to_documents
     @with_session
     def delete(self, session, items):
+        """Removes the :term:`document`\ s of the given :term:`NDI object`\ s from the :class:`Collection`.
+
+        .. currentmodule: ndi.database
+        
+        :param session: See :term:`SQLA session`. Argument passed by :func:`utils.with_session`.
+        :type session: :class:`sqlalchemy.orm.session.Session`
+        :param items: Argument is passed in as :term:`NDI object`\ s and is converted to :term:`SQLA document`\ s by :func:`utils.recast_ndi_objects_to_documents`.
+        :type items: List<:term:`SQLA document`>
+        """
         for item in items:
             doc = session.query(self.table).get(item.id)
             session.delete(doc)
@@ -539,19 +713,34 @@ class Collection:
     @with_session
     @translate_query
     def find(self, session, query=None, order_by=None, as_flatbuffers=True):
+        """.. currentmodule:: ndi.database.sql
+        
+        Extracts the :term:`document`\ s in the :class:`Collection` matching the given :term:`SQLA query`.
+        
+        :param session: See :term:`SQLA session`. Argument passed by :func:`utils.with_session`.
+        :type session: :class:`sqlalchemy.orm.session.Session`
+        :param query: See :term:`SQLA query`. Defaults to find-all.
+        :type query: :class:`sqlalchemy.orm.query.Query`, optional
+        :param order_by: :term:`label`. Defaults to last-updated.
+        :type order_by: str, optional
+        :param as_flatbuffers: If False, find will return the results as :term:`SQLA document`\ s as ``dict``s; otherwise, will return :term:`flatbuffers`\ s as ``bytearray``s. Defaults to True.
+        :type as_flatbuffers: bool, optional
+        :rtype: List<bytearray> | List<dict>
+        """
         filter_ = self._functionalize_query(query)
         documents = filter_(session.query(self.table)).order_by(order_by).all()
         return self.extract_flatbuffers(documents) if as_flatbuffers else self.extract_document_fields(documents)
 
-    @with_open_session
-    @translate_query
-    def sqla_find(self, session, query=None, order_by=None):
-        filter_ = self._functionalize_query(query)
-        return filter_(session.query(self.table)).order_by(order_by).all()
-
     @with_session
     @translate_query
     def delete_many(self, session, query=None):
+        """Deletes the :term:`document`\ s in the :class:`Collection` matching the given :term:`SQLA query`.
+        
+        :param session: See :term:`SQLA session`. Argument passed by :func:`utils.with_session`.
+        :type session: :class:`sqlalchemy.orm.session.Session`
+        :param query: See :term:`SQLA query`. Defaults to find-all.
+        :type query: :class:`sqlalchemy.orm.query.Query`, optional
+        """
         filter_ = self._functionalize_query(query)
         documents = filter_(session.query(self.table)).all()
         for doc in documents:
@@ -559,23 +748,62 @@ class Collection:
 
     @with_session
     def find_by_id(self, session, id_, as_flatbuffer=True):
+        """Extracts the :term:`document` in the :class:`Collection` matching the given id.
+        
+        :param session: See :term:`SQLA session`. Argument passed by :func:`utils.with_session`.
+        :type session: :class:`sqlalchemy.orm.session.Session`
+        :param id_: See :term:`NDI ID`.
+        :type id_: str
+        :param as_flatbuffers: If False, find will return the results as :term:`SQLA document`\ s as ``dict``s; otherwise, will return :term:`flatbuffers`\ s as ``bytearray``s. Defaults to True.
+        :type as_flatbuffers: bool, optional
+        :rtype: bytearray | dict
+        """
         document = session.query(self.table).get(id_)
         return self.extract_flatbuffers(document) if as_flatbuffer else self.extract_document_fields(document)
 
     @with_session
     def update_by_id(self, session, id_, payload={}):
+        """Updates the :term:`document` in the :class:`Collection` matching the given id with payload and returns the updated document flatbuffer.
+        
+        :param session: See :term:`SQLA session`. Argument passed by :func:`utils.with_session`.
+        :type session: :class:`sqlalchemy.orm.session.Session`
+        :param id_: See :term:`NDI ID`.
+        :type id_: str
+        :param payload: See :term:`payload`.
+        :type payload: dict
+        :rtype: bytearray
+        """
         document = session.query(self.table).get(id_)
         self.__update_sqla_partial_document(document, payload)
         return self.extract_flatbuffers(document)
 
     @with_session
     def delete_by_id(self, session, id_):
+        """Deletes the :term:`document` in the :class:`Collection` matching the given id.
+        
+        :param session: See :term:`SQLA session`. Argument passed by :func:`utils.with_session`.
+        :type session: :class:`sqlalchemy.orm.session.Session`
+        :param id_: See :term:`NDI ID`.
+        :type id_: str
+        """
         document = session.query(self.table).get(id_)
         session.delete(document)
 
     @with_session
     @translate_query
     def update_many(self, session, query={}, payload={}, order_by=None):
+        """Updates (replaces) the :term:`document`\ s of the given :term:`NDI object`\ s in the :class:`Collection` matching the given :term:`SQLA query`.
+        
+        :param session: See :term:`SQLA session`. Argument passed by :func:`utils.with_session`.
+        :type session: :class:`sqlalchemy.orm.session.Session`
+        :param query: See :term:`SQLA query`. Defaults to find-all.
+        :type query: :class:`sqlalchemy.orm.query.Query`, optional
+        :param payload: See :term:`payload`.
+        :type payload: dict
+        :param order_by: :term:`label`. Defaults to last-updated.
+        :type order_by: str, optional
+        :rtype: List<bytearray>
+        """
         filter_ = self._functionalize_query(query)
         documents = filter_(session.query(self.table)).order_by(order_by).all()
         for d in documents:
@@ -583,6 +811,13 @@ class Collection:
         return self.extract_flatbuffers(documents)
 
     def __update_sqla_partial_document(self, document, payload):
+        """Modifies a document in place with the key:value pairs in the given payload.
+        
+        :param document:
+        :type document: :term:`SQLA document`
+        :param payload: See :term:`payload`.
+        :type payload: dict
+        """
         # NOT PURE: modifies document in place
         for key, value in payload.items():
             setattr(document, key, value)

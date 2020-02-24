@@ -23,7 +23,7 @@ DAQ Readers
    mock_daq_reader.MockReader
 
 Databases and Tools
-------------------
+-------------------
 
 .. currentmodule:: ndi.database
 .. autosummary::
@@ -55,7 +55,10 @@ Test infrastructure
 
    tests.utils
 
-:raw-html:`<h2>Indices and tables<h2>`
+
+.. raw:: html
+
+   <h2>Indices and tables<h2>
 
 * :ref:`genindex`
 * :ref:`modindex`
