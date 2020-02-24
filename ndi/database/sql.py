@@ -818,7 +818,6 @@ class Collection:
         :param payload: See :term:`payload`.
         :type payload: dict
         """
-        # NOT PURE: modifies document in place
         for key, value in payload.items():
             setattr(document, key, value)
         if hasattr(document, FLATBUFFER_KEY):
