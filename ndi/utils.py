@@ -36,7 +36,7 @@ def flatten(nested_list):
     """
     return [ item for l in nested_list for item in l ]
 
-def typecheckedcls(cls):
+def typechecked_class(cls):
     """Checks type annotation for class methods
 
     Class decorator: to be used on class definitions. Class methods can then be annotated and will raise TypeError if arguments do not match types declared by annotation.
@@ -49,3 +49,38 @@ def typecheckedcls(cls):
         if isfunction(attr := getattr(cls, attr_name)):
             setattr(cls, attr_name, typechecked(attr))
     return cls
+
+def generate_tuple_analog(ndi_type):
+    """Produces a tuple from a flatbuffer schema type class. The generated tuple is used in an :term:`NDI class`\ 's _reconstruct method.
+    ::
+        class SchemaType(object):
+            abc = 0
+            def = 1
+            ghi = 2
+        
+        NDI_Type = generate_tuple_analog(SchemaType)
+        # NDI_Type = ('abc', 'def', 'ghi')
+
+        t = SchemaType.def
+        NDI_type[t]
+        # returns 'def'
+    
+    :param ndi_type: [description]
+    :type ndi_type: [type]
+    :return: [description]
+    :rtype: [type]
+    """
+
+    type_map = {}
+    max_index = 0
+    for key, value in ndi_type.__dict__.items():
+        if isinstance(value, int):
+            type_map[value] = key
+            if value > max_index:
+                max_index = value
+
+    type_list = []
+    for i in range(max_index + 1):
+        type_list.append(type_map[i])
+
+    return tuple(type_list)
