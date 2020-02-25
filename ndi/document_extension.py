@@ -3,6 +3,11 @@ from abc import ABC, abstractmethod
 
 
 class DocumentExtension(NDI_Object, ABC):
+    """
+    Abstract class for implementing user-defined flatbuffer schema.
+
+    Subclass implementations are used to create custom ndi_documents
+    """
     @abstractmethod
     def __init__(self, document_id=''):
         self.document_id = document_id
