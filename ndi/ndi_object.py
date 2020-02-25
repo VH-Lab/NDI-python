@@ -85,7 +85,7 @@ class NDI_Object(ABC):
             builder.PrependUOffsetTRelative(built_string)
         return builder.EndVector(len(built_strings))
 
-    def serialize(self):
+    def serialize(self) -> bytearray:
         """
         Builds a flatbuffer from the :class:`NDI_Object` instance.
 
@@ -96,5 +96,5 @@ class NDI_Object(ABC):
         builder.Finish(ndi_object)
         return builder.Output()
 
-    def __eq__(self, ndi_object):
+    def __eq__(self, ndi_object) -> bool:
         return self.serialize() == ndi_object.serialize()
