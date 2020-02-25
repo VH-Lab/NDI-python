@@ -1,16 +1,16 @@
-from .base_db import BaseDB
+from .base_db import NDI_Database
 from pathlib import Path
 from .utils import handle_iter, check_ndi_object, check_ndi_class
 from ..database.query import CompositeQuery, AndQuery, OrQuery
 import re
 
 
-class FileSystem(BaseDB):
+class FileSystem(NDI_Database):
     """File system database API.
 
     .. currentmodule:: ndi.database.base_db
 
-    Inherits from the :class:`BaseDB` abstract class.
+    Inherits from the :class:`NDI_Database` abstract class.
     """
 
     def __init__(self, exp_dir, db_name='.ndi'):
@@ -55,7 +55,7 @@ class FileSystem(BaseDB):
         """
         .. currentmodule:: ndi.base_db:
 
-        Build all :term:`collection`\ s from the _collections property on :class:`BaseDB`.
+        Build all :term:`collection`\ s from the _collections property on :class:`NDI_Database`.
         """
         for collection in self._collections:
             self.create_collection(collection)
@@ -64,7 +64,7 @@ class FileSystem(BaseDB):
         """Instantiates a :term:`collection` from the given :term:`NDI class` using its properties to set the :term:`field`\ s. 
 
         :param ndi_class: The :term:`NDI class` that will define the new collection.
-        :type ndi_class: :class:`BaseDB`
+        :type ndi_class: :class:`NDI_Database`
         """
         self._collections[ndi_class] = Collection(self.db_dir, ndi_class)
 
@@ -158,7 +158,7 @@ class FileSystem(BaseDB):
         .. currentmodule:: ndi.base_db
 
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
-        :type ndi_class: :class:`BaseDB`
+        :type ndi_class: :class:`NDI_Database`
         :param ndi_query: See :term:`NDI query`, defaults to {}
         :type query: dict, optional
         """
@@ -170,7 +170,7 @@ class FileSystem(BaseDB):
         .. currentmodule:: ndi.base_db
 
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to search.
-        :type ndi_class: :class:`BaseDB`
+        :type ndi_class: :class:`NDI_Database`
         :param id_: The identifier of the :term:`document` to extract.
         :type id_: str
         :rtype: :term:`NDI object`
@@ -183,7 +183,7 @@ class FileSystem(BaseDB):
         .. currentmodule:: ndi.base_db
 
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to update.
-        :type ndi_class: :class:`BaseDB`
+        :type ndi_class: :class:`NDI_Database`
         :param id_: The identifier of the :term:`document` to update.
         :type id_: str
         """
@@ -195,7 +195,7 @@ class FileSystem(BaseDB):
         .. currentmodule:: ndi.base_db
 
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
-        :type ndi_class: :class:`BaseDB`
+        :type ndi_class: :class:`NDI_Database`
         :param id_: The identifier of the :term:`document` to delete.
         :type id_: str
         """

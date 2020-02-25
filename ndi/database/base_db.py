@@ -7,10 +7,10 @@ from ..epoch import Epoch
 from ..channel import Channel
 
 
-class BaseDB(ABC):
+class NDI_Database(ABC):
     """
     Abstract class for NDI database interfaces.
-    Child classes of :class:`BaseDB` are standardized, and share the same base methods and data signatures.
+    Child classes of :class:`NDI_Database` are standardized, and share the same base methods and data signatures.
     """
     _collections = {
         Experiment: None,

@@ -3,7 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy import Table, Column, ForeignKey, Integer, String, LargeBinary
 from sqlalchemy import and_, or_
-from .base_db import BaseDB
+from .base_db import NDI_Database
 from functools import wraps
 from ndi import Experiment, DaqSystem, Probe, Epoch, Channel
 from ndi.utils import class_to_collection_name, flatten
@@ -24,12 +24,12 @@ FLATBUFFER_KEY = 'flatbuffer'
 #  SQL Database  #
 # ============== #
 
-class SQL(BaseDB):
+class SQL(NDI_Database):
     """Interface for SQL Databases.
     
     .. currentmodule:: ndi.database.base_db
 
-    Inherits from the :class:`BaseDB` abstract class.
+    Inherits from the :class:`NDI_Database` abstract class.
 
     This class aims to manage high-level database operations using the sqlalchemy (SQLA) library and serve as an interface between the NDI and SQLA systems. It maintains the SQLA engine and Session generator, directs :term:`CRUD` actions to their target :class:`Collection`\ s in the database, and is responsible for setting up, configuring, and destroying collections.
 
@@ -422,7 +422,7 @@ class SQL(BaseDB):
         .. currentmodule:: ndi.base_db
 
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
-        :type ndi_class: :class:`BaseDB`
+        :type ndi_class: :class:`NDI_Database`
         :param query: See :term:`NDI query`, defaults to {}
         :type query: dict, optional
         """
@@ -434,7 +434,7 @@ class SQL(BaseDB):
         .. currentmodule:: ndi.base_db
 
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to search.
-        :type ndi_class: :class:`BaseDB`
+        :type ndi_class: :class:`NDI_Database`
         :param id_: The identifier of the :term:`document` to extract.
         :type id_: str
         :param as_sql_data: If set to ``True``, find will return contents of SQL table row as a dict; otherwise, will return :term:`NDI object`\ s. Defaults to ``False``.
@@ -450,7 +450,7 @@ class SQL(BaseDB):
         .. currentmodule:: ndi.base_db
 
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to update.
-        :type ndi_class: :class:`BaseDB`
+        :type ndi_class: :class:`NDI_Database`
         :param id_: The identifier of the :term:`document` to update.
         :type id_: str
         :param payload: Field and update values to be updated, defaults to {}
@@ -466,7 +466,7 @@ class SQL(BaseDB):
         .. currentmodule:: ndi.base_db
 
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
-        :type ndi_class: :class:`BaseDB`
+        :type ndi_class: :class:`NDI_Database`
         :param id_: The identifier of the :term:`document` to delete.
         :type id_: str
         """

@@ -1,5 +1,6 @@
 from .channel_type import ChannelType
 from .channel import Channel
+from .clock_type import ClockType
 from .file_navigator import FileNavigator, EpochFiles
 from .daq_system import DaqSystem
 from .epoch import Epoch

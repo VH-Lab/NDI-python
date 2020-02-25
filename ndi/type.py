@@ -1,6 +1,7 @@
 """Type Module
 
-Singular location for 
+Singular location for reusable complex types.
+All types are PascalCase.
 
 To use:
 ::
@@ -35,6 +36,11 @@ if TYPE_CHECKING:
   from .schema.ProbeType import ProbeType as ProbeType_schema
 
   import ndi
+  from ndi import Channel, DaqSystem, Epoch, Experiment, Probe
+  from ndi import ChannelType, ClockType, ProbeType
+
+  from ndi.file_navigator import FileNavigator, EpochFiles
+
   from ndi.database import SQL, FileSystem, Query
   from ndi.database.sql import Collection as SQL_Collection
   from ndi.database.file_system import Collection as FS_Collection
@@ -46,21 +52,36 @@ if TYPE_CHECKING:
   SchemaEnumClass = Union[ Type[ChannelType_schema], Type[ClockType_schema], Type[ProbeType_schema] ]
   SchemaEnum = Union[ ChannelType_schema, ClockType_schema, ProbeType_schema ]
 
+  BuildOffset = int
+
 
   """NDI Types
   Associated with the NDI classes and types."""
 
-  NDI_class = ndi.ndi_object.NDI_Object
-  NDI_object = Union[ ndi.Channel, ndi.DaqSystem, ndi.Epoch, ndi.Experiment, ndi.FileNavigator, ndi.Probe ]
-  NDI_id = str
+  NdiClass = Union[ Type[ndi.Channel], Type[ndi.DaqSystem], Type[ndi.Epoch], Type[ndi.Experiment], Type[ndi.FileNavigator], Type[ndi.Probe] ]
+  NdiObject = Union[ ndi.Channel, ndi.DaqSystem, ndi.Epoch, ndi.Experiment, ndi.FileNavigator, ndi.Probe ]
+  NdiId = str
 
+
+
+  """DAQ Types
+  Associated with ndi.daqreaders."""
+
+  FilePath = str
+ 
 
 
   """Database Types
   Associated with ndi.database drivers."""
 
-
+  Class = type
 
 
 
   """Miscellaneous Types"""
+  RegexStr = str
+
+
+
+  """TODO"""
+  DaqReader = Any

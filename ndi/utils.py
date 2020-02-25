@@ -11,7 +11,7 @@ import re
 
 # Captures "words" in pascal case
 pascal_pattern = re.compile('((?<=[a-z0-9])[A-Z]|(?!^)[A-Z](?=[a-z]))')
-def pascal_to_snake_case(string):
+def pascal_to_snake_case(string: str) -> str:
     """Converts  PascalCase strings to snake_case
     
     :param string: String without whitespace.
@@ -21,7 +21,7 @@ def pascal_to_snake_case(string):
     """
     return pascal_pattern.sub(r'_\1', string).lower()
 
-def class_to_collection_name(ndi_class):
+def class_to_collection_name(ndi_class: T.NdiClass) -> str:
     """Convert a :class:`ndi.ndi_class` __name__ (PascalCase, singular) to a collection name (snake_case, plural).
     .. note::
         For consistency, collection names are made plural by the addition of an 's'.
@@ -33,7 +33,7 @@ def class_to_collection_name(ndi_class):
     """
     return f'{pascal_to_snake_case(ndi_class.__name__)}s'
 
-def flatten(nested_list):
+def flatten(nested_list: T.List[T.List]) -> T.List:
     """[summary]
     
     :param nested_list: [description]
@@ -41,7 +41,7 @@ def flatten(nested_list):
     """
     return [ item for l in nested_list for item in l ]
 
-def typechecked_class(cls):
+def typechecked_class(cls: T.Class) -> T.Class:
     """Checks type annotation for class methods
 
     Class decorator: to be used on class definitions. Class methods can then be annotated and will raise TypeError if arguments do not match types declared by annotation.
