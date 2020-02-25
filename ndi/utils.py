@@ -1,4 +1,9 @@
 """Utilities"""
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    import ndi.type as T
+
 from typeguard import typechecked
 from inspect import isfunction
 import re
@@ -50,8 +55,8 @@ def typechecked_class(cls):
             setattr(cls, attr_name, typechecked(attr))
     return cls
 
-def generate_tuple_analog(ndi_type):
-    """Produces a tuple from a flatbuffer schema type class. The generated tuple is used in an :term:`NDI class`\ 's _reconstruct method.
+def generate_tuple_analog(schema_enum: T.SchemaEnumClass) -> tuple:
+    """Produces a tuple from a flatbuffer schema enum class. The generated tuple is used in an :term:`NDI class`\ 's _reconstruct method.
     ::
         class SchemaType(object):
             abc = 0
@@ -62,25 +67,25 @@ def generate_tuple_analog(ndi_type):
         # NDI_Type = ('abc', 'def', 'ghi')
 
         t = SchemaType.def
-        NDI_type[t]
+        NDI_enum[t]
         # returns 'def'
     
-    :param ndi_type: [description]
-    :type ndi_type: [type]
+    :param schema_enum: [description]
+    :type schema_enum: [type]
     :return: [description]
     :rtype: [type]
     """
 
-    type_map = {}
+    enum_map = {}
     max_index = 0
-    for key, value in ndi_type.__dict__.items():
+    for key, value in schema_enum.__dict__.items():
         if isinstance(value, int):
-            type_map[value] = key
+            enum_map[value] = key
             if value > max_index:
                 max_index = value
 
-    type_list = []
+    enum_list = []
     for i in range(max_index + 1):
-        type_list.append(type_map[i])
+        enum_list.append(enum_map[i])
 
-    return tuple(type_list)
+    return tuple(enum_list)
