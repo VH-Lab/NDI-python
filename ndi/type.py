@@ -74,14 +74,16 @@ if TYPE_CHECKING:
   """Database Types
   Associated with ndi.database drivers."""
 
-  Class = type
 
 
 
   """Miscellaneous Types"""
+
+  Class = type
   RegexStr = str
 
 
 
   """TODO"""
+  
   DaqReader = Any
