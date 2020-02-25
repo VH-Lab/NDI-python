@@ -9,6 +9,7 @@ autopep8 = "*"
 pytest = "*"
 sphinx = "*"
 sphinx-rtd-theme = "*"
+mypy = "*"
 
 [packages]
 numpy = "*"
@@ -18,6 +19,7 @@ jupyter = "*"
 matplotlib = "*"
 sqlalchemy = "*"
 psycopg2-binary = "*"
+typeguard = "*"
 
 [requires]
 python_version = "3.8"
