@@ -1,7 +1,10 @@
 from .ndi_database import NDI_Database
 from pathlib import Path
-from .utils import handle_iter, check_ndi_object, check_ndi_class
-from ..database.query import CompositeQuery, AndQuery, OrQuery
+from ..document import Document
+from ..decorators import handle_iter
+from ..utils import class_to_collection_name
+from .utils import check_ndi_object, check_ndi_class
+from .query import CompositeQuery, AndQuery, OrQuery
 import re
 
 
@@ -13,7 +16,7 @@ class FileSystem(NDI_Database):
     Inherits from the :class:`NDI_Database` abstract class.
     """
 
-    def __init__(self, exp_dir, db_name='.ndi'):
+    def __init__(self, exp_dir, db_name='.ndi', document_extensions=[]):
         """FileSystem constructor: initializes a named FileSystem instance and connects to it at the given path. If it doesn't already exist, it creates a new file system database at the given path.
 
         :param exp_dir: A path to the file system database directory.
@@ -25,6 +28,13 @@ class FileSystem(NDI_Database):
 
         self.exp_dir = Path(exp_dir)
         self.db_dir = self.exp_dir / db_name
+
+        self._document_collections = {
+            document_extension.__name__ : document_extension
+            for document_extension in document_extensions
+        }
+        for document_extension in document_extensions:
+            self._collections[document_extension] = None
 
         # Initializing FS Database
         if self.exp_dir.exists() and self.exp_dir.is_dir():
@@ -214,7 +224,7 @@ class Collection:
         :param ndi_class: Any subclass of :class:`NDI_Object`
         :type ndi_class: type
         """
-        self.collection_dir = Path(db_dir / f'{ndi_class.__name__.lower()}s',)
+        self.collection_dir = Path(db_dir / class_to_collection_name(ndi_class))
         self.ndi_class = ndi_class
 
         # Initializing Collection

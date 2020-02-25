@@ -5,29 +5,7 @@ Database Utils Module
 from ..ndi_object import NDI_Object
 from functools import wraps
 from contextlib import contextmanager
-from ndi.database.query import Query
-
-
-def handle_iter(func):
-    """
-    Decorator: meant to work with :func:`check_ndi_object`. If passed a list of :term:`NDI object`\ s, it will call func with each one. Otherwise, it will call func(arg) once.
-    
-    :param func: The wrapped function.
-    :type func: function
-
-    :param arg: The first argument passed to the wrapped function.
-    :type arg: List<:term:`NDI object`> | :term:`NDI object`
-
-    :rtype: None
-    """
-    @wraps(func)
-    def decorator(self, arg):
-        try:
-            for item in arg:
-                func(self, item)
-        except TypeError:
-            func(self, arg)
-    return decorator
+from .query import Query
 
 
 def check_ndi_object(func):
