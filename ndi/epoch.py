@@ -16,7 +16,7 @@ class Epoch(NDI_Object):
     Inherits from the :class:`NDI_Object` abstract class.
     """
     # TODO: require daq_system_id after implementing DaqReaders
-    def __init__(self, daq_system_id: T.NdiId = '', id_: T.NdiId = '') -> None:
+    def __init__(self, daq_system_id: T.NdiId = None, id_: T.NdiId = None) -> None:
         """Epoch constructor: initializes with fields defined in `ndi_schema <https://>`_'s Epoch table. For use when creating a new Epoch instance from scratch.
         ::
             new_epoch = Epoch(**fields)
@@ -56,8 +56,8 @@ class Epoch(NDI_Object):
         :rtype: :class:`Epoch`
         """
         return cls(
-            id_=epoch.Id().decode('utf8'),
-            daq_system_id=epoch.DaqSystemId().decode('utf8')
+            id_=T.NdiId(epoch.Id().decode('utf8')),
+            daq_system_id=T.NdiId(epoch.DaqSystemId().decode('utf8'))
         )
 
     def _build(self, builder: T.Builder) -> T.BuildOffset:

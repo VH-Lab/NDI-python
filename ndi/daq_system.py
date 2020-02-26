@@ -23,8 +23,8 @@ class DaqSystem(NDI_Object):
             name: str,
             file_navigator: T.FileNavigator,
             daq_reader: T.DaqReader,
-            experiment_id: T.NdiId = '',
-            id_: T.NdiId = ''
+            experiment_id: T.NdiId = None,
+            id_: T.NdiId = None
         ) -> None:
         """DaqSystem constructor: initializes with fields defined in `ndi_schema <https://>`_'s DaqSystem table. For use when creating a new DaqSystem instance from scratch.
         ::
@@ -80,11 +80,11 @@ class DaqSystem(NDI_Object):
         daq_reader = getattr(DaqReaders, daq_system.DaqReader().decode('utf8'))
 
         return cls(
-            id_=daq_system.Id().decode('utf8'),
+            id_=T.NdiId(daq_system.Id().decode('utf8')),
             name=daq_system.Name().decode('utf8'),
             file_navigator=file_navigator,
             daq_reader=daq_reader,
-            experiment_id=daq_system.ExperimentId().decode('utf8')
+            experiment_id=T.NdiId(daq_system.ExperimentId().decode('utf8'))
         )
 
     def _build(self, builder: T.Builder) -> T.BuildOffset:

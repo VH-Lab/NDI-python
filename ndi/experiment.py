@@ -16,7 +16,7 @@ class Experiment(NDI_Object):
 
     Inherits from the :class:`NDI_Object` abstract class.
     """
-    def __init__(self, name: str, daq_systems: T.List[T.DaqSystem] = [], id_: T.NdiId = ''):
+    def __init__(self, name: str, daq_systems: T.List[T.DaqSystem] = [], id_: T.NdiId = None):
         """Experiment constructor: initializes with fields defined in `ndi_schema <https://>`_'s Experiment table. For use when creating a new Experiment instance from scratch.
         ::
             new_experiment = Experiment(**fields)
@@ -65,7 +65,7 @@ class Experiment(NDI_Object):
         :rtype: :class:`Experiment`
         """
         return cls(
-            id_=experiment.Id().decode('utf8'),
+            id_=T.NdiId(experiment.Id().decode('utf8')),
             name=experiment.Name().decode('utf8')
         )
 

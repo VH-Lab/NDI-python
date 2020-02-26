@@ -27,8 +27,8 @@ class Channel(NDI_Object):
             source_file: str,
             epoch_id: T.NdiId,
             probe_id: T.NdiId,
-            daq_system_id: T.NdiId = '',
-            id_: T.NdiId = '',
+            daq_system_id: T.NdiId = None,
+            id_: T.NdiId = None,
             clock_type: str = 'no_time'
         ) -> None:
         """Channel constructor: initializes with fields defined in `ndi_schema <https://>`_'s Channel table. For use when creating a new Channel instance from scratch.
@@ -94,15 +94,15 @@ class Channel(NDI_Object):
         :rtype: :class:`Channel`
         """
         return cls(
-            id_=channel.Id().decode('utf8'),
+            id_=T.NdiId(channel.Id().decode('utf8')),
             name=channel.Name().decode('utf8'),
             number=channel.Number(),
             type_=ChannelType[channel.Type()],
             clock_type=ClockType[channel.ClockType()],
             source_file=channel.SourceFile().decode('utf8'),
-            epoch_id=channel.EpochId().decode('utf8'),
-            probe_id=channel.ProbeId().decode('utf8'),
-            daq_system_id=channel.DaqSystemId().decode('utf8'),
+            epoch_id=T.NdiId(channel.EpochId().decode('utf8')),
+            probe_id=T.NdiId(channel.ProbeId().decode('utf8')),
+            daq_system_id=T.NdiId(channel.DaqSystemId().decode('utf8')),
         )
 
     def _build(self, builder: T.Builder) -> T.BuildOffset:

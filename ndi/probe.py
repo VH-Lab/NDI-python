@@ -22,8 +22,8 @@ class Probe(NDI_Object):
             name: str,
             reference: int,
             type_: str,
-            id_: T.NdiId = '',
-            daq_system_id: T.NdiId = ''
+            id_: T.NdiId = None,
+            daq_system_id: T.NdiId = None
         ) -> None:
         """Probe constructor: initializes with fields defined in `ndi_schema <https://>`_'s Probe table. For use when creating a new Probe instance from scratch.
         ::
@@ -78,11 +78,11 @@ class Probe(NDI_Object):
         :rtype: :class:`Probe`
         """
         return cls(
-            id_=probe.Id().decode('utf8'),
+            id_=T.NdiId(probe.Id().decode('utf8')),
             name=probe.Name().decode('utf8'),
             reference=probe.Reference(),
             type_=ProbeType[probe.Type()],
-            daq_system_id=probe.DaqSystemId().decode('utf8')
+            daq_system_id=T.NdiId(probe.DaqSystemId().decode('utf8'))
         )
 
     def _build(self, builder: T.Builder) -> T.BuildOffset:
