@@ -8,7 +8,7 @@ To use:
   from __future__ import annotations
   from typing import TYPE_CHECKING
   if TYPE_CHECKING:
-      import ndi.type as T
+      import ndi.types as T
 
   Helpful type references: `docs <https://docs.python.org/3/library/typing.html#the-any-type>`_, `examples <https://www.pythonsheets.com/notes/python-typing.html>`_
 """

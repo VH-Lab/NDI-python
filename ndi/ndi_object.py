@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    import ndi.type as T
+    import ndi.types as T
 
 from abc import ABC, abstractmethod
 import flatbuffers
