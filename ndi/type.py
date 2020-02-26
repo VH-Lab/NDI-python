@@ -35,7 +35,7 @@ if TYPE_CHECKING:
   from .schema.ClockType import ClockType as ClockType_schema
   from .schema.ProbeType import ProbeType as ProbeType_schema
 
-  import ndi
+  from ndi import NDI_Object
   from ndi import Channel, DaqSystem, Epoch, Experiment, Probe
   from ndi import ChannelType, ClockType, ProbeType
 
@@ -90,22 +90,8 @@ if TYPE_CHECKING:
   """NDI Types
   Associated with the NDI classes and types."""
 
-  NdiClass = Union[
-    Type[ndi.Channel],
-    Type[ndi.DaqSystem],
-    Type[ndi.Epoch],
-    Type[ndi.Experiment],
-    Type[ndi.FileNavigator],
-    Type[ndi.Probe]
-  ]
-  NdiObject = Union[
-    ndi.Channel,
-    ndi.DaqSystem,
-    ndi.Epoch,
-    ndi.Experiment,
-    ndi.FileNavigator,
-    ndi.Probe
-  ]
+  NdiClass = Type[NDI_Object]
+  NdiObject = NDI_Object
   NdiId = str
 
 
