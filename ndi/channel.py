@@ -28,7 +28,7 @@ class Channel(NDI_Object):
             epoch_id: T.NdiId,
             probe_id: T.NdiId,
             daq_system_id: T.NdiId = '',
-            id_: T.NdiId = None,
+            id_: T.NdiId = '',
             clock_type: str = 'no_time'
         ) -> None:
         """Channel constructor: initializes with fields defined in `ndi_schema <https://>`_'s Channel table. For use when creating a new Channel instance from scratch.

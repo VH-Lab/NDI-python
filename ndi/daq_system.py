@@ -23,8 +23,8 @@ class DaqSystem(NDI_Object):
             name: str,
             file_navigator: T.FileNavigator,
             daq_reader: T.DaqReader,
-            experiment_id: T.NdiId = None,
-            id_: T.NdiId = None
+            experiment_id: T.NdiId = '',
+            id_: T.NdiId = ''
         ) -> None:
         """DaqSystem constructor: initializes with fields defined in `ndi_schema <https://>`_'s DaqSystem table. For use when creating a new DaqSystem instance from scratch.
         ::

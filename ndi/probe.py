@@ -22,7 +22,7 @@ class Probe(NDI_Object):
             name: str,
             reference: int,
             type_: str,
-            id_: T.NdiId = None,
+            id_: T.NdiId = '',
             daq_system_id: T.NdiId = ''
         ) -> None:
         """Probe constructor: initializes with fields defined in `ndi_schema <https://>`_'s Probe table. For use when creating a new Probe instance from scratch.
