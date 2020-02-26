@@ -58,7 +58,7 @@ class NDI_Object(ABC):
         ]
 
     @abstractmethod
-    def _build(self, builder: T.Builder):
+    def _build(self, builder: T.Builder) -> T.BuildOffset:
         """
         Builds flatbuffer of object instance
 
@@ -71,7 +71,7 @@ class NDI_Object(ABC):
         pass
 
     @staticmethod
-    def _buildStringVector(builder: T.Builder, strings: T.List[str]):
+    def _buildStringVector(builder: T.Builder, strings: T.List[str]) -> T.BuildOffset:
         """
         Builds flatbuffer vector from list of strings
         """
