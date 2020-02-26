@@ -1,4 +1,9 @@
 """Utilities"""
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    import ndi.types as T
+
 from typeguard import typechecked
 from inspect import isfunction
 import re
@@ -6,7 +11,7 @@ import re
 
 # Captures "words" in pascal case
 pascal_pattern = re.compile('((?<=[a-z0-9])[A-Z]|(?!^)[A-Z](?=[a-z]))')
-def pascal_to_snake_case(string):
+def pascal_to_snake_case(string: str) -> str:
     """Converts  PascalCase strings to snake_case
     
     :param string: String without whitespace.
@@ -16,7 +21,7 @@ def pascal_to_snake_case(string):
     """
     return pascal_pattern.sub(r'_\1', string).lower()
 
-def class_to_collection_name(ndi_class):
+def class_to_collection_name(ndi_class: T.NdiClass) -> str:
     """Convert a :class:`ndi.ndi_class` __name__ (PascalCase, singular) to a collection name (snake_case, plural).
     .. note::
         For consistency, collection names are made plural by the addition of an 's'.
@@ -28,7 +33,7 @@ def class_to_collection_name(ndi_class):
     """
     return f'{pascal_to_snake_case(ndi_class.__name__)}s'
 
-def flatten(nested_list):
+def flatten(nested_list: T.List[T.List]) -> T.List:
     """[summary]
     
     :param nested_list: [description]
@@ -36,7 +41,7 @@ def flatten(nested_list):
     """
     return [ item for l in nested_list for item in l ]
 
-def typecheckedcls(cls):
+def typechecked_class(cls: T.Class) -> T.Class:
     """Checks type annotation for class methods
 
     Class decorator: to be used on class definitions. Class methods can then be annotated and will raise TypeError if arguments do not match types declared by annotation.
@@ -49,3 +54,38 @@ def typecheckedcls(cls):
         if isfunction(attr := getattr(cls, attr_name)):
             setattr(cls, attr_name, typechecked(attr))
     return cls
+
+def generate_tuple_analog(schema_enum: T.SchemaEnumClass) -> tuple:
+    """Produces a tuple from a flatbuffer schema enum class. The generated tuple is used in an :term:`NDI class`\ 's _reconstruct method.
+    ::
+        class SchemaType(object):
+            abc = 0
+            def = 1
+            ghi = 2
+        
+        NDI_Type = generate_tuple_analog(SchemaType)
+        # NDI_Type = ('abc', 'def', 'ghi')
+
+        t = SchemaType.def
+        NDI_enum[t]
+        # returns 'def'
+    
+    :param schema_enum: [description]
+    :type schema_enum: [type]
+    :return: [description]
+    :rtype: [type]
+    """
+
+    enum_map = {}
+    max_index = 0
+    for key, value in schema_enum.__dict__.items():
+        if isinstance(value, int):
+            enum_map[value] = key
+            if value > max_index:
+                max_index = value
+
+    enum_list = []
+    for i in range(max_index + 1):
+        enum_list.append(enum_map[i])
+
+    return tuple(enum_list)
