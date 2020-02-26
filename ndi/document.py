@@ -50,7 +50,7 @@ class Document(NDI_Object):
     @classmethod
     def from_flatbuffer(cls, flatbuffer: bytes) -> Document:
         """For constructing ndi_document from a flatbuffer
-        
+
         :param flatbuffer: [description]
         :type flatbuffer: bytes
         :return: [description]
@@ -62,7 +62,7 @@ class Document(NDI_Object):
     @classmethod
     def _reconstruct(cls, document: build_document.Document) -> Document:
         """For constructing ndi_document from a flatbuffer object
-        
+
         :param document: [description]
         :type document: build_document.Document
         :return: [description]
@@ -98,7 +98,7 @@ class Document(NDI_Object):
     @handle_iter
     def add_dependency(self, ndi_document: Union[Document, List[Document]]) -> Union[None, List[None]]:
         """Add an ndi_document object that this ndi_document depends on
-        
+
         :param ndi_document: [description]
         :type ndi_document: Union[Document, List[Document]]
         :return: [description]
@@ -108,7 +108,7 @@ class Document(NDI_Object):
 
     def set_document_extension(self, document_extension: DocumentExtension) -> None:
         """Sets the document_extension for this ndi_document
-        
+
         :param document_extension: [description]
         :type document_extension: DocumentExtension
         """
@@ -120,7 +120,9 @@ class Document(NDI_Object):
     def _save_updates(self) -> None:
         """Updates version and creates a new id for this ndi_document.
 
-        To be used in database implementations.
+        Also updates document_extension with new ndi_document id.
+
+        To be used in database implementations only.
         """
         super().__init__('')
         if self.document_extension:
