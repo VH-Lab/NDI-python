@@ -64,8 +64,10 @@ class Experiment(NDI_Object):
 
         :rtype: :class:`Experiment`
         """
-        return cls(id_=experiment.Id().decode('utf8'),
-                   name=experiment.Name().decode('utf8'))
+        return cls(
+            id_=experiment.Id().decode('utf8'),
+            name=experiment.Name().decode('utf8')
+        )
 
     def _build(self, builder: T.Builder) -> T.BuildOffset:
         """.. currentmodule:: ndi.ndi_object

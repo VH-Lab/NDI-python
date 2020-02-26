@@ -17,7 +17,14 @@ class Probe(NDI_Object):
 
     Inherits from the :class:`NDI_Object` abstract class.
     """
-    def __init__(self, name: str, reference: int, type_: str, id_: T.NdiId = None, daq_system_id: T.NdiId = '') -> None:
+    def __init__(
+            self,
+            name: str,
+            reference: int,
+            type_: str,
+            id_: T.NdiId = None,
+            daq_system_id: T.NdiId = ''
+        ) -> None:
         """Probe constructor: initializes with fields defined in `ndi_schema <https://>`_'s Probe table. For use when creating a new Probe instance from scratch.
         ::
             new_probe = Probe(**fields)
@@ -70,11 +77,13 @@ class Probe(NDI_Object):
 
         :rtype: :class:`Probe`
         """
-        return cls(id_=probe.Id().decode('utf8'),
-                   name=probe.Name().decode('utf8'),
-                   reference=probe.Reference(),
-                   type_=ProbeType[probe.Type()],
-                   daq_system_id=probe.DaqSystemId().decode('utf8'))
+        return cls(
+            id_=probe.Id().decode('utf8'),
+            name=probe.Name().decode('utf8'),
+            reference=probe.Reference(),
+            type_=ProbeType[probe.Type()],
+            daq_system_id=probe.DaqSystemId().decode('utf8')
+        )
 
     def _build(self, builder: T.Builder) -> T.BuildOffset:
         """.. currentmodule:: ndi.ndi_object

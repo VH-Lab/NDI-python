@@ -25,7 +25,11 @@ class FileNavigator(NDI_Object):
 
     Inherits from the :class:`NDI_Object` abstract class.
     """
-    def __init__(self, epoch_file_patterns: T.List[T.RegexStr], metadata_file_pattern: T.RegexStr) -> None:
+    def __init__(
+            self,
+            epoch_file_patterns: T.List[T.RegexStr],
+            metadata_file_pattern: T.RegexStr
+        ) -> None:
         """FileNavigator constructor: initializes with fields defined in `ndi_schema <https://>`_'s FileNavigator table. For use when creating a new FileNavigator instance from scratch.
         ::
             new_file_navigator = FileNavigator(**fields)
@@ -71,8 +75,10 @@ class FileNavigator(NDI_Object):
             for i in range(file_navigator.EpochFilePatternsLength())
         ]
 
-        return cls(epoch_file_patterns=epoch_file_patterns,
-                   metadata_file_pattern=file_navigator.MetadataFilePattern().decode('utf8'))
+        return cls(
+            epoch_file_patterns=epoch_file_patterns,
+            metadata_file_pattern=file_navigator.MetadataFilePattern().decode('utf8')
+        )
 
     def _build(self, builder: T.Builder) -> T.BuildOffset:
         """.. currentmodule:: ndi.ndi_object

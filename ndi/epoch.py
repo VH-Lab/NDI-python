@@ -55,8 +55,10 @@ class Epoch(NDI_Object):
 
         :rtype: :class:`Epoch`
         """
-        return cls(id_=epoch.Id().decode('utf8'),
-                   daq_system_id=epoch.DaqSystemId().decode('utf8'))
+        return cls(
+            id_=epoch.Id().decode('utf8'),
+            daq_system_id=epoch.DaqSystemId().decode('utf8')
+        )
 
     def _build(self, builder: T.Builder) -> T.BuildOffset:
         """.. currentmodule:: ndi.ndi_object

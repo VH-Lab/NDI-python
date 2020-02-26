@@ -18,8 +18,14 @@ class DaqSystem(NDI_Object):
     Inherits from the :class:`NDI_Object` abstract class.
     """
 
-    def __init__(self, name: str, file_navigator: T.FileNavigator, daq_reader: T.DaqReader,
-                 experiment_id: T.NdiId = None, id_: T.NdiId = None) -> None:
+    def __init__(
+            self,
+            name: str,
+            file_navigator: T.FileNavigator,
+            daq_reader: T.DaqReader,
+            experiment_id: T.NdiId = None,
+            id_: T.NdiId = None
+        ) -> None:
         """DaqSystem constructor: initializes with fields defined in `ndi_schema <https://>`_'s DaqSystem table. For use when creating a new DaqSystem instance from scratch.
         ::
             new_daq_system = DaqSystem(**fields)
@@ -73,11 +79,13 @@ class DaqSystem(NDI_Object):
         file_navigator = FileNavigator._reconstruct(daq_system.FileNavigator())
         daq_reader = getattr(DaqReaders, daq_system.DaqReader().decode('utf8'))
 
-        return cls(id_=daq_system.Id().decode('utf8'),
-                   name=daq_system.Name().decode('utf8'),
-                   file_navigator=file_navigator,
-                   daq_reader=daq_reader,
-                   experiment_id=daq_system.ExperimentId().decode('utf8'))
+        return cls(
+            id_=daq_system.Id().decode('utf8'),
+            name=daq_system.Name().decode('utf8'),
+            file_navigator=file_navigator,
+            daq_reader=daq_reader,
+            experiment_id=daq_system.ExperimentId().decode('utf8')
+        )
 
     def _build(self, builder: T.Builder) -> T.BuildOffset:
         """.. currentmodule:: ndi.ndi_object
