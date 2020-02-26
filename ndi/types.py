@@ -19,7 +19,7 @@ if TYPE_CHECKING:
   # uncommon basic types
   from typing import IO, Pattern, Match, Text
   from typing import Type, ClassVar, Union, Literal, TypedDict
-  from typing import TypeVar, Callable, Generic, Protocol
+  from typing import NewType, TypeVar, Callable, Generic, Protocol
   from typing import Optional, Final, Any
 
   from flatbuffers import Builder
@@ -92,14 +92,14 @@ if TYPE_CHECKING:
 
   NdiClass = Type[NDI_Object]
   NdiObject = NDI_Object
-  NdiId = str
+  NdiId = NewType('NdiId', str)
 
 
 
   """DAQ Types
   Associated with ndi.daqreaders."""
 
-  FilePath = str
+  FilePath = NewType('FilePath', str)
  
 
 
@@ -119,3 +119,5 @@ if TYPE_CHECKING:
   """TODO"""
 
   DaqReader = Any
+
+
