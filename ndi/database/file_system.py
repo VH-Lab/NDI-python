@@ -1,4 +1,4 @@
-from .base_db import NDI_Database
+from .ndi_database import NDI_Database
 from pathlib import Path
 from .utils import handle_iter, check_ndi_object, check_ndi_class
 from ..database.query import CompositeQuery, AndQuery, OrQuery
@@ -8,7 +8,7 @@ import re
 class FileSystem(NDI_Database):
     """File system database API.
 
-    .. currentmodule:: ndi.database.base_db
+    .. currentmodule:: ndi.database.ndi_database
 
     Inherits from the :class:`NDI_Database` abstract class.
     """
@@ -53,7 +53,7 @@ class FileSystem(NDI_Database):
 
     def __create_collections(self):
         """
-        .. currentmodule:: ndi.base_db:
+        .. currentmodule:: ndi.ndi_database:
 
         Build all :term:`collection`\ s from the _collections property on :class:`NDI_Database`.
         """
@@ -80,7 +80,7 @@ class FileSystem(NDI_Database):
     @handle_iter
     @check_ndi_object
     def add(self, ndi_object):
-        """.. currentmodule:: ndi.base_db
+        """.. currentmodule:: ndi.ndi_database
 
         Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and adds them to the database. Objects may belong to different :term:`NDI class`\ es.
 
@@ -92,7 +92,7 @@ class FileSystem(NDI_Database):
     @handle_iter
     @check_ndi_object
     def update(self, ndi_object):
-        """.. currentmodule:: ndi.base_db
+        """.. currentmodule:: ndi.ndi_database
 
         Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. Objects may belong to different :term:`NDI class`\ es. 
 
@@ -104,7 +104,7 @@ class FileSystem(NDI_Database):
     @handle_iter
     @check_ndi_object
     def upsert(self, ndi_object):
-        """.. currentmodule:: ndi.base_db
+        """.. currentmodule:: ndi.ndi_database
 
         Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. If an object doesn't have a document representation, it is added to the collection. Objects may belong to different :term:`NDI class`\ es. 
 
@@ -116,7 +116,7 @@ class FileSystem(NDI_Database):
     @handle_iter
     @check_ndi_object
     def delete(self, ndi_object):
-        """.. currentmodule:: ndi.base_db
+        """.. currentmodule:: ndi.ndi_database
 
         Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and deletes their :term:`document` in the database. Objects may belong to different :term:`NDI class`\ es. 
 
@@ -128,10 +128,10 @@ class FileSystem(NDI_Database):
     def find(self, ndi_class, query=None):
         """Extracts all documents matching the given :term:`NDI query` in the specified :term:`collection`.
 
-        .. currentmodule:: ndi.base_db
+        .. currentmodule:: ndi.ndi_database
 
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
-        :type ndi_class: :class:`ndi.base_db`
+        :type ndi_class: :class:`ndi.ndi_database`
         :param ndi_query: See :term:`NDI query`, defaults to find-all
         :type query: dict, optional
         :rtype: List<:term:`NDI object`>
@@ -141,10 +141,10 @@ class FileSystem(NDI_Database):
     def update_many(self, ndi_class, query=None, payload={}):
         """Updates all documents matching the given :term:`NDI query` in the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
 
-        .. currentmodule:: ndi.base_db
+        .. currentmodule:: ndi.ndi_database
 
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
-        :type ndi_class: :class:`ndi.base_db`
+        :type ndi_class: :class:`ndi.ndi_database`
         :param ndi_query: See :term:`NDI query`, defaults to update-all
         :type query: dict, optional
         :param payload: Field and update values to be updated, defaults to {}
@@ -155,7 +155,7 @@ class FileSystem(NDI_Database):
     def delete_many(self, ndi_class, query=None):
         """Deletes all documents matching the given :term:`NDI query` in the specified :term:`collection`.
 
-        .. currentmodule:: ndi.base_db
+        .. currentmodule:: ndi.ndi_database
 
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
         :type ndi_class: :class:`NDI_Database`
@@ -167,7 +167,7 @@ class FileSystem(NDI_Database):
     def find_by_id(self, ndi_class, id_):
         """Retrieves the :term:`NDI object` with the given id from the specified :term:`collection`.
 
-        .. currentmodule:: ndi.base_db
+        .. currentmodule:: ndi.ndi_database
 
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to search.
         :type ndi_class: :class:`NDI_Database`
@@ -180,7 +180,7 @@ class FileSystem(NDI_Database):
     def update_by_id(self, ndi_class, id_, payload={}):
         """Updates the :term:`NDI object` with the given id from the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
 
-        .. currentmodule:: ndi.base_db
+        .. currentmodule:: ndi.ndi_database
 
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to update.
         :type ndi_class: :class:`NDI_Database`
@@ -192,7 +192,7 @@ class FileSystem(NDI_Database):
     def delete_by_id(self, ndi_class, id_):
         """Deletes the :term:`NDI object` with the given id from the specified :term:`collection`.
 
-        .. currentmodule:: ndi.base_db
+        .. currentmodule:: ndi.ndi_database
 
         :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
         :type ndi_class: :class:`NDI_Database`
