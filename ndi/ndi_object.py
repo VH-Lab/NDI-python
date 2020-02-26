@@ -38,7 +38,7 @@ class NDI_Object(ABC):
 
     @classmethod
     @abstractmethod
-    def _reconstruct(cls, flatbuffer_object: T.Schema) -> T.NdiObject:
+    def _reconstruct(cls, flatbuffer_object) -> T.NdiObject:
         """
         Creates ndi_object instance from flatbuffer object 
 
@@ -47,7 +47,7 @@ class NDI_Object(ABC):
         pass
 
     @classmethod
-    def _reconstructList(cls, flatbuffer_object_parent: T.Schema) -> T.List[T.NdiObject]:
+    def _reconstructList(cls, flatbuffer_object_parent) -> T.List[T.NdiObject]:
         """
         Creates ndi_object instances for flatbuffer objects in a vector 
         """

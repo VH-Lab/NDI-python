@@ -48,9 +48,41 @@ if TYPE_CHECKING:
   """Schema Types
   Associated with the flatbuffer layer in ndi.schema."""
 
-  Schema = Union[ Channel_schema, DaqSystem_schema, Epoch_schema, Experiment_schema, FileNavigator_schema, Probe_schema ]
-  SchemaEnumClass = Union[ Type[ChannelType_schema], Type[ClockType_schema], Type[ProbeType_schema] ]
-  SchemaEnum = Union[ ChannelType_schema, ClockType_schema, ProbeType_schema ]
+  SchemaClass = Union[
+    Type[Channel_schema],
+    Type[DaqSystem_schema],
+    Type[Epoch_schema],
+    Type[Experiment_schema],
+    Type[FileNavigator_schema],
+    Type[Probe_schema]
+  ]
+  Schema = Union[
+    Channel_schema,
+    DaqSystem_schema,
+    Epoch_schema,
+    Experiment_schema,
+    FileNavigator_schema,
+    Probe_schema
+  ]
+  SchemaVar = TypeVar(
+    'SchemaVar',
+    Channel_schema,
+    DaqSystem_schema,
+    Epoch_schema,
+    Experiment_schema,
+    FileNavigator_schema,
+    Probe_schema
+  )
+  SchemaEnumClass = Union[
+    Type[ChannelType_schema],
+    Type[ClockType_schema],
+    Type[ProbeType_schema]
+  ]
+  SchemaEnum = Union[
+    ChannelType_schema,
+    ClockType_schema,
+    ProbeType_schema
+  ]
 
   BuildOffset = int
 
@@ -58,8 +90,22 @@ if TYPE_CHECKING:
   """NDI Types
   Associated with the NDI classes and types."""
 
-  NdiClass = Union[ Type[ndi.Channel], Type[ndi.DaqSystem], Type[ndi.Epoch], Type[ndi.Experiment], Type[ndi.FileNavigator], Type[ndi.Probe] ]
-  NdiObject = Union[ ndi.Channel, ndi.DaqSystem, ndi.Epoch, ndi.Experiment, ndi.FileNavigator, ndi.Probe ]
+  NdiClass = Union[
+    Type[ndi.Channel],
+    Type[ndi.DaqSystem],
+    Type[ndi.Epoch],
+    Type[ndi.Experiment],
+    Type[ndi.FileNavigator],
+    Type[ndi.Probe]
+  ]
+  NdiObject = Union[
+    ndi.Channel,
+    ndi.DaqSystem,
+    ndi.Epoch,
+    ndi.Experiment,
+    ndi.FileNavigator,
+    ndi.Probe
+  ]
   NdiId = str
 
 
@@ -85,5 +131,5 @@ if TYPE_CHECKING:
 
 
   """TODO"""
-  
+
   DaqReader = Any
