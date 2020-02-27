@@ -1,3 +1,5 @@
+from __future__ import annotations
+import ndi.types as T
 from abc import ABC, abstractmethod
 
 from ..experiment import Experiment
@@ -12,7 +14,7 @@ class NDI_Database(ABC):
     Abstract class for NDI database interfaces.
     Child classes of :class:`NDI_Database` are standardized, and share the same base methods and data signatures.
     """
-    _collections = {
+    _collections: T.CollectionMap = {
         Experiment: None,
         DaqSystem: None,
         Probe: None,
