@@ -30,6 +30,7 @@ from .schema.Epoch import Epoch as Epoch_schema
 from .schema.Experiment import Experiment as Experiment_schema
 from .schema.FileNavigator import FileNavigator as FileNavigator_schema
 from .schema.Probe import Probe as Probe_schema
+from .schema.Document import Document as Document_schema
 
 from .schema.ChannelType import ChannelType as ChannelType_schema
 from .schema.ClockType import ClockType as ClockType_schema
@@ -44,7 +45,8 @@ SchemaClass = Union[
     Type[Epoch_schema],
     Type[Experiment_schema],
     Type[FileNavigator_schema],
-    Type[Probe_schema]
+    Type[Probe_schema],
+    Type[Document_schema]
 ]
 
 Schema = Union[
@@ -53,7 +55,8 @@ Schema = Union[
     Epoch_schema,
     Experiment_schema,
     FileNavigator_schema,
-    Probe_schema
+    Probe_schema,
+    Document_schema
 ]
 
 SchemaVar = TypeVar(
@@ -63,7 +66,8 @@ SchemaVar = TypeVar(
     Epoch_schema,
     Experiment_schema,
     FileNavigator_schema,
-    Probe_schema
+    Probe_schema,
+    Document_schema
 )
 
 SchemaEnumClass = Union[
@@ -90,7 +94,7 @@ RegexStr = str
 
 if TYPE_CHECKING:
     from ndi import NDI_Object
-    from ndi import Channel, DaqSystem, Epoch, Experiment, Probe
+    from ndi import Channel, DaqSystem, Epoch, Experiment, Probe, Document, DocumentExtension
     from ndi import ChannelType, ClockType, ProbeType
 
     from ndi.file_navigator import FileNavigator, EpochFiles
