@@ -2,9 +2,8 @@ from __future__ import annotations
 from .ndi_object import NDI_Object
 from .decorators import typechecked_class, handle_iter
 import ndi.schema.Document as build_document
-from .document_extension import DocumentExtension
-from typing import List, Union
-from flatbuffers import Builder
+import ndi.types as T
+
 
 @typechecked_class
 class Document(NDI_Object):
@@ -15,13 +14,17 @@ class Document(NDI_Object):
 
     Inherits from the :class:`NDI_Object` abstract class.
     """
-    def __init__(self,
-                 document_extension: DocumentExtension = None,
-                 experiment_id: str = '',
-                 dependencies: List[Document] = [],
-                 version: int = 1, id_: str = '',
-                 document_type: str = '',
-                 base_id: str = ''):
+
+    def __init__(
+        self,
+        document_extension: T.Optional[T.DocumentExtension] = None,
+        experiment_id: T.NdiId = None,
+        dependencies: T.List[T.NdiId] = [],
+        version: int = 1,
+        id_: T.NdiId = None,
+        document_type: str = '',
+        base_id: T.NdiId = None
+    ) -> None:
         """Creates new ndi_document
 
         :param document_extension: [description], defaults to None
@@ -68,13 +71,15 @@ class Document(NDI_Object):
         :return: [description]
         :rtype: Document
         """
-        return cls(id_=document.Id().decode('utf8'),
-                   experiment_id=document.ExperimentId().decode('utf8'),
-                   document_type=document.DocumentType().decode('utf8'),
-                   base_id=document.BaseId().decode('utf8'),
-                   version=document.Version())
+        return cls(
+            id_=T.NdiId(document.Id().decode('utf8')),
+            experiment_id=T.NdiId(document.ExperimentId().decode('utf8')),
+            document_type=document.DocumentType().decode('utf8'),
+            base_id=T.NdiId(document.BaseId().decode('utf8')),
+            version=document.Version()
+        )
 
-    def _build(self, builder: Builder) -> int:
+    def _build(self, builder: T.Builder) -> T.BuildOffset:
         """.. currentmodule:: ndi.ndi_object
 
         Called in NDI_Object.serialize() as part of flatbuffer bytearray generation from Experiment instance.
@@ -96,7 +101,7 @@ class Document(NDI_Object):
         return build_document.DocumentEnd(builder)
 
     @handle_iter
-    def add_dependency(self, ndi_document: Union[Document, List[Document]]) -> Union[None, List[None]]:
+    def add_dependency(self, ndi_document: T.Union[Document, T.List[Document]]) -> None:
         """Add an ndi_document object that this ndi_document depends on
 
         :param ndi_document: [description]
@@ -106,7 +111,7 @@ class Document(NDI_Object):
         """
         self.dependencies.append(ndi_document)
 
-    def set_document_extension(self, document_extension: DocumentExtension) -> None:
+    def set_document_extension(self, document_extension: T.DocumentExtension) -> None:
         """Sets the document_extension for this ndi_document
 
         :param document_extension: [description]
