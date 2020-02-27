@@ -46,9 +46,10 @@ class Document(NDI_Object):
         self.experiment_id = experiment_id
         self.version = version
         self.base_id = base_id if version > 1 else self.id
-        self.dependencies = []
+        self.dependencies: T.List[T.NdiId] = []
         self.add_dependency(dependencies)
-        self.set_document_extension(document_extension)
+        if document_extension:
+            self.set_document_extension(document_extension)
 
     @classmethod
     def from_flatbuffer(cls, flatbuffer: bytes) -> Document:
@@ -101,7 +102,7 @@ class Document(NDI_Object):
         return build_document.DocumentEnd(builder)
 
     @handle_iter
-    def add_dependency(self, ndi_document: T.Union[Document, T.List[Document]]) -> None:
+    def add_dependency(self, ndi_document: T.NdiId) -> None:
         """Add an ndi_document object that this ndi_document depends on
 
         :param ndi_document: [description]
@@ -129,7 +130,7 @@ class Document(NDI_Object):
 
         To be used in database implementations only.
         """
-        super().__init__('')
+        super().__init__(None)
         if self.document_extension:
             self.document_extension.document_id = self.id
         self.version += 1

@@ -103,6 +103,8 @@ if TYPE_CHECKING:
     from ndi.database.sql import Collection as SQL_Collection
     from ndi.database.file_system import Collection as FS_Collection
 
+    from sqlalchemy.orm import relationship
+
     """NDI Types
         Associated with the NDI classes and types."""
 
@@ -111,6 +113,12 @@ if TYPE_CHECKING:
 
     """Database Types
         Associated with ndi.database drivers."""
+
+    CollectionMap = Dict[NdiClass, Union[ SQL_Collection, FS_Collection, None ]]
+
+    # SQL
+
+    RelationshipMap = Dict[NdiClass, relationship]
 
     """Miscellaneous Types"""
 

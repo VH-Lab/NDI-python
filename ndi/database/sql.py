@@ -1,3 +1,5 @@
+from __future__ import annotations
+import ndi.types as T
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
@@ -37,7 +39,7 @@ class SQL(NDI_Database):
     It is closely tied to its :class:`Collection` class, which handles low-level SQLA operations like CRUD implementations. Decorators on the Collection methods are where most of the translation between NDI and SQLA objects occurs (:term:`NDI object` -> :term:`SQLA document`, :term:`NDI query` -> :term:`SQLA query`, etc.). Each :term:`NDI class` translates to a Collection instance.
     """
 
-    relationships = {}
+    relationships: T.RelationshipMap = {}
 
     def __init__(self, connection_string):
         """Sets up a SQL database with collections, binds a sqlAlchemy sessionmaker, and instantiates a slqAlchemy metadata Base.
@@ -118,6 +120,22 @@ class SQL(NDI_Database):
                 'channels': self.define_relationship(Channel, cascade='all, delete, delete-orphan'),
             },
             Channel: {
+                'id': Column(String, primary_key=True),
+                FLATBUFFER_KEY: Column(LargeBinary),
+                'name': Column(String),
+                'number': Column(Integer),
+                'type': Column(String),
+                'clock_type': Column(String),
+                'source_file': Column(String),
+
+                'probe_id': Column(String, ForeignKey('probes.id')),
+                'probe': self.define_relationship(Probe),
+                'epoch_id': Column(String, ForeignKey('epochs.id')),
+                'epoch': self.define_relationship(Epoch),
+                'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
+                'daq_system': self.define_relationship(DaqSystem),
+            },
+            Document: {
                 'id': Column(String, primary_key=True),
                 FLATBUFFER_KEY: Column(LargeBinary),
                 'name': Column(String),
