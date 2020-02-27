@@ -141,6 +141,7 @@ class Document(NDI_Object):
         To be used in database implementations only.
         """
         self.parent_id = self.id
+        self.asc_path = f',{self.parent_id}' + self.asc_path
         super().__init__(None)
         if self.document_extension:
             self.document_extension.document_id = self.id
