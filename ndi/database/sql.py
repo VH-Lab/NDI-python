@@ -6,9 +6,10 @@ from sqlalchemy import and_, or_
 from .ndi_database import NDI_Database
 from functools import wraps
 from ndi import Experiment, DaqSystem, Probe, Epoch, Channel
-from ndi.utils import class_to_collection_name, flatten
-from ndi.database.utils import handle_iter, check_ndi_object, listify, check_ndi_objects, update_flatbuffer, recast_ndi_objects_to_documents, translate_query, with_session, with_open_session
-from ndi.database.query import Query, AndQuery, OrQuery, CompositeQuery
+from ..utils import class_to_collection_name, flatten
+from ..decorators import handle_iter
+from .query import Query, AndQuery, OrQuery, CompositeQuery
+from .utils import check_ndi_object, listify, check_ndi_objects, update_flatbuffer, recast_ndi_objects_to_documents, translate_query, with_session, with_open_session
 
 
 

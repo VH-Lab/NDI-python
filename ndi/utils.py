@@ -1,19 +1,17 @@
 """Utilities"""
 from __future__ import annotations
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    import ndi.types as T
-
+import ndi.types as T
 from typeguard import typechecked
 from inspect import isfunction
 import re
 
-
 # Captures "words" in pascal case
 pascal_pattern = re.compile('((?<=[a-z0-9])[A-Z]|(?!^)[A-Z](?=[a-z]))')
+
+
 def pascal_to_snake_case(string: str) -> str:
     """Converts  PascalCase strings to snake_case
-    
+
     :param string: String without whitespace.
     :type string: str
     :return: String in snake case.
@@ -21,11 +19,12 @@ def pascal_to_snake_case(string: str) -> str:
     """
     return pascal_pattern.sub(r'_\1', string).lower()
 
+
 def class_to_collection_name(ndi_class: T.NdiClass) -> str:
     """Convert a :class:`ndi.ndi_class` __name__ (PascalCase, singular) to a collection name (snake_case, plural).
     .. note::
         For consistency, collection names are made plural by the addition of an 's'.
-    
+
     :param string: An :class:`ndi.ndi_class` object.
     :type string: :class:`ndi.ndi_class`
     :return: A standardized collection name for the given class.
@@ -33,27 +32,15 @@ def class_to_collection_name(ndi_class: T.NdiClass) -> str:
     """
     return f'{pascal_to_snake_case(ndi_class.__name__)}s'
 
+
 def flatten(nested_list: T.List[T.List]) -> T.List:
     """[summary]
-    
+
     :param nested_list: [description]
     :type nested_list: [type]
     """
-    return [ item for l in nested_list for item in l ]
+    return [item for l in nested_list for item in l]
 
-def typechecked_class(cls: T.Class) -> T.Class:
-    """Checks type annotation for class methods
-
-    Class decorator: to be used on class definitions. Class methods can then be annotated and will raise TypeError if arguments do not match types declared by annotation.
-
-    :param cls:
-    :type cls: type
-    :return: Returns cls with type-check on its methods 
-    """
-    for attr_name in dir(cls):
-        if isfunction(attr := getattr(cls, attr_name)):
-            setattr(cls, attr_name, typechecked(attr))
-    return cls
 
 def generate_tuple_analog(schema_enum: T.SchemaEnumClass) -> tuple:
     """Produces a tuple from a flatbuffer schema enum class. The generated tuple is used in an :term:`NDI class`\ 's _reconstruct method.
@@ -62,14 +49,14 @@ def generate_tuple_analog(schema_enum: T.SchemaEnumClass) -> tuple:
             abc = 0
             def = 1
             ghi = 2
-        
+
         NDI_Type = generate_tuple_analog(SchemaType)
         # NDI_Type = ('abc', 'def', 'ghi')
 
         t = SchemaType.def
         NDI_enum[t]
         # returns 'def'
-    
+
     :param schema_enum: [description]
     :type schema_enum: [type]
     :return: [description]

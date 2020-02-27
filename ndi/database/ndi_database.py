@@ -5,7 +5,7 @@ from ..daq_system import DaqSystem
 from ..probe import Probe
 from ..epoch import Epoch
 from ..channel import Channel
-
+from ..document import Document
 
 class NDI_Database(ABC):
     """
@@ -17,7 +17,8 @@ class NDI_Database(ABC):
         DaqSystem: None,
         Probe: None,
         Epoch: None,
-        Channel: None
+        Channel: None,
+        Document: None
     }
 
     @abstractmethod
@@ -160,4 +161,3 @@ class NDI_Database(ABC):
         :type ndi_query: :term:`NDI query`, optional
         """
         pass
-
