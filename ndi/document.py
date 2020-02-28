@@ -18,12 +18,14 @@ class Document(NDI_Object):
     def __init__(
         self,
         document_extension: T.Optional[T.DocumentExtension] = None,
-        experiment_id: T.NdiId = None,
-        dependencies: T.List[T.NdiId] = [],
-        version: int = 1,
         id_: T.NdiId = None,
+        experiment_id: T.NdiId = None,
         document_type: str = '',
-        base_id: T.NdiId = None
+        version_depth: int = 0,
+        file_id: T.NdiId = None,
+        parent_id: T.NdiId = None,
+        asc_path: str = '',
+        dependencies: T.List[T.NdiId] = [],
     ) -> None:
         """Creates new ndi_document
 
@@ -44,9 +46,12 @@ class Document(NDI_Object):
         """
         super().__init__(id_)
         self.experiment_id = experiment_id
-        self.version = version
-        self.base_id = base_id if version > 1 else self.id
-        self.dependencies: T.List[T.NdiId] = []
+        self.document_type = document_type
+        self.version_depth = version_depth
+        self.file_id = file_id
+        self.parent_id = parent_id
+        self.asc_path = asc_path
+        self.dependencies = []
         self.add_dependency(dependencies)
         if document_extension:
             self.set_document_extension(document_extension)
@@ -64,7 +69,7 @@ class Document(NDI_Object):
         return cls._reconstruct(document)
 
     @classmethod
-    def _reconstruct(cls, document: build_document.Document) -> Document:
+    def _reconstruct(cls, document: T.Document_schema) -> Document:
         """For constructing ndi_document from a flatbuffer object
 
         :param document: [description]
@@ -76,8 +81,10 @@ class Document(NDI_Object):
             id_=T.NdiId(document.Id().decode('utf8')),
             experiment_id=T.NdiId(document.ExperimentId().decode('utf8')),
             document_type=document.DocumentType().decode('utf8'),
-            base_id=T.NdiId(document.BaseId().decode('utf8')),
-            version=document.Version()
+            version_depth=document.VersionDepth(),
+            file_id=T.NdiId(document.FileId().decode('utf8')),
+            parent_id=T.NdiId(document.ParentId().decode('utf8')),
+            asc_path=document.AscPath().decode('utf8')
         )
 
     def _build(self, builder: T.Builder) -> T.BuildOffset:
@@ -91,18 +98,22 @@ class Document(NDI_Object):
         id_ = builder.CreateString(self.id)
         experiment_id = builder.CreateString(self.experiment_id)
         document_type = builder.CreateString(self.document_type)
-        base_id = builder.CreateString(self.base_id)
+        file_id = builder.CreateString(self.file_id)
+        parent_id = builder.CreateString(self.parent_id)
+        asc_path = builder.CreateString(self.asc_path)
 
         build_document.DocumentStart(builder)
         build_document.DocumentAddId(builder, id_)
         build_document.DocumentAddExperimentId(builder, experiment_id)
         build_document.DocumentAddDocumentType(builder, document_type)
-        build_document.DocumentAddBaseId(builder, base_id)
-        build_document.DocumentAddVersion(builder, self.version)
+        build_document.DocumentAddVersionDepth(builder, self.version_depth)
+        build_document.DocumentAddFileId(builder, file_id)
+        build_document.DocumentAddParentId(builder, parent_id)
+        build_document.DocumentAddAscPath(builder, asc_path)
         return build_document.DocumentEnd(builder)
 
     @handle_iter
-    def add_dependency(self, ndi_document: T.NdiId) -> None:
+    def add_dependency(self, ndi_document_id: T.NdiId) -> None:
         """Add an ndi_document object that this ndi_document depends on
 
         :param ndi_document: [description]
@@ -110,7 +121,7 @@ class Document(NDI_Object):
         :return: [description]
         :rtype: Union[None, List[None]]
         """
-        self.dependencies.append(ndi_document)
+        self.dependencies.append(ndi_document_id)
 
     def set_document_extension(self, document_extension: T.DocumentExtension) -> None:
         """Sets the document_extension for this ndi_document
@@ -119,9 +130,8 @@ class Document(NDI_Object):
         :type document_extension: DocumentExtension
         """
         self.document_extension = document_extension
-        if self.document_extension:
-            self.document_extension.document_id = self.id
-            self.document_type = type(document_extension).__name__
+        self.document_extension.document_id = self.id
+        self.document_type = type(document_extension).__name__
 
     def _save_updates(self) -> None:
         """Updates version and creates a new id for this ndi_document.
@@ -130,7 +140,9 @@ class Document(NDI_Object):
 
         To be used in database implementations only.
         """
+        self.parent_id = self.id
+        self.asc_path = f',{self.parent_id}' + self.asc_path
         super().__init__(None)
         if self.document_extension:
             self.document_extension.document_id = self.id
-        self.version += 1
+        self.version_depth += 1
