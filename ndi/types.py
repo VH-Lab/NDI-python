@@ -114,7 +114,11 @@ if TYPE_CHECKING:
     """Database Types
         Associated with ndi.database drivers."""
 
-    CollectionMap = Dict[NdiClass, Union[ SQL_Collection, FS_Collection, None ]]
+    CollectionMap = Dict[
+        # in sql database, lookup tables have string keys.
+        Union[ NdiClass, str ], 
+        Union[ SQL_Collection, FS_Collection, None ]
+    ]
 
     # SQL
 

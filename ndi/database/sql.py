@@ -2,12 +2,12 @@ from __future__ import annotations
 import ndi.types as T
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import sessionmaker, relationship, backref
 from sqlalchemy import Table, Column, ForeignKey, Integer, String, LargeBinary
 from sqlalchemy import and_, or_
 from .ndi_database import NDI_Database
 from functools import wraps
-from ndi import Experiment, DaqSystem, Probe, Epoch, Channel
+from ndi import Experiment, DaqSystem, Probe, Epoch, Channel, Document
 from ..utils import class_to_collection_name, flatten
 from ..decorators import handle_iter
 from .query import Query, AndQuery, OrQuery, CompositeQuery
@@ -138,18 +138,41 @@ class SQL(NDI_Database):
             Document: {
                 'id': Column(String, primary_key=True),
                 FLATBUFFER_KEY: Column(LargeBinary),
-                'name': Column(String),
-                'number': Column(Integer),
-                'type': Column(String),
-                'clock_type': Column(String),
-                'source_file': Column(String),
+                'document_type': Column(String),
+                'file_id': Column(String),
+                'version_depth': Column(Integer),
+                'asc_path': Column(String),
 
-                'probe_id': Column(String, ForeignKey('probes.id')),
-                'probe': self.define_relationship(Probe),
-                'epoch_id': Column(String, ForeignKey('epochs.id')),
-                'epoch': self.define_relationship(Epoch),
-                'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
-                'daq_system': self.define_relationship(DaqSystem),
+                'experiment_id': Column(String, ForeignKey('experiments.id')),
+                'experiment': self.define_relationship(Experiment),
+                'parent_id': Column(String, ForeignKey('documents.id')),
+                'parent': self.define_relationship(
+                    Epoch, 
+                    after_create_collections_hook = lambda c: relationship(
+                        'documents',
+                        remote_side = c[Document].table.id
+                    )
+                ),
+
+                'dependants': self.define_relationship(
+                    Document,
+                    after_create_collections_hook = lambda c: relationship(
+                        'documents',
+                        secondary = c['document_to_document'].table.__table__,
+                        primaryjoin = c[Document].table.id == c['document_to_document'].table.dependency_id,
+                        secondaryjoin = c[Document].table.id == c['document_to_document'].table.dependant_id,
+                        backref = backref('dependencies', lazy='dynamic'),
+                        lazy = 'dynamic',
+                    )
+                )
+            },
+        }
+
+    def __configure_lookup_tables(self):
+        return {
+            'document_to_document': {
+                'dependant_id': Column(String, ForeignKey('documents.id'), primary_key=True),
+                'dependency_id': Column(String, ForeignKey('documents.id'), primary_key=True),
             }
         }
 
@@ -159,7 +182,11 @@ class SQL(NDI_Database):
 
     def __get_relationships(self, config):
         """Postponing documentation pending NDI_Collection."""
-        return { key: item for key, item in config.items() if not isinstance(item, Column)}
+        return { 
+            heading: relationship_generator(self._collections) 
+            for heading, relationship_generator in config.items() 
+            if not isinstance(relationship_generator, Column)
+        }
 
     def __create_collections(self, collection_configs):
         """Creates :class:`Collection`\ s from the given configs and adds them to the database.
@@ -168,6 +195,8 @@ class SQL(NDI_Database):
         for ndi_class, config in collection_configs.items():
             columns = self.__get_columns(config)
             self.create_collection(ndi_class, columns, defer_create_all=True)
+        for table_name, columns in self.__configure_lookup_tables().items():
+            self._collections[table_name] = Collection(self.Base, self.Session, None, columns, table_name=table_name)
         self.Base.metadata.create_all(self.db)
         for ndi_class, config in collection_configs.items():
             relationships = self.__get_relationships(config)
@@ -210,7 +239,7 @@ class SQL(NDI_Database):
             self._collections[ndi_class].table.__table__.drop(self.db)
             self._collections.pop(ndi_class)
     
-    def define_relationship(self, ndi_class, **kwargs):
+    def define_relationship(self, ndi_class, after_create_collections_hook = None, **kwargs):
         """.. currentmodule:: ndi.database.sql
         
         Creates an unset :func:`sqlalchemy.orm.relationship` pointing at the given :term:`NDI class`. Set relationships with :func:`SQL.set_relationships`.
@@ -222,9 +251,11 @@ class SQL(NDI_Database):
         :return: [description]
         :rtype: [type]
         """
-        rel = relationship(class_to_collection_name(ndi_class), **kwargs)
-        setattr(rel, '_ndi_class', ndi_class)
-        return rel
+        def create_relationship(collections):
+            rel = after_create_collections_hook(collections) if after_create_collections_hook else relationship(class_to_collection_name(ndi_class), **kwargs)
+            setattr(rel, '_ndi_class', ndi_class)
+            return rel
+        return create_relationship
 
     def set_relationships(self, ndi_class, relationships):
         """Sets one or many relationships on the given :term:`NDI class`.
@@ -513,7 +544,7 @@ class Collection:
     Each Collection instance must have a corresponding :term:`NDI class`.
     """
 
-    def __init__(self, Base, Session, ndi_class, fields):
+    def __init__(self, Base, Session, ndi_class, fields, table_name = None):
         """Initializes a :class:`SQL` :class:`Collection`.
 
         Postponing further documentation pending NDI_Collection.
@@ -522,17 +553,19 @@ class Collection:
         :type Base: :class:`sqlalchemy.ext.declarative.api.DeclarativeMeta`
         :param Session: `SQLA Session <https://docs.sqlalchemy.org/en/13/orm/session.html>`_
         :type Session: :class:`sqlalchemy.orm.session.sessionmaker`
-        :param ndi_class: The associated :term:`NDI class`
+        :param ndi_class: The associated :term:`NDI class`. If table_name is defined, this will be set to None.
 
         .. currentmodule:: ndi.ndi_object
         
         :type ndi_class: :class:`NDI_Object`
         :param fields: 
         :type fields:
+        :param table_name: Lookup tables do not have an :term:`NDI class`, so their name must be explicitly defined. Defaults to None.
+        :type table_name: str, optional
         """
         self.Session = Session
-        self.ndi_class = ndi_class
-        self.table_name = class_to_collection_name(ndi_class)
+        self.ndi_class = None if table_name else ndi_class
+        self.table_name = table_name or class_to_collection_name(ndi_class)
         self.table = type(self.table_name, (Base,), {
             '__tablename__': self.table_name,
             **fields

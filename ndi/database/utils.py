@@ -100,7 +100,8 @@ def update_flatbuffer(ndi_class, flatbuffer, payload):
 def print_everything_in(db):
     for collection in db._collections:
         results = db.find(collection)
-        print(collection.__name__ + 's')
+        name = collection if isinstance(collection, str) else collection.__name__
+        print(name + 's')
         for doc in results:
             try: print(f'  - {doc.name}')
             except AttributeError: print(f'  - {doc.id}')
