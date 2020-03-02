@@ -11,7 +11,7 @@ from ndi import Experiment, DaqSystem, Probe, Epoch, Channel, Document
 from ..utils import class_to_collection_name, flatten
 from ..decorators import handle_iter
 from .query import Query, AndQuery, OrQuery, CompositeQuery
-from .utils import check_ndi_object, listify, check_ndi_objects, update_flatbuffer, recast_ndi_objects_to_documents, translate_query, with_session, with_open_session
+from .utils import check_ndi_object, listify, check_ndi_objects, update_flatbuffer, recast_ndi_objects_to_documents, translate_query, with_session, with_open_session, reduce_ndi_objects_to_ids
 
 
 
@@ -84,7 +84,8 @@ class SQL(NDI_Database):
                 FLATBUFFER_KEY: Column(LargeBinary),
                 'name': Column(String),
                 
-                'daq_systems': self.define_relationship(DaqSystem, lazy='joined', cascade='all, delete, delete-orphan'),
+                'daq_systems': self.define_relationship(DaqSystem, back_populates='experiment', lazy='joined', cascade='all, delete, delete-orphan'),
+                'documents': self.define_relationship(Document, back_populates='experiment', lazy='joined', cascade='all, delete, delete-orphan')
             },
             DaqSystem: {
                 'id': Column(String, primary_key=True),
@@ -92,11 +93,11 @@ class SQL(NDI_Database):
                 'name': Column(String),
 
                 'experiment_id': Column(String, ForeignKey('experiments.id')),
-                'experiment': self.define_relationship(Experiment),
+                'experiment': self.define_relationship(Experiment, back_populates='daq_systems'),
 
-                'probes': self.define_relationship(Probe, cascade='all, delete, delete-orphan'),
-                'epochs': self.define_relationship(Epoch, cascade='all, delete, delete-orphan'),
-                'channels': self.define_relationship(Channel, cascade='all, delete, delete-orphan'),
+                'probes': self.define_relationship(Probe, back_populates='daq_system', cascade='all, delete, delete-orphan'),
+                'epochs': self.define_relationship(Epoch, back_populates='daq_system', cascade='all, delete, delete-orphan'),
+                'channels': self.define_relationship(Channel, back_populates='daq_system', cascade='all, delete, delete-orphan'),
             },
             Probe: {
                 'id': Column(String, primary_key=True),
@@ -106,18 +107,18 @@ class SQL(NDI_Database):
                 'type': Column(String),
 
                 'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
-                'daq_system': self.define_relationship(DaqSystem),
+                'daq_system': self.define_relationship(DaqSystem, back_populates='probes'),
 
-                'channels': self.define_relationship(Channel, cascade='all, delete, delete-orphan'),
+                'channels': self.define_relationship(Channel, back_populates='probe', cascade='all, delete, delete-orphan'),
             },
             Epoch: {
                 'id': Column(String, primary_key=True),
                 FLATBUFFER_KEY: Column(LargeBinary),
 
                 'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
-                'daq_system': self.define_relationship(DaqSystem),
+                'daq_system': self.define_relationship(DaqSystem, back_populates='epochs'),
 
-                'channels': self.define_relationship(Channel, cascade='all, delete, delete-orphan'),
+                'channels': self.define_relationship(Channel, back_populates='epoch', cascade='all, delete, delete-orphan'),
             },
             Channel: {
                 'id': Column(String, primary_key=True),
@@ -129,11 +130,11 @@ class SQL(NDI_Database):
                 'source_file': Column(String),
 
                 'probe_id': Column(String, ForeignKey('probes.id')),
-                'probe': self.define_relationship(Probe),
+                'probe': self.define_relationship(Probe, back_populates='channels'),
                 'epoch_id': Column(String, ForeignKey('epochs.id')),
-                'epoch': self.define_relationship(Epoch),
+                'epoch': self.define_relationship(Epoch, back_populates='channels'),
                 'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
-                'daq_system': self.define_relationship(DaqSystem),
+                'daq_system': self.define_relationship(DaqSystem, back_populates='channels'),
             },
             Document: {
                 'id': Column(String, primary_key=True),
@@ -144,13 +145,16 @@ class SQL(NDI_Database):
                 'asc_path': Column(String),
 
                 'experiment_id': Column(String, ForeignKey('experiments.id')),
-                'experiment': self.define_relationship(Experiment),
-                'parent_id': Column(String, ForeignKey('documents.id')),
+                'experiment': self.define_relationship(Experiment, back_populates='documents'),
+                'parent_id': Column(String, ForeignKey('documents.id'), nullable=True),
                 'parent': self.define_relationship(
-                    Epoch, 
+                    Document, 
                     after_create_collections_hook = lambda c: relationship(
                         'documents',
-                        remote_side = c[Document].table.id
+                        backref='children',
+                        remote_side = c[Document].table.id,
+                        lazy = 'joined',
+                        join_depth = 1,
                     )
                 ),
 
@@ -161,8 +165,9 @@ class SQL(NDI_Database):
                         secondary = c['document_to_document'].table.__table__,
                         primaryjoin = c[Document].table.id == c['document_to_document'].table.dependency_id,
                         secondaryjoin = c[Document].table.id == c['document_to_document'].table.dependant_id,
-                        backref = backref('dependencies', lazy='dynamic'),
-                        lazy = 'dynamic',
+                        backref = backref('dependencies', lazy='joined'),
+                        lazy = 'joined',
+                        join_depth = 1,
                     )
                 )
             },
@@ -183,7 +188,7 @@ class SQL(NDI_Database):
     def __get_relationships(self, config):
         """Postponing documentation pending NDI_Collection."""
         return { 
-            heading: relationship_generator(self._collections) 
+            heading: relationship_generator(self._collections)
             for heading, relationship_generator in config.items() 
             if not isinstance(relationship_generator, Column)
         }
@@ -196,7 +201,7 @@ class SQL(NDI_Database):
             columns = self.__get_columns(config)
             self.create_collection(ndi_class, columns, defer_create_all=True)
         for table_name, columns in self.__configure_lookup_tables().items():
-            self._collections[table_name] = Collection(self.Base, self.Session, None, columns, table_name=table_name)
+            self._collections[table_name] = Collection(self, self.Base, self.Session, None, columns, table_name=table_name)
         self.Base.metadata.create_all(self.db)
         for ndi_class, config in collection_configs.items():
             relationships = self.__get_relationships(config)
@@ -220,7 +225,7 @@ class SQL(NDI_Database):
         Returns:
             :class:`Collection`. The table object for the newly created collection.
         """
-        self._collections[ndi_class] = Collection(self.Base, self.Session, ndi_class, fields)
+        self._collections[ndi_class] = Collection(self, self.Base, self.Session, ndi_class, fields)
         if not defer_create_all:
             self.Base.metadata.create_all(self.db)
         return self._collections[ndi_class]
@@ -544,7 +549,7 @@ class Collection:
     Each Collection instance must have a corresponding :term:`NDI class`.
     """
 
-    def __init__(self, Base, Session, ndi_class, fields, table_name = None):
+    def __init__(self, db, Base, Session, ndi_class, fields, table_name = None):
         """Initializes a :class:`SQL` :class:`Collection`.
 
         Postponing further documentation pending NDI_Collection.
@@ -563,6 +568,7 @@ class Collection:
         :param table_name: Lookup tables do not have an :term:`NDI class`, so their name must be explicitly defined. Defaults to None.
         :type table_name: str, optional
         """
+        self.db = db
         self.Session = Session
         self.ndi_class = None if table_name else ndi_class
         self.table_name = table_name or class_to_collection_name(ndi_class)
@@ -571,7 +577,7 @@ class Collection:
             **fields
         })
         self.fields = fields
-        self.relationship_keys = {}
+        self.relationships = []
     
     def set_relationships(self, relationships):
         """Set the collection's relationships to its :term:`SQLA table`.
@@ -581,9 +587,13 @@ class Collection:
         """
         for key, relation in relationships.items():
             setattr(self.table, key, relation)
-            self.relationship_keys[relation._ndi_class] = key
+            self.relationships.append(Relationship(
+                target_collection = relation._ndi_class,
+                key = key,
+                sqla_relationship = relation,
+            ))
     
-    def create_document(self, fields):
+    def create_document(self, fields, relationship_fields):
         """Create a :term:`SQLA document` with its respective fields/values
 
         .. currentmodule:: ndi.database.sql
@@ -593,9 +603,37 @@ class Collection:
         :return: A :term:`SQLA document`.
         :rtype: :class:`sqlalchemy.ext.declarative.api.DeclarativeMeta`
         """
-        return self.table(**fields)
+        doc = self.table(**fields)
+        if relationship_fields:
+            for key, value in relationship_fields.items():
+                if isinstance(value, list):
+                    for item in value:
+                        getattr(doc, key).append(item)
+                elif value:
+                    setattr(doc, key, value)
+        return (doc)
 
-    def create_document_from_ndi_object(self, ndi_object):
+    def documents_from_ndi_objects(self, ndi_class, ndi_objects):
+        target = self.db._collections[ndi_class]
+        try:
+            return [ target.create_document_from_ndi_object(o, if_not_extant=True) for o in ndi_objects ]
+        except TypeError:
+            return target.create_document_from_ndi_object(ndi_objects, if_not_extant=True)
+        
+    def convert_relationship_fields(self, ndi_object):
+        fields = {}
+        for r in self.relationships:
+            if hasattr(ndi_object, r.key):
+                relations = self.documents_from_ndi_objects(r.collection, getattr(ndi_object, r.key))
+                if fields:
+                    fields[r.key] = fields
+            if isinstance(s_key := r.secondary_key(), str) and hasattr(ndi_object, s_key):
+                relations = self.documents_from_ndi_objects(r.collection, getattr(ndi_object, s_key))
+                if fields:
+                    fields[s_key] = fields
+        return fields
+
+    def create_document_from_ndi_object(self, ndi_object, if_not_extant = False):
         """Converts an :term:`NDI object` to a :term:`SQLA document`.
         
         :param ndi_object:
@@ -603,16 +641,24 @@ class Collection:
         :return: A :term:`SQLA document`.
         :rtype: :class:`sqlalchemy.ext.declarative.api.DeclarativeMeta`
         """
+        if if_not_extant:
+            session = self.Session()
+            id_in_db = session.query(self.table).get(ndi_object.id)
+            session.close()
+            if id_in_db:
+                return None
+
         metadata_fields = {
             key: getattr(ndi_object, key)
             for key in self.fields
             if key != FLATBUFFER_KEY 
         }
+        relationship_fields = self.convert_relationship_fields(ndi_object)
         fields = {
             FLATBUFFER_KEY: ndi_object.serialize(),
-            **metadata_fields
+            **metadata_fields,
         }
-        return self.create_document(fields)
+        return self.create_document(fields, relationship_fields)
     
     def extract_document_fields(self, documents):
         """Convert one or many :term:`SQLA document`\ s into ``dict``s.
@@ -876,3 +922,17 @@ class Collection:
             old_flatbuffer = getattr(document, FLATBUFFER_KEY)
             updated_flatbuffer = update_flatbuffer(self.ndi_class, old_flatbuffer, payload)
             setattr(document, FLATBUFFER_KEY, updated_flatbuffer)
+
+
+class Relationship:
+    def __init__(self, target_collection, key, sqla_relationship):
+        self.collection = target_collection
+        self.key = key
+        self.relationship = sqla_relationship
+
+    def reverse_relationship(self):
+        return next(iter(self.relationship._reverse_property))
+    
+    def secondary_key(self):
+        if self.relationship._is_self_referential and self.relationship.back_populates:
+            return self.relationship.back_populates

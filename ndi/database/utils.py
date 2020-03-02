@@ -121,6 +121,12 @@ SQL Database Specific
 =====================
 """
 
+def reduce_ndi_objects_to_ids(ndi_objects):
+    try:
+        return [obj.id for obj in ndi_objects]
+    except TypeError:
+        return ndi_objects.id
+
 def recast_ndi_objects_to_documents(func):
     """Decorator: meant to work with :class:`Collection` methods. Converts a list of :term:`NDI object`\ s into their :term:`SQLA document` equivalents.
     
