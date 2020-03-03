@@ -1,25 +1,7 @@
-from typeguard import typechecked
-from inspect import isfunction
 from functools import wraps
 import ndi.types as T
 
-
-def typechecked_class(cls: T.Class) -> T.Class:
-    """Checks type annotation for class methods
-
-    Class decorator: to be used on class definitions. Class methods can then be annotated and will raise TypeError if arguments do not match types declared by annotation.
-
-    :param cls:
-    :type cls: type
-    :return: Returns cls with type-check on its methods 
-    """
-    for attr_name in dir(cls):
-        if isfunction(attr := getattr(cls, attr_name)):
-            setattr(cls, attr_name, typechecked(attr))
-    return cls
-
-
-def handle_iter(func):
+def handle_iter(func: T.Callable) -> T.Callable:
     """
     Decorator: If passed a list of :term:`NDI object`\ s, it will call func with each one. Otherwise, it will call func(arg) once.
 
@@ -32,10 +14,10 @@ def handle_iter(func):
     :rtype: None
     """
     @wraps(func)
-    def decorator(self, arg):
-        try:
+    def decorator(self, arg: T.Any) -> None:
+        if isinstance(arg, list):
             for item in arg:
-                func(self, item) 
-        except TypeError:
+                func(self, item)
+        else:
             func(self, arg)
     return decorator

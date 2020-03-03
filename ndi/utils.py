@@ -1,8 +1,6 @@
 """Utilities"""
 from __future__ import annotations
 import ndi.types as T
-from typeguard import typechecked
-from inspect import isfunction
 import re
 
 # Captures "words" in pascal case
