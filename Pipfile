@@ -18,7 +18,6 @@ jupyter = "*"
 matplotlib = "*"
 sqlalchemy = "*"
 psycopg2-binary = "*"
-typeguard = "*"
 
 [requires]
 python_version = "3.8"

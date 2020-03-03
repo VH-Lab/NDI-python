@@ -1,11 +1,10 @@
 from __future__ import annotations
 from .ndi_object import NDI_Object
-from .decorators import typechecked_class, handle_iter
+from .decorators import handle_iter
 import ndi.schema.Document as build_document
 import ndi.types as T
 
 
-@typechecked_class
 class Document(NDI_Object):
     """
     A flatbuffer interface for documents.
@@ -17,6 +16,7 @@ class Document(NDI_Object):
 
     def __init__(
         self,
+        name: str,
         document_extension: T.Optional[T.DocumentExtension] = None,
         id_: T.NdiId = None,
         experiment_id: T.NdiId = None,
@@ -29,32 +29,37 @@ class Document(NDI_Object):
     ) -> None:
         """Creates new ndi_document
 
+        :param name: [description]
+        :type name: str
         :param document_extension: [description], defaults to None
-        :type document_extension: DocumentExtension, optional
-        :param experiment_id: [description], defaults to ''
-        :type experiment_id: str, optional
-        :param dependencies: [description], defaults to []
-        :type dependencies: List[Document], optional
-        :param version: [description], defaults to 1
-        :type version: int, optional
-        :param id_: [description], defaults to ''
-        :type id_: str, optional
+        :type document_extension: T.Optional[T.DocumentExtension], optional
+        :param id_: [description], defaults to None
+        :type id_: T.NdiId, optional
+        :param experiment_id: [description], defaults to None
+        :type experiment_id: T.NdiId, optional
         :param document_type: [description], defaults to ''
         :type document_type: str, optional
-        :param base_id: [description], defaults to ''
-        :type base_id: str, optional
+        :param version_depth: [description], defaults to 0
+        :type version_depth: int, optional
+        :param file_id: [description], defaults to None
+        :type file_id: T.NdiId, optional
+        :param parent_id: [description], defaults to None
+        :type parent_id: T.NdiId, optional
+        :param asc_path: [description], defaults to ''
+        :type asc_path: str, optional
+        :param dependencies: [description], defaults to []
+        :type dependencies: T.List[T.NdiId], optional
         """
         super().__init__(id_)
+        self.name = name
         self.experiment_id = experiment_id
         self.document_type = document_type
         self.version_depth = version_depth
         self.file_id = file_id
         self.parent_id = parent_id
         self.asc_path = asc_path
-        self.dependencies = []
-        self.add_dependency(dependencies)
-        if document_extension:
-            self.set_document_extension(document_extension)
+        self.dependencies = dependencies
+        self.set_document_extension(document_extension)
 
     @classmethod
     def from_flatbuffer(cls, flatbuffer: bytes) -> Document:
@@ -79,6 +84,7 @@ class Document(NDI_Object):
         """
         return cls(
             id_=T.NdiId(document.Id().decode('utf8')),
+            name=document.Name().decode('utf8'),
             experiment_id=T.NdiId(document.ExperimentId().decode('utf8')),
             document_type=document.DocumentType().decode('utf8'),
             version_depth=document.VersionDepth(),
@@ -95,6 +101,7 @@ class Document(NDI_Object):
         :param builder: Builder class in flatbuffers module.
         :type builder: flatbuffers.Builder
         """
+        name = builder.CreateString(self.name)
         id_ = builder.CreateString(self.id)
         experiment_id = builder.CreateString(self.experiment_id)
         document_type = builder.CreateString(self.document_type)
@@ -103,6 +110,7 @@ class Document(NDI_Object):
         asc_path = builder.CreateString(self.asc_path)
 
         build_document.DocumentStart(builder)
+        build_document.DocumentAddName(builder, name)
         build_document.DocumentAddId(builder, id_)
         build_document.DocumentAddExperimentId(builder, experiment_id)
         build_document.DocumentAddDocumentType(builder, document_type)
@@ -112,31 +120,22 @@ class Document(NDI_Object):
         build_document.DocumentAddAscPath(builder, asc_path)
         return build_document.DocumentEnd(builder)
 
-    @handle_iter
-    def add_dependency(self, ndi_document_id: T.NdiId) -> None:
-        """Add an ndi_document object that this ndi_document depends on
-
-        :param ndi_document: [description]
-        :type ndi_document: Union[Document, List[Document]]
-        :return: [description]
-        :rtype: Union[None, List[None]]
-        """
-        self.dependencies.append(ndi_document_id)
-
-    def set_document_extension(self, document_extension: T.DocumentExtension) -> None:
+    def set_document_extension(self, document_extension: T.Optional[T.DocumentExtension]) -> None:
         """Sets the document_extension for this ndi_document
 
         :param document_extension: [description]
         :type document_extension: DocumentExtension
         """
         self.document_extension = document_extension
-        self.document_extension.document_id = self.id
-        self.document_type = type(document_extension).__name__
+        if self.document_extension:
+            self.document_extension.document_id = self.id
+            self.document_type = type(self.document_extension).__name__
 
     def _save_updates(self) -> None:
         """Updates version and creates a new id for this ndi_document.
 
-        Also updates document_extension with new ndi_document id.
+        Updates id, version_depth, parent_id with previous id, and document_extension with new ndi_document id.
+        Adds parent_id to asc_path.
 
         To be used in database implementations only.
         """
