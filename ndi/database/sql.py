@@ -158,14 +158,14 @@ class SQL(NDI_Database):
                     )
                 ),
 
-                'dependants': self.define_relationship(
+                'dependencies': self.define_relationship(
                     Document,
                     after_create_collections_hook = lambda c: relationship(
                         'documents',
                         secondary = c['document_to_document'].table.__table__,
-                        primaryjoin = c[Document].table.id == c['document_to_document'].table.dependency_id,
-                        secondaryjoin = c[Document].table.id == c['document_to_document'].table.dependant_id,
-                        backref = backref('dependencies', lazy='joined'),
+                        primaryjoin = c[Document].table.id == c['document_to_document'].table.dependant_id,
+                        secondaryjoin = c[Document].table.id == c['document_to_document'].table.dependency_id,
+                        backref = backref('dependants', lazy='joined'),
                         lazy = 'joined',
                         join_depth = 1,
                     )
@@ -386,6 +386,20 @@ class SQL(NDI_Database):
         additions_by_collection = self._group_by_collection(ndi_objects)
         for Collection, ndi_objects in additions_by_collection.items():
             Collection.add(ndi_objects, session=session)
+            for r in Collection.relationships:
+                secondary_tbl = r.relationship.secondary
+                # if secondary_tbl:
+                if secondary_tbl is not None:
+                    session = session or self.Session()
+                    for ndi_object in ndi_objects:
+                        doc = session.query(Collection.table).get(ndi_object.id)
+                        relation_ids = getattr(ndi_object, r.key)
+                        target_table = self._collections[r.relationship._ndi_class].table
+                        relation_docs = session.query(target_table).filter(target_table.id.in_(relation_ids)).all()
+                        for relation_doc in relation_docs:
+                            getattr(doc, r.key).append(relation_doc)
+                    session.commit()
+                    session.close()
         
 
     @listify
@@ -593,7 +607,7 @@ class Collection:
                 sqla_relationship = relation,
             ))
     
-    def create_document(self, fields, relationship_fields):
+    def create_document(self, fields):
         """Create a :term:`SQLA document` with its respective fields/values
 
         .. currentmodule:: ndi.database.sql
@@ -603,37 +617,9 @@ class Collection:
         :return: A :term:`SQLA document`.
         :rtype: :class:`sqlalchemy.ext.declarative.api.DeclarativeMeta`
         """
-        doc = self.table(**fields)
-        if relationship_fields:
-            for key, value in relationship_fields.items():
-                if isinstance(value, list):
-                    for item in value:
-                        getattr(doc, key).append(item)
-                elif value:
-                    setattr(doc, key, value)
-        return (doc)
+        return self.table(**fields)
 
-    def documents_from_ndi_objects(self, ndi_class, ndi_objects):
-        target = self.db._collections[ndi_class]
-        try:
-            return [ target.create_document_from_ndi_object(o, if_not_extant=True) for o in ndi_objects ]
-        except TypeError:
-            return target.create_document_from_ndi_object(ndi_objects, if_not_extant=True)
-        
-    def convert_relationship_fields(self, ndi_object):
-        fields = {}
-        for r in self.relationships:
-            if hasattr(ndi_object, r.key):
-                relations = self.documents_from_ndi_objects(r.collection, getattr(ndi_object, r.key))
-                if fields:
-                    fields[r.key] = fields
-            if isinstance(s_key := r.secondary_key(), str) and hasattr(ndi_object, s_key):
-                relations = self.documents_from_ndi_objects(r.collection, getattr(ndi_object, s_key))
-                if fields:
-                    fields[s_key] = fields
-        return fields
-
-    def create_document_from_ndi_object(self, ndi_object, if_not_extant = False):
+    def create_document_from_ndi_object(self, ndi_object):
         """Converts an :term:`NDI object` to a :term:`SQLA document`.
         
         :param ndi_object:
@@ -641,24 +627,16 @@ class Collection:
         :return: A :term:`SQLA document`.
         :rtype: :class:`sqlalchemy.ext.declarative.api.DeclarativeMeta`
         """
-        if if_not_extant:
-            session = self.Session()
-            id_in_db = session.query(self.table).get(ndi_object.id)
-            session.close()
-            if id_in_db:
-                return None
-
         metadata_fields = {
             key: getattr(ndi_object, key)
             for key in self.fields
             if key != FLATBUFFER_KEY 
         }
-        relationship_fields = self.convert_relationship_fields(ndi_object)
         fields = {
             FLATBUFFER_KEY: ndi_object.serialize(),
             **metadata_fields,
         }
-        return self.create_document(fields, relationship_fields)
+        return self.create_document(fields)
     
     def extract_document_fields(self, documents):
         """Convert one or many :term:`SQLA document`\ s into ``dict``s.
