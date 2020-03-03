@@ -587,8 +587,8 @@ class Collection:
     def lookup_relationships(self):
         return [r for r in self.relationships if r.relationship.secondary is not None]
 
-    def for_self_referencing_relationships_too(self, relationship, cb):
-        cb(key)
+    def __for_self_referencing_relationships_too(self, relationship, cb):
+        cb(relationship.key)
         if relationship.relationship._is_self_referential:
             if backref_key := relationship.relationship.back_populates:
                 cb(backref_key)
@@ -611,17 +611,12 @@ class Collection:
     def update_lookup_relationships(self, session, ndi_objects, db_collections):
         for r in self.lookup_relationships():
             for ndi_object in ndi_objects:
-                doc = session.query(self.table).get(ndi_object.id)                
-                if hasattr(ndi_object, r.key):
-                    relation_ids = getattr(ndi_object, r.key)
-                    self._update_lookup_relationships(r, doc, relation_ids, db_collections, session)
-
-                # if relationship is self-referencing, do the same for the reverse relationship
-                if r.relationship._is_self_referential:
-                    if backref_key := r.relationship.back_populates:
-                        if hasattr(ndi_object, backref_key):
-                            relation_ids = getattr(ndi_object, backref_key)
-                            self._update_lookup_relationships(r, doc, relation_ids, db_collections, session)
+                doc = session.query(self.table).get(ndi_object.id)              
+                def run(r_key):
+                    if hasattr(ndi_object, r_key):
+                        relation_ids = getattr(ndi_object, r_key)
+                        self._update_lookup_relationships(r, doc, relation_ids, db_collections, session)
+                self.__for_self_referencing_relationships_too(r, run)
                 
     def _update_lookup_relationships(self, relationship, document, relation_ids, db_collections, session):
         # clear all old relationships
@@ -660,12 +655,10 @@ class Collection:
         }
         reduce_to_ids = lambda objects: [obj.id for obj in objects] if isinstance(objects, list) else objects.id
         for r in self.relationships:
-            if r.key in metadata_fields:
-                metadata_fields[r.key] = reduce_to_ids(getattr(ndi_object, r.key))
-            if r.relationship._is_self_referential and r.relationship.back_populates:
-                backref_key = r.relationship.back_populates
-                if backref_key in metadata_fields:
-                    metadata_fields[backref_key] = reduce_to_ids(getattr(ndi_object, backref_key))
+            def run(r_key):
+                if r_key in metadata_fields:
+                    metadata_fields[r_key] = reduce_to_ids(getattr(ndi_object, r_key))
+            self.__for_self_referencing_relationships_too(r, run)
         fields = {
             FLATBUFFER_KEY: ndi_object.serialize(),
             **metadata_fields,
@@ -678,13 +671,13 @@ class Collection:
             for key in self.fields 
         }
         for r in self.relationships:
-            relations = getattr(doc, r.key)
-            if relations:
-                fields[r.key] = [doc.id for doc in relations] if isinstance(relations, list) else relations.id
-                # if self-referential, handle reverse relationship
-                if r.relationship._is_self_referential and r.relationship.back_populates:
-                    backref_key = r.relationship.back_populates
-                    fields[backref_key] = [doc.id for doc in getattr(doc, backref_key)]
+            def run(r_key):
+                relations = getattr(doc, r_key)
+                if relations:
+                    fields[r_key] = [ doc.id for doc in relations ]\
+                                        if isinstance(relations, list)\
+                                        else relations.id
+            self.__for_self_referencing_relationships_too(r, run)
         return fields
 
     def normalize_documents(self, documents):
@@ -716,16 +709,12 @@ class Collection:
         flatbuffer = self.extract_flatbuffers(document)
         ndi_object = self.ndi_class.from_flatbuffer(flatbuffer)
         for r in self.relationships:
-            if hasattr(ndi_object, r.key):
-                relations = getattr(document, r.key)
-                relation_ids = [doc.id for doc in relations] if isinstance(relations, list) else relations.id
-                setattr(ndi_object, r.key, relation_ids)
-            if r.relationship._is_self_referential:
-                if backref_key := r.relationship.back_populates:
-                    if hasattr(ndi_object, backref_key):
-                        relations = getattr(backref_key)
-                        relation_ids = [doc.id for doc in relations] if isinstance(relations, list) else relations.id
-                        setattr(ndi_object, backref_key, relation_ids)
+            def run(r_key):
+                if hasattr(ndi_object, r_key):
+                    relations = getattr(document, r_key)
+                    relation_ids = [doc.id for doc in relations] if isinstance(relations, list) else relations.id
+                    setattr(ndi_object, r_key, relation_ids)
+            self.__for_self_referencing_relationships_too(r, run)
         return ndi_object
 
     _sqla_filter_ops = {
