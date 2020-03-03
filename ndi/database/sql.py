@@ -1,5 +1,6 @@
 from __future__ import annotations
 import ndi.types as T
+from enum import Enum
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship, backref
@@ -9,7 +10,7 @@ from .ndi_database import NDI_Database
 from functools import wraps
 from ndi import Experiment, DaqSystem, Probe, Epoch, Channel, Document
 from ..utils import class_to_collection_name, flatten
-from ..decorators import handle_iter
+from ..decorators import handle_iter, handle_lists
 from .query import Query, AndQuery, OrQuery, CompositeQuery
 from .utils import check_ndi_object, listify, check_ndi_objects, update_flatbuffer, recast_ndi_objects_to_documents, translate_query, with_session, with_open_session, reduce_ndi_objects_to_ids
 
@@ -21,6 +22,10 @@ from .utils import check_ndi_object, listify, check_ndi_objects, update_flatbuff
 
 FLATBUFFER_KEY = 'flatbuffer'
 
+class Datatype(Enum):
+    NDI = 2
+    SQL_ALCHEMY = 1
+    FLATBUFFER = 0
 
 
 # ============== #
@@ -386,20 +391,7 @@ class SQL(NDI_Database):
         additions_by_collection = self._group_by_collection(ndi_objects)
         for Collection, ndi_objects in additions_by_collection.items():
             Collection.add(ndi_objects, session=session)
-            for r in Collection.relationships:
-                secondary_tbl = r.relationship.secondary
-                # if secondary_tbl:
-                if secondary_tbl is not None:
-                    session = session or self.Session()
-                    for ndi_object in ndi_objects:
-                        doc = session.query(Collection.table).get(ndi_object.id)
-                        relation_ids = getattr(ndi_object, r.key)
-                        target_table = self._collections[r.relationship._ndi_class].table
-                        relation_docs = session.query(target_table).filter(target_table.id.in_(relation_ids)).all()
-                        for relation_doc in relation_docs:
-                            getattr(doc, r.key).append(relation_doc)
-                    session.commit()
-                    session.close()
+            Collection.update_lookup_relationships(ndi_objects, self._collections)
         
 
     @listify
@@ -415,6 +407,7 @@ class SQL(NDI_Database):
         updates_by_collection = self._group_by_collection(ndi_objects)
         for Collection, ndi_objects in updates_by_collection.items():
             Collection.update(ndi_objects)
+            Collection.update_lookup_relationships(ndi_objects, self._collections)
 
 
     @listify
@@ -430,6 +423,7 @@ class SQL(NDI_Database):
         upserts_by_collection = self._group_by_collection(ndi_objects)
         for Collection, ndi_objects in upserts_by_collection.items():
             Collection.upsert(ndi_objects)
+            Collection.update_lookup_relationships(ndi_objects, self._collections)
 
     @listify
     @check_ndi_objects
@@ -460,14 +454,13 @@ class SQL(NDI_Database):
         :type as_sql_data: bool, optional
         :rtype: List<:term:`NDI object`> | dict
         """
-        results = self._collections[ndi_class].find(query=query, order_by=order_by, as_flatbuffers = not as_sql_data)
-        if as_sql_data:
-            return results
-        else:
-            ndi_objects = [ ndi_class.from_flatbuffer(flatbuffer) for flatbuffer in results ]
-            return ndi_objects
+        return self._collections[ndi_class].find(
+            query = query,
+            order_by = order_by,
+            result_format = Datatype.SQL_ALCHEMY if as_sql_data else Datatype.NDI
+        )
     
-    def update_many(self, ndi_class, query=None, payload={}, order_by=None):
+    def update_many(self, ndi_class, query=None, payload={}):
         """Updates all documents matching the given :term:`NDI query` in the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
         
         .. currentmodule:: ndi.ndi_database
@@ -481,9 +474,7 @@ class SQL(NDI_Database):
         :param order_by: Field name to order results by. Defaults to None.
         :type order_by: str, optional
         """
-        results = self._collections[ndi_class].update_many(query=query, payload=payload, order_by=order_by)
-        ndi_objects = [ ndi_class.from_flatbuffer(flatbuffer) for flatbuffer in results ]
-        return ndi_objects
+        self._collections[ndi_class].update_many(self._collections, query=query, payload=payload)
     
     def delete_many(self, ndi_class, query=None):
         """Deletes all documents matching the given :term:`NDI query` in the specified :term:`collection`.
@@ -510,8 +501,10 @@ class SQL(NDI_Database):
         :type as_sql_data: bool, optional
         :rtype: :term:`NDI object`
         """
-        result = self._collections[ndi_class].find_by_id(id_, as_flatbuffer = not as_sql_data)
-        return result if as_sql_data else ndi_class.from_flatbuffer(result)
+        return self._collections[ndi_class].find_by_id(
+            id_,
+            result_format = Datatype.SQL_ALCHEMY if as_sql_data else Datatype.NDI
+        )
 
     def update_by_id(self, ndi_class, id_, payload={}):
         """Updates the :term:`NDI object` with the given id from the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
@@ -525,9 +518,7 @@ class SQL(NDI_Database):
         :param payload: Field and update values to be updated, defaults to {}
         :type payload: :term:`payload`, optional
         """
-        result = self._collections[ndi_class].update_by_id(id_, payload=payload)
-        ndi_object = ndi_class.from_flatbuffer(result)
-        return ndi_object
+        self._collections[ndi_class].update_by_id(id_, self._collections, payload=payload)
 
     def delete_by_id(self, ndi_class, id_):
         """Deletes the :term:`NDI object` with the given id from the specified :term:`collection`.
@@ -593,6 +584,15 @@ class Collection:
         self.fields = fields
         self.relationships = []
     
+    def lookup_relationships(self):
+        return [r for r in self.relationships if r.relationship.secondary is not None]
+
+    def for_self_referencing_relationships_too(self, relationship, cb):
+        cb(key)
+        if relationship.relationship._is_self_referential:
+            if backref_key := relationship.relationship.back_populates:
+                cb(backref_key)
+
     def set_relationships(self, relationships):
         """Set the collection's relationships to its :term:`SQLA table`.
         
@@ -606,6 +606,32 @@ class Collection:
                 key = key,
                 sqla_relationship = relation,
             ))
+    
+    @with_session
+    def update_lookup_relationships(self, session, ndi_objects, db_collections):
+        for r in self.lookup_relationships():
+            for ndi_object in ndi_objects:
+                doc = session.query(self.table).get(ndi_object.id)                
+                if hasattr(ndi_object, r.key):
+                    relation_ids = getattr(ndi_object, r.key)
+                    self._update_lookup_relationships(r, doc, relation_ids, db_collections, session)
+
+                # if relationship is self-referencing, do the same for the reverse relationship
+                if r.relationship._is_self_referential:
+                    if backref_key := r.relationship.back_populates:
+                        if hasattr(ndi_object, backref_key):
+                            relation_ids = getattr(ndi_object, backref_key)
+                            self._update_lookup_relationships(r, doc, relation_ids, db_collections, session)
+                
+    def _update_lookup_relationships(self, relationship, document, relation_ids, db_collections, session):
+        # clear all old relationships
+        setattr(document, relationship.key, [])
+
+        # add all incoming relationships
+        target_table = db_collections[relationship.relationship._ndi_class].table
+        relation_docs = session.query(target_table).filter(target_table.id.in_(relation_ids)).all()
+        for relation_doc in relation_docs:
+            getattr(document, relationship.key).append(relation_doc)
     
     def create_document(self, fields):
         """Create a :term:`SQLA document` with its respective fields/values
@@ -632,13 +658,36 @@ class Collection:
             for key in self.fields
             if key != FLATBUFFER_KEY 
         }
+        reduce_to_ids = lambda objects: [obj.id for obj in objects] if isinstance(objects, list) else objects.id
+        for r in self.relationships:
+            if r.key in metadata_fields:
+                metadata_fields[r.key] = reduce_to_ids(getattr(ndi_object, r.key))
+            if r.relationship._is_self_referential and r.relationship.back_populates:
+                backref_key = r.relationship.back_populates
+                if backref_key in metadata_fields:
+                    metadata_fields[backref_key] = reduce_to_ids(getattr(ndi_object, backref_key))
         fields = {
             FLATBUFFER_KEY: ndi_object.serialize(),
             **metadata_fields,
         }
         return self.create_document(fields)
     
-    def extract_document_fields(self, documents):
+    def extract_document_fields(self, doc):
+        fields = {
+            key: getattr(doc, key)
+            for key in self.fields 
+        }
+        for r in self.relationships:
+            relations = getattr(doc, r.key)
+            if relations:
+                fields[r.key] = [doc.id for doc in relations] if isinstance(relations, list) else relations.id
+                # if self-referential, handle reverse relationship
+                if r.relationship._is_self_referential and r.relationship.back_populates:
+                    backref_key = r.relationship.back_populates
+                    fields[backref_key] = [doc.id for doc in getattr(doc, backref_key)]
+        return fields
+
+    def normalize_documents(self, documents):
         """Convert one or many :term:`SQLA document`\ s into ``dict``s.
         
         :param documents: Documents as they are recieved from SQLA database operations.
@@ -646,28 +695,38 @@ class Collection:
         :return: Documents simplified to ``dict``s, with only Columns/values kept.
         :rtype: List<dict> | dict
         """
-        extract = lambda doc: { 
-            key: getattr(doc, key)
-            for key in self.fields 
-        }
         if isinstance(documents, list):
-            return [ extract(doc) for doc in documents ]
+            return [ self.extract_document_fields(doc) for doc in documents ]
         else:
-            return extract(documents)
+            return self.extract_document_fields(documents)
 
-    def extract_flatbuffers(self, documents):
+    @handle_lists
+    def extract_flatbuffers(self, document):
         """Extract the flatbuffer(s) of one or many :term:`SQLA document`\ s.
         
-        :param documents: Documents as they are recieved from SQLA database operations.
-        :type documents:  List<:term:`SQLA document`> | :term:`SQLA document`
+        :param document: Documents as they are recieved from SQLA database operations.
+        :type document:  List<:term:`SQLA document`> | :term:`SQLA document`
         :return: Document's flatbuffer serialization.
         :rtype: List<bytearray> | bytearray
         """
-        extract = lambda doc: getattr(doc, FLATBUFFER_KEY)
-        if isinstance(documents, list):
-            return [ extract(doc) for doc in documents ]
-        else:
-            return extract(documents)
+        return getattr(document, FLATBUFFER_KEY)
+
+    @handle_lists
+    def ndi_objects_from_documents(self, document):
+        flatbuffer = self.extract_flatbuffers(document)
+        ndi_object = self.ndi_class.from_flatbuffer(flatbuffer)
+        for r in self.relationships:
+            if hasattr(ndi_object, r.key):
+                relations = getattr(document, r.key)
+                relation_ids = [doc.id for doc in relations] if isinstance(relations, list) else relations.id
+                setattr(ndi_object, r.key, relation_ids)
+            if r.relationship._is_self_referential:
+                if backref_key := r.relationship.back_populates:
+                    if hasattr(ndi_object, backref_key):
+                        relations = getattr(backref_key)
+                        relation_ids = [doc.id for doc in relations] if isinstance(relations, list) else relations.id
+                        setattr(ndi_object, backref_key, relation_ids)
+        return ndi_object
 
     _sqla_filter_ops = {
         # composite types
@@ -788,7 +847,7 @@ class Collection:
 
     @with_session
     @translate_query
-    def find(self, session, query=None, order_by=None, as_flatbuffers=True):
+    def find(self, session, query=None, order_by=None, result_format=Datatype.NDI):
         """.. currentmodule:: ndi.database.sql
         
         Extracts the :term:`document`\ s in the :class:`Collection` matching the given :term:`SQLA query`.
@@ -805,7 +864,7 @@ class Collection:
         """
         filter_ = self._functionalize_query(query)
         documents = filter_(session.query(self.table)).order_by(order_by).all()
-        return self.extract_flatbuffers(documents) if as_flatbuffers else self.extract_document_fields(documents)
+        return self.__formatted_results(documents, result_format)
 
     @with_session
     @translate_query
@@ -823,7 +882,7 @@ class Collection:
             session.delete(doc)
 
     @with_session
-    def find_by_id(self, session, id_, as_flatbuffer=True):
+    def find_by_id(self, session, id_, result_format=Datatype.NDI):
         """Extracts the :term:`document` in the :class:`Collection` matching the given id.
         
         :param session: See :term:`SQLA session`. Argument passed by :func:`utils.with_session`.
@@ -835,7 +894,7 @@ class Collection:
         :rtype: bytearray | dict
         """
         document = session.query(self.table).get(id_)
-        return self.extract_flatbuffers(document) if as_flatbuffer else self.extract_document_fields(document)
+        return self.__formatted_results(document, result_format)
 
     @with_session
     def update_by_id(self, session, id_, payload={}):
@@ -867,7 +926,7 @@ class Collection:
 
     @with_session
     @translate_query
-    def update_many(self, session, query={}, payload={}, order_by=None):
+    def update_many(self, session, db_collections, query={}, payload={}):
         """Updates (replaces) the :term:`document`\ s of the given :term:`NDI object`\ s in the :class:`Collection` matching the given :term:`SQLA query`.
         
         :param session: See :term:`SQLA session`. Argument passed by :func:`utils.with_session`.
@@ -881,10 +940,16 @@ class Collection:
         :rtype: List<bytearray>
         """
         filter_ = self._functionalize_query(query)
-        documents = filter_(session.query(self.table)).order_by(order_by).all()
+        documents = filter_(session.query(self.table)).all()
         for d in documents:
+            # handle and remove many-to-many relationship items in payload
+            for r in self.lookup_relationships():
+                updated_relation_ids = payload[r.key]
+                del payload[r.key]
+                if updated_relation_ids:
+                    self._update_lookup_relationships(r, d, updated_relation_ids, db_collections, session)
             self.__update_sqla_partial_document(d, payload)
-        return self.extract_flatbuffers(documents)
+
 
     def __update_sqla_partial_document(self, document, payload):
         """Modifies a document in place with the key:value pairs in the given payload.
@@ -897,9 +962,22 @@ class Collection:
         for key, value in payload.items():
             setattr(document, key, value)
         if hasattr(document, FLATBUFFER_KEY):
+            self.__update_sqla_flatbuffer(document, payload)
+    
+    def __update_sqla_flatbuffer(self, document, payload):
             old_flatbuffer = getattr(document, FLATBUFFER_KEY)
             updated_flatbuffer = update_flatbuffer(self.ndi_class, old_flatbuffer, payload)
+            print(updated_flatbuffer)
+            print(self.ndi_class.from_flatbuffer(updated_flatbuffer).__dict__)
             setattr(document, FLATBUFFER_KEY, updated_flatbuffer)
+    
+    def __formatted_results(self, documents, result_format):
+        if result_format is Datatype.SQL_ALCHEMY:
+            return self.normalize_documents(documents)
+        elif result_format is Datatype.FLATBUFFER:
+            return self.extract_flatbuffers(documents)
+        else:
+            return self.ndi_objects_from_documents(documents)
 
 
 class Relationship:

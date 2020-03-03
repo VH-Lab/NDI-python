@@ -21,3 +21,13 @@ def handle_iter(func: T.Callable) -> T.Callable:
         else:
             func(self, arg)
     return decorator
+
+
+def handle_lists(func):
+    @wraps(func)
+    def decorator(self, arg):
+        if isinstance(arg, list):
+            return [func(self, item) for item in arg]
+        else:
+            return func(self, arg)
+    return decorator
