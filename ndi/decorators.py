@@ -24,9 +24,11 @@ def handle_iter(func: T.Callable) -> T.Callable:
     return decorator
 
 
-def handle_lists(func):
+def handle_lists(
+        func: T.Callable[ [ T.Self, T.Foo ], T.Bar]
+    ) -> T.Callable[ [ T.Self, T.OneOrManyFoo], T.OneOrManyBar ]:
     @wraps(func)
-    def decorator(self, arg):
+    def decorator(self: T.Self, arg: T.OneOrManyFoo) -> T.OneOrManyBar:
         if isinstance(arg, list):
             return [func(self, item) for item in arg]
         else:

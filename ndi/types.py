@@ -128,6 +128,14 @@ if TYPE_CHECKING:
 
     RegexStr = str
 
+    # mostly for use in decorators
+    Self = object
+    Foo = TypeVar('Foo')
+    Bar = TypeVar('Bar')
+    Baz = TypeVar('Baz')
+    OneOrManyFoo = Union[ List[Foo], Foo ]
+    OneOrManyBar = Union[ List[Bar], Bar ]
+
     """TODO"""
 
     DaqReader = Any
