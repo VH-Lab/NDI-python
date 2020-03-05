@@ -24,6 +24,7 @@ FLATBUFFER_KEY = 'flatbuffer'
 
 
 class Datatype(Enum):
+    """This enum describes the 3 types of structure a document may exist as in the :class:`SQL` database class."""
     NDI = 2
     SQL_ALCHEMY = 1
     FLATBUFFER = 0
@@ -609,8 +610,6 @@ class Collection:
     ) -> None:
         """Initializes a :class:`SQL` :class:`Collection`.
 
-        Postponing further documentation pending NDI_Collection.
-
         :param Base: `SQLA Metadata Base <https://docs.sqlalchemy.org/en/13/orm/extensions/declarative/api.html#api-reference>`_
         :type Base: :class:`sqlalchemy.ext.declarative.api.DeclarativeMeta`
         :param Session: `SQLA Session <https://docs.sqlalchemy.org/en/13/orm/session.html>`_
@@ -639,9 +638,31 @@ class Collection:
         self.relationships: T.List[T.SqlRelationship] = []
 
     def lookup_relationships(self) -> T.List[T.SqlRelationship]:
+        """Filter relationships for those relying on a secondary(lookup) table.
+        
+        :rtype: T.List[T.SqlRelationship]
+        """
         return [r for r in self.relationships if r.relationship.secondary is not None]
 
-    def __for_self_referencing_relationships_too(self, relationship, cb):
+    def __for_self_referencing_relationships_too(self, relationship: T.SqlRelationship, cb: T.Callable[[str], T.Any]) -> None:
+        """Checks to see if the given relationship is self-referencing. If false, calls the given function once with the relationship's reference key. If true, calls the given function twice, once with each key.
+
+        For example, given a table `people`, where each person may have either a child or parent relationship with another person, there would only be one self-referencing relationship configured. If we want to operate on both relations we could call this method on that single relationship and have both `child` and `parent` fields affected.
+
+        ::
+            # a common pattern:
+            for r in many_relationships:
+                def run(relationship_key):
+                    ...some operations...
+                __for_self_referencing_relationships_too(r, run)
+        
+        .. currentmodule:: ndi.database.sql
+
+        :param relationship:
+        :type relationship: :class:`Relationship`
+        :param cb: The function to call 
+        :type cb: function
+        """
         cb(relationship.key)
         if hasattr(relationship.relationship, '_is_self_referential') and relationship.relationship._is_self_referential:
             if backref_key := relationship.relationship.back_populates:
@@ -668,6 +689,15 @@ class Collection:
         ndi_objects: T.List[T.NdiObject],
         db_collections: T.SqlDatabaseCollections
     ) -> None:
+        """Updates the relationships of the fiven ndi_objects for each many-to-many relationship associated with this collection.
+        
+        :param session:
+        :type session: T.Session
+        :param ndi_objects:
+        :type ndi_objects: T.List[T.NdiObject]
+        :param db_collections:
+        :type db_collections: T.SqlDatabaseCollections
+        """
         for r in self.lookup_relationships():
             for ndi_object in ndi_objects:
                 doc = session.query(self.table).get(ndi_object.id)
@@ -687,6 +717,19 @@ class Collection:
         db_collections: T.SqlDatabaseCollections,
         session: T.Session
     ) -> None:
+        """Given a self-referencing many-to-many relatonship, a document, and the ids of that document's relations, updates the relationship's lookup table with all new relationships.
+        
+        :param relationship:
+        :type relationship: T.SqlRelationship
+        :param document:
+        :type document: T.SqlaDocument
+        :param relation_ids:
+        :type relation_ids: T.List[str]
+        :param db_collections:
+        :type db_collections: T.SqlDatabaseCollections
+        :param session:
+        :type session: T.Session
+        """
         # clear all old relationships
         setattr(document, relationship.key, [])
 
@@ -736,21 +779,6 @@ class Collection:
         }
         return self.create_document(fields)
 
-    def extract_document_fields(self, doc: T.SqlaDocument) -> T.SqlCollectionDocument:
-        fields = {
-            key: getattr(doc, key)
-            for key in self.fields
-        }
-        for r in self.relationships:
-            def run(r_key):
-                relations = getattr(doc, r_key)
-                if relations:
-                    fields[r_key] = [doc.id for doc in relations]\
-                        if isinstance(relations, list)\
-                        else relations.id
-            self.__for_self_referencing_relationships_too(r, run)
-        return fields
-
     @handle_lists
     def normalize_documents(
         self,
@@ -763,7 +791,19 @@ class Collection:
         :return: Documents simplified to ``dict``s, with only Columns/values kept.
         :rtype: List<dict> | dict
         """
-        return self.extract_document_fields(document)
+        fields = {
+            key: getattr(document, key)
+            for key in self.fields
+        }
+        for r in self.relationships:
+            def run(r_key):
+                relations = getattr(document, r_key)
+                if relations:
+                    fields[r_key] = [document.id for document in relations]\
+                        if isinstance(relations, list)\
+                        else relations.id
+            self.__for_self_referencing_relationships_too(r, run)
+        return fields
 
     @handle_lists
     def extract_flatbuffers(self, document: T.SqlaDocument) -> bytearray:
@@ -778,6 +818,13 @@ class Collection:
 
     @handle_lists
     def ndi_objects_from_documents(self, document: T.SqlaDocument) -> T.NdiObject:
+        """Creates :term:`NDI object`\ s from documents and rehydrates relationships defined in secondary (lookup) tables.
+        
+        :param document: 
+        :type document: T.SqlaDocument
+        :raises TypeError: Thrown when called on a lookup-table collection.
+        :rtype: T.NdiObject
+        """
         flatbuffer = self.extract_flatbuffers(document)
         if not self.ndi_class or isinstance(self.ndi_class, str):
             raise TypeError(
@@ -798,6 +845,24 @@ class Collection:
                     setattr(ndi_object, r_key, relation_ids)
             self.__for_self_referencing_relationships_too(r, run)
         return ndi_object
+
+    def __formatted_results(self, documents: T.SqlaDocument, result_format: T.DatatypeEnum) -> T.OneOrManySqlDatabaseDatatype:
+        """Formats the given documents as either :term:`NDI object`\ s, :term:`SQLA document`\ s, or :term:`flatbuffer`\ s.
+        
+        .. currentmodule:: ndi.database.sql
+
+        :param documents: 
+        :type documents: T.SqlaDocument
+        :param result_format: 
+        :type result_format: Datatype
+        :rtype: T.OneOrManySqlDatabaseDatatype
+        """
+        if result_format is Datatype.SQL_ALCHEMY:
+            return self.normalize_documents(documents)
+        elif result_format is Datatype.FLATBUFFER:
+            return self.extract_flatbuffers(documents)
+        else:
+            return self.ndi_objects_from_documents(documents)
 
     _sqla_filter_ops: T.SqlFilterMap = {
         # composite types
@@ -1043,33 +1108,54 @@ class Collection:
             self.__update_sqla_flatbuffer(document, payload)
 
     def __update_sqla_flatbuffer(self, document: T.SqlaDocument, payload: T.SqlCollectionDocument) -> None:
+        """Modifies the flatbuffer of a document with the key:value pairs in the given payload.
+        
+        :param document: [description]
+        :type document: T.SqlaDocument
+        :param payload: [description]
+        :type payload: T.SqlCollectionDocument
+        """
         old_flatbuffer = getattr(document, FLATBUFFER_KEY)
         updated_flatbuffer = update_flatbuffer(
             self.ndi_class, old_flatbuffer, payload)
         setattr(document, FLATBUFFER_KEY, updated_flatbuffer)
 
-    def __formatted_results(self, documents: T.SqlaDocument, result_format: T.DatatypeEnum) -> T.OneOrManySqlDatabaseDatatype:
-        if result_format is Datatype.SQL_ALCHEMY:
-            return self.normalize_documents(documents)
-        elif result_format is Datatype.FLATBUFFER:
-            return self.extract_flatbuffers(documents)
-        else:
-            return self.ndi_objects_from_documents(documents)
-
 
 class Relationship:
+    """This class wraps the :class:`sqlalchemy.relationship` class with ndi-specific attributes. These relationships are tied to their key in a collection, and are used to establish the relationship between that collection and another one.    
+    """
     def __init__(self, target_collection: T.SqlCollectionName, key: str, sqla_relationship: T.relationship) -> None:
-        self.collection = target_collection
-        self.key = key
+        """Initializes an NDI relationship.
+        
+        :param target_collection: The other collection in the relationship.
+        :type target_collection: T.SqlCollectionName
+        :param key: The key of the field in the 
+        :type key: str
+        :param sqla_relationship: [description]
+        :type sqla_relationship: T.relationship
+        """
         self.relationship = sqla_relationship
+        self.reverse_relationship = self.__get_reverse_relationship()
+        self.key = key
+        self.secondary_key = self.__get_secondary_key()
+        self.collection = target_collection
 
-    def reverse_relationship(self) -> T.Union[T.relationship, None]:
+    def __get_reverse_relationship(self) -> T.Union[T.relationship, None]:
+        """For each relationship defined there may be a reverse relationship created by sqlalchemy. This method extracts that relationship object if it exists.
+        
+        :rtype: T.Union[T.relationship, None]
+        """
         try:
             return next(iter(self.relationship._reverse_property))
         except StopIteration:
             return None
 
-    def secondary_key(self) -> T.Union[str, None]:
+    def __get_secondary_key(self) -> T.Union[str, None]:
+        """For bi-directional self-referential relationships there is a secondary key. If it exists, this method extracts it.
+        
+        :return: [description]
+        :rtype: T.Union[str, None]
+        """
         if self.relationship._is_self_referential and self.relationship.back_populates:
             return self.relationship.back_populates
         else:
