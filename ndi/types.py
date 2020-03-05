@@ -26,10 +26,12 @@ if TYPE_CHECKING:
     # uncommon basic types
     from typing import IO, Pattern, Match, Text
     from typing import Type, ClassVar, Union, Literal, TypedDict
+    from typing import Generator, Iterator
     from typing import TypeVar, Callable, Generic, Protocol
     from typing import Optional, Final, Any
 
     from flatbuffers import Builder
+    from abc import ABCMeta
 
     from .schema.Channel import Channel as Channel_schema
     from .schema.DaqSystem import DaqSystem as DaqSystem_schema
@@ -50,10 +52,16 @@ if TYPE_CHECKING:
     from ndi.file_navigator import FileNavigator, EpochFiles
 
     from ndi.database import SQL, FileSystem, Query
-    from ndi.database.sql import Collection as SQL_Collection
+    from ndi.database.sql import Collection as SqlCollection, Relationship as SqlRelationship, Datatype as DatatypeEnum
     from ndi.database.file_system import Collection as FS_Collection
+    from ndi.database.query import Query, CompositeQuery, AndQuery, OrQuery
 
+    from sqlalchemy import Column, Query as SqlaQuery
     from sqlalchemy.orm import relationship, Session
+    from sqlalchemy.ext.declarative import DeclarativeMeta
+    from sqlalchemy.engine import Engine
+    from sqlalchemy.util._collections import _LW as SqlaDocument
+    from sqlalchemy.sql.elements import ClauseElement as SqlaFilter 
 
     """Schema Types
         Associated with the flatbuffer layer in ndi.schema."""
@@ -104,23 +112,58 @@ if TYPE_CHECKING:
     """NDI Types
         Associated with the NDI classes and types."""
 
-    NdiClass = Type[NDI_Object]
-    NdiObject = NDI_Object
+    NdiClass = Union[
+        Type[Experiment],
+        Type[Probe],
+        Type[DaqSystem],
+        Type[Epoch],
+        Type[Channel],
+        Type[Document],
+    ]
+    NdiObject = Union[
+        Experiment,
+        Probe,
+        DaqSystem,
+        Epoch,
+        Channel,
+        Document,
+    ]
 
     """Database Types
         Associated with ndi.database drivers."""
 
-    CollectionMap = Dict[
-        # in sql database, lookup tables have string keys.
-        Union[ NdiClass, str ], 
-        Union[ SQL_Collection, FS_Collection, None ]
-    ]
-
     # SQL
 
+    SqlCollectionName = Union[NdiClass, str]
+
+    SqlDatabaseCollections = Dict[
+        SqlCollectionName,
+        SqlCollection
+    ]
     RelationshipMap = Dict[NdiClass, relationship]
 
+    SqlRelationshipGenerator = Callable[[SqlDatabaseCollections], relationship]
+
+    SqlNdiCollectionConfig = Dict[str, Union[Column, SqlRelationshipGenerator]]
+
+    SqlLookupTableConfig = SqlNdiCollectionConfig
+
+    SqlDatabaseConfig = Union[
+        Dict[NdiClass, SqlNdiCollectionConfig],
+        Dict[str, SqlLookupTableConfig],
+    ]
+
+    # A SqlaDocument that has been normalized to a Dict that only contains the attributes of its NdiClass.
+    SqlCollectionDocument = Dict[str, OneOrManySerializableValue]
+    OneOrManySqlCollectionDocument = Union[List[SqlCollectionDocument], SqlCollectionDocument]
+
+    SqlFilterMap = Dict[Union[type, str], Callable[..., SqlaFilter]]
+
+
     """Miscellaneous Types / Aliases"""
+
+    SerializableValue = Union[str, int, bytearray, bool]
+    OneOrManySerializableValue = Union[List[SerializableValue], SerializableValue]
 
     BuildOffset = int
 
@@ -128,13 +171,28 @@ if TYPE_CHECKING:
 
     RegexStr = str
 
+    # note that sql.Collection also handles SqlDocuments
+    SqlDatabaseDatatype = Union[NdiObject, SqlCollectionDocument, bytearray]
+    OneOrManySqlDatabaseDatatype = Union[List[SqlDatabaseDatatype], SqlDatabaseDatatype]
+
+    OneOrManySqlaDocument = Union[List[SqlaDocument], SqlaDocument]
+    
+
     # mostly for use in decorators
-    Self = object
+    Self = TypeVar('Self')
     Foo = TypeVar('Foo')
     Bar = TypeVar('Bar')
     Baz = TypeVar('Baz')
-    OneOrManyFoo = Union[ List[Foo], Foo ]
-    OneOrManyBar = Union[ List[Bar], Bar ]
+    OneOrManyFoo = Union[List[Foo], Foo]
+    OneOrManyBar = Union[List[Foo], Foo]
+    Args = Tuple[Any]
+    Kwargs = Dict[Any, Any]
+
+    """Protocols"""
+    class WithOpenSessionDecorator(Protocol):
+        def __call__(_, self: Self, *args: Args,
+                     session: Optional[Session] = None, **kwargs: Kwargs) -> Generator[Session, None, None]: pass
+
 
     """TODO"""
 
