@@ -2,6 +2,8 @@
 Database Utils Module
 *********************
 """
+from __future__ import annotations
+import ndi.types as T
 from ..ndi_object import NDI_Object
 from functools import wraps
 from contextlib import contextmanager
@@ -52,7 +54,7 @@ def check_ndi_class(func):
             raise TypeError(f'\'{ndi_object}\' is not an instance of \'{self.ndi_class}\'')
     return decorator
 
-def listify(func):
+def listify(func: T.Callable) -> T.Callable:
     """.. currentmodule:: ndi.database.sql
     
     Decorator: meant to work with :class:`SQL` methods. Ensures that the first argument passed into the decorated function is a list. If the value is not a list, it is wrapped in one.
@@ -62,7 +64,7 @@ def listify(func):
     :return: Returns return value of decorated function.
     """
     @wraps(func)
-    def decorator(self, arg, *args, **kwargs):
+    def decorator(self: T.Self, arg: T.Foo, *args: T.Args, **kwargs: T.Kwargs) -> None:
         if not isinstance(arg, list):
             func(self, [arg], *args, **kwargs)
         else:
@@ -99,14 +101,22 @@ def update_flatbuffer(ndi_class, flatbuffer, payload):
 
 def print_everything_in(db):
     for collection in db._collections:
-        results = db.find(collection)
-        print(collection.__name__ + 's')
-        for doc in results:
-            try: print(f'  - {doc.name}')
-            except AttributeError: print(f'  - {doc.id}')
-        if results:
-            print('  ---NONE---')
-        print('')
+        print(collection)
+        if isinstance(collection, str):
+            # is a lookup table
+            print(f'Lookup Table: {collection}')
+        else:
+            # is an NDI class collection
+            results = db.find(collection)
+            name = collection if isinstance(collection, str) else collection.__name__
+            print(name + 's')
+            for doc in results:
+                try: print(f'  - {doc.name}')
+                except AttributeError: print(f'  - {doc.id}')
+            if results:
+                print('  ---NONE---')
+            print('')
+
 
 def destroy_everything_in(db):
     for collection in db._collections:
@@ -119,6 +129,12 @@ def destroy_everything_in(db):
 SQL Database Specific
 =====================
 """
+
+def reduce_ndi_objects_to_ids(ndi_objects):
+    try:
+        return [obj.id for obj in ndi_objects]
+    except TypeError:
+        return ndi_objects.id
 
 def recast_ndi_objects_to_documents(func):
     """Decorator: meant to work with :class:`Collection` methods. Converts a list of :term:`NDI object`\ s into their :term:`SQLA document` equivalents.
@@ -172,7 +188,9 @@ def with_session(func):
         return output
     return decorator
 
-def with_open_session(func):
+def with_open_session(
+        func: T.Callable
+    ) -> T.WithOpenSessionDecorator:
     """Handle session setup/teardown as a context manager for a class method. Returns decorated func for use as a context manager with session as its first argument.
     
     :param func:
@@ -181,12 +199,18 @@ def with_open_session(func):
     """
     @wraps(func)
     @contextmanager
-    def decorator(self, *args, session=None, **kwargs):
+    def decorator(
+        self,
+        *args: T.Args,
+        session: T.Session = None,
+        **kwargs: T.Kwargs
+    ) -> T.Generator[T.Session, None, None]:
         enclosed_session = session is None
         if enclosed_session:
             session = self.Session()
-        yield func(self, session, *args, **kwargs)
-        if enclosed_session:
+            yield func(self, session, *args, **kwargs)
             session.commit()
             session.close()
+        else:
+            yield func(self, session, *args, **kwargs)
     return decorator

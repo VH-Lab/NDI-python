@@ -14,7 +14,7 @@ class NDI_Database(ABC):
     Abstract class for NDI database interfaces.
     Child classes of :class:`NDI_Database` are standardized, and share the same base methods and data signatures.
     """
-    _collections: T.CollectionMap = {
+    _collections: T.Dict = {
         Experiment: None,
         DaqSystem: None,
         Probe: None,
@@ -39,7 +39,7 @@ class NDI_Database(ABC):
         pass
 
     @abstractmethod
-    def create_collection(self, ndi_class):
+    def create_collection(self, ndi_class, config):
         """.. currentmodule:: ndi.ndi_object
 
         It should be able to take a derivative class of :class:`NDI_Object` and create a collection/table based off of it and its fields. The collection/table name should be created from :func:`ndi.database.utils.class_to_collection_name`.

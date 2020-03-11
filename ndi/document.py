@@ -88,8 +88,8 @@ class Document(NDI_Object):
             experiment_id=T.NdiId(document.ExperimentId().decode('utf8')),
             document_type=document.DocumentType().decode('utf8'),
             version_depth=document.VersionDepth(),
-            file_id=T.NdiId(document.FileId().decode('utf8')),
-            parent_id=T.NdiId(document.ParentId().decode('utf8')),
+            file_id=T.NdiId(document.FileId().decode('utf8')) or None,
+            parent_id=T.NdiId(document.ParentId().decode('utf8')) or None,
             asc_path=document.AscPath().decode('utf8')
         )
 
@@ -105,8 +105,8 @@ class Document(NDI_Object):
         id_ = builder.CreateString(self.id)
         experiment_id = builder.CreateString(self.experiment_id)
         document_type = builder.CreateString(self.document_type)
-        file_id = builder.CreateString(self.file_id)
-        parent_id = builder.CreateString(self.parent_id)
+        file_id = builder.CreateString(self.file_id or '')
+        parent_id = builder.CreateString(self.parent_id or '')
         asc_path = builder.CreateString(self.asc_path)
 
         build_document.DocumentStart(builder)
