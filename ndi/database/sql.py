@@ -11,7 +11,7 @@ from .ndi_database import NDI_Database
 from functools import wraps
 from ndi import NDI_Object, Experiment, DaqSystem, Probe, Epoch, Channel, Document
 from ..utils import class_to_collection_name, flatten
-from ..decorators import handle_iter, handle_lists
+from ..decorators import handle_iter, handle_list
 from .query import Query, AndQuery, OrQuery, CompositeQuery
 from .utils import check_ndi_object, listify, check_ndi_objects, update_flatbuffer, recast_ndi_objects_to_documents, translate_query, with_session, with_open_session, reduce_ndi_objects_to_ids
 
@@ -651,9 +651,9 @@ class Collection:
 
         ::
             # a common pattern:
+            def run(relationship_key):
+                ...some operations...
             for r in many_relationships:
-                def run(relationship_key):
-                    ...some operations...
                 __for_self_referencing_relationships_too(r, run)
         
         .. currentmodule:: ndi.database.sql
@@ -689,7 +689,7 @@ class Collection:
         ndi_objects: T.List[T.NdiObject],
         db_collections: T.SqlDatabaseCollections
     ) -> None:
-        """Updates the relationships of the fiven ndi_objects for each many-to-many relationship associated with this collection.
+        """Updates the relationships of the five ndi_objects for each many-to-many relationship associated with this collection.
         
         :param session:
         :type session: T.Session
@@ -765,13 +765,13 @@ class Collection:
             for key in self.fields
             if key != FLATBUFFER_KEY
         }
-        def reduce_to_ids(objects): return [obj.id for obj in objects] if isinstance(
-            objects, list) else objects.id
+        def reduce_to_ids(objects): 
+            return [obj.id for obj in objects] if isinstance(objects, list) else objects.id
+        def run(r_key):
+            if r_key in metadata_fields:
+                metadata_fields[r_key] = reduce_to_ids(
+                    getattr(ndi_object, r_key))
         for r in self.relationships:
-            def run(r_key):
-                if r_key in metadata_fields:
-                    metadata_fields[r_key] = reduce_to_ids(
-                        getattr(ndi_object, r_key))
             self.__for_self_referencing_relationships_too(r, run)
         fields = {
             FLATBUFFER_KEY: ndi_object.serialize(),
@@ -779,7 +779,7 @@ class Collection:
         }
         return self.create_document(fields)
 
-    @handle_lists
+    @handle_list
     def normalize_documents(
         self,
         document: T.SqlaDocument
@@ -795,17 +795,17 @@ class Collection:
             key: getattr(document, key)
             for key in self.fields
         }
+        def run(r_key):
+            relations = getattr(document, r_key)
+            if relations:
+                fields[r_key] = [document.id for document in relations]\
+                    if isinstance(relations, list)\
+                    else relations.id
         for r in self.relationships:
-            def run(r_key):
-                relations = getattr(document, r_key)
-                if relations:
-                    fields[r_key] = [document.id for document in relations]\
-                        if isinstance(relations, list)\
-                        else relations.id
             self.__for_self_referencing_relationships_too(r, run)
         return fields
 
-    @handle_lists
+    @handle_list
     def extract_flatbuffers(self, document: T.SqlaDocument) -> bytearray:
         """Extract the flatbuffer(s) of one or many :term:`SQLA document`\ s.
 
@@ -816,7 +816,7 @@ class Collection:
         """
         return getattr(document, FLATBUFFER_KEY)
 
-    @handle_lists
+    @handle_list
     def ndi_objects_from_documents(self, document: T.SqlaDocument) -> T.NdiObject:
         """Creates :term:`NDI object`\ s from documents and rehydrates relationships defined in secondary (lookup) tables.
         
@@ -836,13 +836,13 @@ class Collection:
         else:
             raise TypeError(f'Unexpected type {type(flatbuffer)} for field {FLATBUFFER_KEY}. Expected bytearray.')
         ndi_object = self.ndi_class.from_flatbuffer(flatbuffer)
+        def run(r_key):
+            if hasattr(ndi_object, r_key):
+                relations = getattr(document, r_key)
+                relation_ids = [doc.id for doc in relations] if isinstance(
+                    relations, list) else relations.id
+                setattr(ndi_object, r_key, relation_ids)
         for r in self.relationships:
-            def run(r_key):
-                if hasattr(ndi_object, r_key):
-                    relations = getattr(document, r_key)
-                    relation_ids = [doc.id for doc in relations] if isinstance(
-                        relations, list) else relations.id
-                    setattr(ndi_object, r_key, relation_ids)
             self.__for_self_referencing_relationships_too(r, run)
         return ndi_object
 
