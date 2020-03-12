@@ -95,3 +95,6 @@ class NDI_Object(ABC):
 
     def __eq__(self, ndi_object) -> bool:
         return self.serialize() == ndi_object.serialize()
+
+    def set_ctx(self, ctx: T.NdiDatabase) -> None:
+        self.ctx = ctx
