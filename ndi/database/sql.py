@@ -629,7 +629,6 @@ class Collection:
         self.ndi_class = None if table_name else ndi_class
         self.table_name = class_to_collection_name(ndi_class) if isinstance(
             ndi_class, ABCMeta) else table_name or str(ndi_class)
-        print(table_name)
         self.table: T.DeclarativeMeta = type(self.table_name, (Base,), {
             '__tablename__': self.table_name,
             **fields
