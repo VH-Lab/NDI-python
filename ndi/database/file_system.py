@@ -53,18 +53,14 @@ class FileSystem(NDI_Database):
         :param experiment: 
         :type experiment: :class:`Experiment`
         """
-        self._collections[type(experiment)].add(experiment)
-        experiment.set_ctx(self)
+        self.add(experiment)
         for daq_system in experiment.daq_systems:
-            self._collections[type(daq_system)].add(daq_system)
-            daq_system.set_ctx(self)
+            self.add(daq_system)
             daq_reader = daq_system.daq_reader
 
             for collection in ['probes', 'epochs', 'channels']:
                 items = getattr(daq_reader, f'get_{collection}')()
                 self.add(items)
-                for item in items:
-                    item.set_ctx(self)
 
     def __create_collections(self):
         """
@@ -103,6 +99,7 @@ class FileSystem(NDI_Database):
         :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
         """
         self._collections[type(ndi_object)].add(ndi_object)
+        ndi_object.set_ctx(self)
 
     @handle_iter
     @check_ndi_object
