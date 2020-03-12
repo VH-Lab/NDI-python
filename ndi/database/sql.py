@@ -434,6 +434,8 @@ class SQL(NDI_Database):
             Collection.add(ndi_objects, session=session)
             Collection.update_lookup_relationships(
                 ndi_objects, self._collections)
+        for ndi_object in ndi_objects:
+            ndi_object.set_ctx(self)
 
     @listify
     @check_ndi_objects
@@ -500,13 +502,17 @@ class SQL(NDI_Database):
         :type order_by: str, optional
         :param as_sql_data: If set to ``True``, find will return contents of SQL table row as a dict; otherwise, will return :term:`NDI object`\ s. Defaults to ``False``.
         :type as_sql_data: bool, optional
-        :rtype: List<:term:`NDI object`> | dict
+        :rtype: List<:term:`NDI object`> | List<dict>
         """
-        return self._collections[ndi_class].find(
+        items = self._collections[ndi_class].find(
             query=query,
             order_by=order_by,
             result_format=Datatype.SQL_ALCHEMY if as_sql_data else Datatype.NDI
         )
+        if not as_sql_data:
+            return [item.with_ctx(self) for item in items]
+        else:
+            return items
 
     def update_many(self, ndi_class: T.NdiClass, query: T.SqlaFilter = None, payload: T.SqlCollectionDocument = {}) -> None:
         """Updates all documents matching the given :term:`NDI query` in the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
@@ -548,12 +554,13 @@ class SQL(NDI_Database):
         :type id_: str
         :param as_sql_data: If set to ``True``, find will return contents of SQL table row as a dict; otherwise, will return :term:`NDI object`\ s. Defaults to ``False``.
         :type as_sql_data: bool, optional
-        :rtype: :term:`NDI object`
+        :rtype: :term:`NDI object` | dict
         """
-        return self._collections[ndi_class].find_by_id(
+        item = self._collections[ndi_class].find_by_id(
             id_,
             result_format=Datatype.SQL_ALCHEMY if as_sql_data else Datatype.NDI
         )
+        return item if as_sql_data else item.with_ctx(self)
 
     def update_by_id(self, ndi_class: T.NdiClass, id_: T.NdiId, payload: T.SqlCollectionDocument = {}) -> None:
         """Updates the :term:`NDI object` with the given id from the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
