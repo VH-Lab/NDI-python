@@ -47,7 +47,7 @@ class DaqSystem(NDI_Object):
         self.add_daq_reader(daq_reader)
 
     @classmethod
-    def from_flatbuffer(cls, flatbuffer: bytearray) -> DaqSystem:
+    def from_flatbuffer(cls, flatbuffer: bytes) -> DaqSystem:
         """Alternate DaqSystem constructor. For use whan initializing from a flatbuffer bytearray.
         ::
             reconstructed_daq_system = DaqSystem.from_flatbuffer(fb)

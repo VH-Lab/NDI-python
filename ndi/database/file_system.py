@@ -96,7 +96,7 @@ class FileSystem(NDI_Database):
 
     @handle_iter
     @check_ndi_object
-    def add(self, ndi_object: T.Union[T.NdiObject, T.List[T.NdiObject]]) -> None:
+    def add(self, ndi_object: T.NdiObject) -> None:
         """.. currentmodule:: ndi.ndi_database
 
         Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and adds them to the database. Objects may belong to different :term:`NDI class`\ es.
@@ -112,7 +112,7 @@ class FileSystem(NDI_Database):
 
     @handle_iter
     @check_ndi_object
-    def update(self, ndi_object: T.Union[T.NdiObject, T.List[T.NdiObject]]) -> None:
+    def update(self, ndi_object: T.NdiObject) -> None:
         """.. currentmodule:: ndi.ndi_database
 
         Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. Objects may belong to different :term:`NDI class`\ es. 
@@ -128,7 +128,7 @@ class FileSystem(NDI_Database):
 
     @handle_iter
     @check_ndi_object
-    def upsert(self, ndi_object: T.Union[T.NdiObject, T.List[T.NdiObject]]) -> None:
+    def upsert(self, ndi_object: T.NdiObject) -> None:
         """.. currentmodule:: ndi.ndi_database
 
         Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. If an object doesn't have a document representation, it is added to the collection. Objects may belong to different :term:`NDI class`\ es. 
@@ -146,7 +146,7 @@ class FileSystem(NDI_Database):
 
     @handle_iter
     @check_ndi_object
-    def delete(self, ndi_object: T.Union[T.NdiObject, T.List[T.NdiObject]]) -> None:
+    def delete(self, ndi_object: T.NdiObject) -> None:
         """.. currentmodule:: ndi.ndi_database
 
         Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and deletes their :term:`document` in the database. Objects may belong to different :term:`NDI class`\ es. 
@@ -252,8 +252,7 @@ class FileSystem(NDI_Database):
 
     def __add_document_extension(self, ndi_document: T.Document) -> None:
         if doc_ext := ndi_document.document_extension:
-            self._collections[type(doc_ext)].add(
-                doc_ext.document_id, doc_ext.serialize())
+            self._collections[type(doc_ext)].add(doc_ext.document_id, doc_ext.serialize())
 
     def __get_document_dependencies(self, ndi_document: T.Document) -> None:
         dependencies = self._collections['document_lookup'].find_dependencies(
@@ -420,7 +419,7 @@ class Collection:
         field, operator, value = ndi_query.query
         return self.__operations[operator](ndi_object, field, value)
 
-    __operations = {
+    __operations: T.Dict[T.Union[T.NdiQueryClass, str], T.Callable] = {
         AndQuery: all,
         OrQuery: any,
         '==': lambda ndi_object, field, value: getattr(ndi_object, field) == value,
@@ -487,5 +486,6 @@ class LookupCollection:
         ids = []
         for row in self.collection_dir.iterdir():
             split = row.stem.split(':')
-            id_ == split[index] and ids.append(split[1 - index])
+            if id_ == split[index]:
+                ids.append(split[1 - index])
         return ids

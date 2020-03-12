@@ -2,7 +2,7 @@ from __future__ import annotations
 from functools import wraps
 import ndi.types as T
 
-def handle_iter(func: T.Callable) -> T.Callable:
+def handle_iter(func: T.Callable[[T.Self, T.Foo], None]) -> T.Callable[[T.Self, T.OneOrManyFoo], None]:
     """
     Decorator: If passed a list of :term:`NDI object`\ s, it will call func with each one. Otherwise, it will call func(arg) once.
 
@@ -15,7 +15,7 @@ def handle_iter(func: T.Callable) -> T.Callable:
     :rtype: None
     """
     @wraps(func)
-    def decorator(self, arg: T.Any) -> None:
+    def decorator(self, arg: T.OneOrManyFoo) -> None:
         if isinstance(arg, list):
             for item in arg:
                 func(self, item)

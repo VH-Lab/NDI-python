@@ -128,6 +128,11 @@ if TYPE_CHECKING:
         Channel,
         Document,
     ]
+    NdiQueryClass = Union[
+        Type[Query],
+        Type[AndQuery],
+        Type[OrQuery]
+    ]
 
     """Database Types
         Associated with ndi.database drivers."""
