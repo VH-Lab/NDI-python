@@ -148,7 +148,7 @@ class FileSystem(NDI_Database):
         :type query: dict, optional
         :rtype: List<:term:`NDI object`>
         """
-        return self._collections[ndi_class].find(query)
+        return [item.with_ctx(self) for item in self._collections[ndi_class].find(query)]
 
     def update_many(self, ndi_class, query=None, payload={}):
         """Updates all documents matching the given :term:`NDI query` in the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
@@ -187,7 +187,7 @@ class FileSystem(NDI_Database):
         :type id_: str
         :rtype: :term:`NDI object`
         """
-        return self._collections[ndi_class].find_by_id(id_)
+        return self._collections[ndi_class].find_by_id(id_).with_ctx(self)
 
     def update_by_id(self, ndi_class, id_, payload={}):
         """Updates the :term:`NDI object` with the given id from the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.

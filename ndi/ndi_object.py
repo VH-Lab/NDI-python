@@ -98,3 +98,7 @@ class NDI_Object(ABC):
 
     def set_ctx(self, ctx: T.NdiDatabase) -> None:
         self.ctx = ctx
+
+    def with_ctx(self, ctx: T.NdiDatabase) -> NDI_Object:
+        self.ctx = ctx
+        return self
