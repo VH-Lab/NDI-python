@@ -4,9 +4,11 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
-pylint = "*"
 autopep8 = "*"
 pytest = "*"
+sphinx = "*"
+sphinx-rtd-theme = "*"
+mypy = "*"
 
 [packages]
 numpy = "*"
@@ -18,4 +20,4 @@ sqlalchemy = "*"
 psycopg2-binary = "*"
 
 [requires]
-python_version = "3.7"
+python_version = "3.8"

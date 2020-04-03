@@ -1,5 +1,6 @@
 # Editor configs
 .vscode/
+.mypy_cache
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -11,8 +12,9 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
 develop-eggs/
+build/
+*/build/
 dist/
 downloads/
 eggs/
@@ -59,3 +61,10 @@ coverage.xml
 
 # Example notebook checkpoint
 example/.ipynb_checkpoints/
+
+# MacOS
+.DS_Store/
+
+# symlinked schema
+ndi/schema
+*/.ndi
