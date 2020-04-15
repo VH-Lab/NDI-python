@@ -22,7 +22,7 @@ class NDI_Object(ABC):
     # Flatbuffer Methods for converting to and from flatbuffers
     @classmethod
     @abstractmethod
-    def from_flatbuffer(cls, flatbuffer: bytearray):
+    def from_flatbuffer(cls, flatbuffer: bytes):
         """
         It should create an instance of the class inheriting from :class:`NDI_Object` from a given flatbuffer of the correct schema.
         ::

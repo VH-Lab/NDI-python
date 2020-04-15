@@ -50,7 +50,7 @@ class Probe(NDI_Object):
 
     # Flatbuffer Methods
     @classmethod
-    def from_flatbuffer(cls, flatbuffer: bytearray) -> Probe:
+    def from_flatbuffer(cls, flatbuffer: bytes) -> Probe:
         """Alternate Probe constructor. For use whan initializing from a flatbuffer bytearray.
         ::
             reconstructed_probe = Probe.from_flatbuffer(fb)
