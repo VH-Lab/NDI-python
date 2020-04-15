@@ -19,6 +19,7 @@ class FileSystem:
 
         # Initializing FS Database
         if self.exp_dir.exists() and self.exp_dir.is_dir():
+            self.lookup_dir = LookupCollection(self.db_dir, 'document')
             self.db_dir.mkdir(parents=True, exist_ok=True)
         else:
             raise FileNotFoundError(
@@ -27,7 +28,9 @@ class FileSystem:
     def add(self, ndi_document):
         file_path = self.db_dir / f'{ndi_document.id}.dat'
         if not file_path.exists():
+            self.__verify_dependencies(ndi_document)
             self.upsert(ndi_document)
+            self.__add_relationships(ndi_document)
         else:
             raise FileExistsError(f'File \'{file_path}\' already exists')
 
@@ -84,6 +87,7 @@ class FileSystem:
                 self.update(ndi_document)
 
     def delete_by_id(self, id_):
+        self.__delete_dependents(id_)
         (self.db_dir / f'{id_}.dat').unlink()
     
     # Query Parsing Methods
@@ -122,6 +126,26 @@ class FileSystem:
         'in': lambda data, value: data in value
     }
 
+    def get_dependencies(self, ndi_document):
+        for key, value in ndi_document.data['_dependencies'].items():
+            ndi_document.data['_dependencies'][key] = self.find_by_id(value)
+
+    def __verify_dependencies(self, ndi_document):
+        return all([
+            self.find_by_id(value)
+            for value in ndi_document.data['_dependencies'].values()
+        ])
+
+    def __add_relationships(self, ndi_document):
+        for value in ndi_document.data['_dependencies'].values():
+            self.lookup_dir.add(ndi_document.id, value)
+    
+    def __delete_dependents(self, id_):
+        for dependent in self.lookup_dir.find_dependents(id_):
+            self.__delete_dependents(dependent)
+            (self.db_dir / f'{dependent}.dat').unlink()
+            self.lookup_dir.remove(dependent, id_)
+
 
 class LookupCollection:
     """Collection class for File System lookups
@@ -149,6 +173,16 @@ class LookupCollection:
         """
         (self.collection_dir /
          f'{ndi_document_id}:{dependency_id}').touch(exist_ok=False)
+    
+    def remove(self, ndi_document_id: T.NdiId, dependency_id: T.NdiId) -> None:
+        """Remove a document relation from the collection
+
+        :param ndi_document_id: [description]
+        :type ndi_document_id: T.NdiId
+        :param dependency_id: [description]
+        :type dependency_id: T.NdiId
+        """
+        (self.collection_dir / f'{ndi_document_id}:{dependency_id}').unlink()
 
     def find_dependencies(self, dependent_id: T.NdiId) -> T.List[str]:
         """Find dependencies given a dependent's id
