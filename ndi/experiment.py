@@ -36,7 +36,7 @@ class Experiment(NDI_Object):
 
     # Flatbuffer Methods
     @classmethod
-    def from_flatbuffer(cls, flatbuffer: bytearray) -> Experiment:
+    def from_flatbuffer(cls, flatbuffer: bytes) -> Experiment:
         """Alternate Experiment constructor. For use whan initializing from a flatbuffer bytearray.
         ::
             reconstructed_experiment = Experiment.from_flatbuffer(fb)

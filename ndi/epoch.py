@@ -28,7 +28,7 @@ class Epoch(NDI_Object):
         self.daq_system_id = daq_system_id
 
     @classmethod
-    def from_flatbuffer(cls, flatbuffer: bytearray) -> Epoch:
+    def from_flatbuffer(cls, flatbuffer: bytes) -> Epoch:
         """Alternate Epoch constructor. For use whan initializing from a flatbuffer bytearray.
         ::
             reconstructed_epoch = Epoch.from_flatbuffer(fb)

@@ -42,7 +42,7 @@ class FileNavigator(NDI_Object):
         self.metadata_file_pattern = metadata_file_pattern
 
     @classmethod
-    def from_flatbuffer(cls, flatbuffer: bytearray) -> FileNavigator:
+    def from_flatbuffer(cls, flatbuffer: bytes) -> FileNavigator:
         """Alternate FileNavigator constructor. For use whan initializing from a flatbuffer bytearray.
         ::
             reconstructed_file_navigator = FileNavigator.from_flatbuffer(fb)
