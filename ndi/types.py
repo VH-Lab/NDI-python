@@ -130,6 +130,12 @@ if TYPE_CHECKING:
         Channel,
         Document,
     ]
+    NdiObjectWithExperimentId = Union[
+        Probe,
+        DaqSystem,
+        Epoch,
+        Channel,
+    ]
     NdiQueryClass = Union[
         Type[Query],
         Type[AndQuery],

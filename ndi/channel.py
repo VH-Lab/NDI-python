@@ -23,6 +23,8 @@ class Channel(NDI_Object):
         number: int,
         type_: str,
         source_file: str,
+        # NOTE: channels and epochs will almost definitely be a many-to-many relationship
+        #       would need a list of epoch_ids
         epoch_id: T.NdiId,
         probe_id: T.NdiId,
         daq_system_id: T.NdiId = None,
@@ -136,3 +138,27 @@ class Channel(NDI_Object):
         build_channel.ChannelAddDaqSystemId(builder, daq_system_id)
         build_channel.ChannelAddExperimentId(builder, experiment_id)
         return build_channel.ChannelEnd(builder)
+
+    def update(
+        self,
+        name: str,
+        number: int,
+        type_: str,
+        source_file: str,
+        epoch_id: T.NdiId,
+        probe_id: T.NdiId,
+        daq_system_id: T.NdiId = None,
+        experiment_id: T.NdiId = None,
+        clock_type: str = 'no_time'
+    ) -> None:
+        if name: self.name = name
+        if number: self.number = number
+        if type_: self.type_ = type_
+        if source_file: self.source_file = source_file
+        if epoch_id: self.epoch_id = epoch_id
+        if probe_id: self.probe_id = probe_id
+        if daq_system_id: self.daq_system_id = daq_system_id
+        if experiment_id: self.experiment_id = experiment_id
+        if clock_type: self.clock_type = clock_type
+
+        self.ctx.update(self)

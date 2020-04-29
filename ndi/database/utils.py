@@ -101,7 +101,6 @@ def update_flatbuffer(ndi_class, flatbuffer, payload):
 
 def print_everything_in(db):
     for collection in db._collections:
-        print(collection)
         if isinstance(collection, str):
             # is a lookup table
             print(f'Lookup Table: {collection}')
@@ -113,7 +112,7 @@ def print_everything_in(db):
             for doc in results:
                 try: print(f'  - {doc.name}')
                 except AttributeError: print(f'  - {doc.id}')
-            if results:
+            if not results:
                 print('  ---NONE---')
             print('')
 

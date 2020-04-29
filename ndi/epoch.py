@@ -82,3 +82,13 @@ class Epoch(NDI_Object):
         build_epoch.EpochAddDaqSystemId(builder, daq_system_id)
         build_epoch.EpochAddExperimentId(builder, experiment_id)
         return build_epoch.EpochEnd(builder)
+
+    def update(
+        self, 
+        daq_system_id: T.NdiId = None, 
+        experiment_id: T.NdiId = None, 
+    ) -> None:
+        if daq_system_id: self.daq_system_id = daq_system_id
+        if experiment_id: self.experiment_id = experiment_id
+
+        self.ctx.update(self)

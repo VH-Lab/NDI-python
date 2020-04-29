@@ -107,3 +107,23 @@ class Probe(NDI_Object):
         build_probe.ProbeAddDaqSystemId(builder, daq_system_id)
         build_probe.ProbeAddExperimentId(builder, experiment_id)
         return build_probe.ProbeEnd(builder)
+
+    def update(
+        self,
+        name: str,
+        reference: int,
+        type_: str,
+        daq_system_id: T.NdiId = None,
+        experiment_id: T.NdiId = None,
+    ) -> None:
+        if name:
+            self.name = name
+        if reference:
+            self.reference = reference
+        if type_:
+            self.type_ = type_
+        if daq_system_id:
+            self.daq_system_id = daq_system_id
+        if experiment_id:
+            self.experiment_id = experiment_id
+        self.ctx.update(self)
