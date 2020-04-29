@@ -21,7 +21,8 @@ class Probe(NDI_Object):
         reference: int,
         type_: str,
         id_: T.NdiId = None,
-        daq_system_id: T.NdiId = None
+        daq_system_id: T.NdiId = None,
+        experiment_id: T.NdiId = None,
     ) -> None:
         """Probe constructor: initializes with fields defined in `ndi_schema <https://>`_'s Probe table. For use when creating a new Probe instance from scratch.
         ::
@@ -47,6 +48,7 @@ class Probe(NDI_Object):
         else:
             raise TypeError(f'Type must be in {ProbeType}')
         self.daq_system_id = daq_system_id
+        self.experiment_id = experiment_id
 
     # Flatbuffer Methods
     @classmethod
@@ -80,7 +82,8 @@ class Probe(NDI_Object):
             name=probe.Name().decode('utf8'),
             reference=probe.Reference(),
             type_=ProbeType[probe.Type()],
-            daq_system_id=T.NdiId(probe.DaqSystemId().decode('utf8'))
+            daq_system_id=T.NdiId(probe.DaqSystemId().decode('utf8')),
+            experiment_id=T.NdiId(probe.ExperimentId().decode('utf8')),
         )
 
     def _build(self, builder: T.Builder) -> T.BuildOffset:
@@ -94,6 +97,7 @@ class Probe(NDI_Object):
         id_ = builder.CreateString(self.id)
         name = builder.CreateString(self.name)
         daq_system_id = builder.CreateString(self.daq_system_id)
+        experiment_id = builder.CreateString(self.experiment_id)
 
         build_probe.ProbeStart(builder)
         build_probe.ProbeAddId(builder, id_)
@@ -101,4 +105,5 @@ class Probe(NDI_Object):
         build_probe.ProbeAddReference(builder, self.reference)
         build_probe.ProbeAddType(builder, getattr(build_probe_type, self.type))
         build_probe.ProbeAddDaqSystemId(builder, daq_system_id)
+        build_probe.ProbeAddExperimentId(builder, experiment_id)
         return build_probe.ProbeEnd(builder)

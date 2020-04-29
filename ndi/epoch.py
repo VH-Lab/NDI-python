@@ -14,7 +14,12 @@ class Epoch(NDI_Object):
     """
     # TODO: require daq_system_id after implementing DaqReaders
 
-    def __init__(self, daq_system_id: T.NdiId = None, id_: T.NdiId = None) -> None:
+    def __init__(
+        self, 
+        daq_system_id: T.NdiId = None, 
+        experiment_id: T.NdiId = None, 
+        id_: T.NdiId = None
+    ) -> None:
         """Epoch constructor: initializes with fields defined in `ndi_schema <https://>`_'s Epoch table. For use when creating a new Epoch instance from scratch.
         ::
             new_epoch = Epoch(**fields)
@@ -26,6 +31,7 @@ class Epoch(NDI_Object):
         """
         super().__init__(id_)
         self.daq_system_id = daq_system_id
+        self.experiment_id = experiment_id
 
     @classmethod
     def from_flatbuffer(cls, flatbuffer: bytes) -> Epoch:
@@ -55,7 +61,8 @@ class Epoch(NDI_Object):
         """
         return cls(
             id_=T.NdiId(epoch.Id().decode('utf8')),
-            daq_system_id=T.NdiId(epoch.DaqSystemId().decode('utf8'))
+            daq_system_id=T.NdiId(epoch.DaqSystemId().decode('utf8')),
+            experiment_id=T.NdiId(epoch.ExperimentId().decode('utf8')),
         )
 
     def _build(self, builder: T.Builder) -> T.BuildOffset:
@@ -68,8 +75,10 @@ class Epoch(NDI_Object):
         """
         id_ = builder.CreateString(self.id)
         daq_system_id = builder.CreateString(self.daq_system_id)
+        experiment_id = builder.CreateString(self.experiment_id)
 
         build_epoch.EpochStart(builder)
         build_epoch.EpochAddId(builder, id_)
         build_epoch.EpochAddDaqSystemId(builder, daq_system_id)
+        build_epoch.EpochAddExperimentId(builder, experiment_id)
         return build_epoch.EpochEnd(builder)

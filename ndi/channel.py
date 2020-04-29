@@ -26,6 +26,7 @@ class Channel(NDI_Object):
         epoch_id: T.NdiId,
         probe_id: T.NdiId,
         daq_system_id: T.NdiId = None,
+        experiment_id: T.NdiId = None,
         id_: T.NdiId = None,
         clock_type: str = 'no_time'
     ) -> None:
@@ -64,6 +65,7 @@ class Channel(NDI_Object):
         self.epoch_id = epoch_id
         self.probe_id = probe_id
         self.daq_system_id = daq_system_id
+        self.experiment_id = experiment_id
 
     @classmethod
     def from_flatbuffer(cls, flatbuffer: bytes) -> Channel:
@@ -101,6 +103,7 @@ class Channel(NDI_Object):
             epoch_id=T.NdiId(channel.EpochId().decode('utf8')),
             probe_id=T.NdiId(channel.ProbeId().decode('utf8')),
             daq_system_id=T.NdiId(channel.DaqSystemId().decode('utf8')),
+            experiment_id=T.NdiId(channel.ExperimentId().decode('utf8')),
         )
 
     def _build(self, builder: T.Builder) -> T.BuildOffset:
@@ -117,6 +120,7 @@ class Channel(NDI_Object):
         epoch_id = builder.CreateString(self.epoch_id)
         probe_id = builder.CreateString(self.probe_id)
         daq_system_id = builder.CreateString(self.daq_system_id)
+        experiment_id = builder.CreateString(self.experiment_id)
 
         build_channel.ChannelStart(builder)
         build_channel.ChannelAddId(builder, id_)
@@ -130,4 +134,5 @@ class Channel(NDI_Object):
         build_channel.ChannelAddEpochId(builder, epoch_id)
         build_channel.ChannelAddProbeId(builder, probe_id)
         build_channel.ChannelAddDaqSystemId(builder, daq_system_id)
+        build_channel.ChannelAddExperimentId(builder, experiment_id)
         return build_channel.ChannelEnd(builder)
