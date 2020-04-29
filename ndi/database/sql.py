@@ -5,7 +5,7 @@ from abc import ABCMeta
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship, backref
-from sqlalchemy import Table, Column, ForeignKey, Integer, String, LargeBinary
+from sqlalchemy import Table, Column, ForeignKey, Integer, String, LargeBinary, JSON
 from sqlalchemy import and_, or_
 from .ndi_database import NDI_Database
 from functools import wraps
@@ -151,7 +151,7 @@ class SQL(NDI_Database):
             Document: {
                 'id': Column(String, primary_key=True),
                 FLATBUFFER_KEY: Column(LargeBinary),
-                'document_type': Column(String),
+                'data': Column(JSON),
                 'file_id': Column(String),
                 'version_depth': Column(Integer),
                 'asc_path': Column(String),
