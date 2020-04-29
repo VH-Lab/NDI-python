@@ -151,7 +151,6 @@ class SQL(NDI_Database):
             Document: {
                 'id': Column(String, primary_key=True),
                 FLATBUFFER_KEY: Column(LargeBinary),
-                'data': Column(JSON),
                 'file_id': Column(String),
                 'version_depth': Column(Integer),
                 'asc_path': Column(String),
