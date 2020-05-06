@@ -154,8 +154,8 @@ class FileSystem:
     def binary_write(self, ndi_document, data):
         self.binary_dir.write(ndi_document.id, data)
 
-    def binary_read(self, ndi_document):
-        return self.binary_dir.read(ndi_document.id)
+    def binary_read(self, ndi_document, start=0, end=-1):
+        return self.binary_dir.read(ndi_document.id, start, end)
 
 
 class LookupCollection:
@@ -233,7 +233,11 @@ class BinaryCollection:
         self.collection_dir.mkdir(parents=True, exist_ok=True)
 
     def write(self, document_id, data):
-        np.save(self.collection_dir / f'{document_id}.npy', data)
+        (self.collection_dir / f'{document_id}.bin').write_bytes(data.astype(float).tobytes())
 
-    def read(self, document_id):
-        return np.load(self.collection_dir / f'{document_id}.npy', mmap_mode='r')
+    def read(self, document_id, start=0, end=-1):
+        with open(self.collection_dir / f'{document_id}.bin', 'rb') as file:
+            read_size = -1 if (end - start) < 0 else (end - start) * 8
+            file.seek(start * 8)
+            file_section = file.read(read_size)
+        return np.frombuffer(file_section, dtype=float)
