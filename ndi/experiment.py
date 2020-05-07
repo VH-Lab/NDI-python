@@ -84,6 +84,11 @@ class Experiment(NDI_Object):
         return build_experiment.ExperimentEnd(builder)
 
     # Experiment Methods
+    def update(self, name: str) -> None:
+        if name:
+            self.name = name
+        self.ctx.update(self)
+
     def add_daq_system(self, daq_system: T.DaqSystem) -> None:
         """Stores a daq_system instance and labels it with the experiment's id.
 
@@ -92,4 +97,24 @@ class Experiment(NDI_Object):
         :type daq_system: :class:`DaqSystem`
         """
         daq_system.experiment_id = self.id
+        # NOTE: we should use daq_system_ids instead of the ndi_objects
         self.daq_systems.append(daq_system)
+        self.ctx.add(daq_system)
+
+    def add_related_obj_to_db(self, obj: T.NdiObjectWithExperimentId) -> None:
+        obj.experiment_id = self.id
+        self.ctx.add(obj)
+
+    add_probe = add_related_obj_to_db
+    add_channel = add_related_obj_to_db
+    add_epoch = add_related_obj_to_db
+
+    def add_related_objects_to_db(self, objects: T.Sequence[T.NdiObjectWithExperimentId]) -> None:
+        for o in objects:
+            o.experiment_id = self.id
+        self.ctx.add(objects)
+
+    add_probes = add_related_objects_to_db
+    add_channels = add_related_objects_to_db
+    add_epochs = add_related_objects_to_db
+

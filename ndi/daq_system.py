@@ -108,3 +108,15 @@ class DaqSystem(NDI_Object):
 
     def add_daq_reader(self, daq_reader: T.DaqReader) -> None:
         self.daq_reader = daq_reader(self.id)
+
+    def provision(self, experiment: T.Experiment) -> None:
+        if self not in experiment.daq_systems:
+            experiment.add_daq_system(self)
+
+        # NOTE: This is where the channels, probes, and epochs would all be added 
+        # to the database as a part of the given experiment.
+
+        # NOTE: I think this is also where the daq system will add itself to the database 
+        #   (if it's not already in it)
+
+        
