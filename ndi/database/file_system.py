@@ -155,8 +155,13 @@ class FileSystem:
         self.binary_dir.write(ndi_document.id, data)
 
     def binary_read(self, ndi_document, start=0, end=-1):
-        return self.binary_dir.read(ndi_document.id, start, end)
+        return self.binary_dir.read_slice(ndi_document.id, start, end)
 
+    def binary_write_stream(self, ndi_document):
+        return self.binary_dir.write_stream(ndi_document.id)
+
+    def binary_read_stream(self, ndi_document):
+        return self.binary_dir.read_stream(ndi_document.id)
 
 class LookupCollection:
     """Collection class for File System lookups
