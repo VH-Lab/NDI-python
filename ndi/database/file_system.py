@@ -235,9 +235,37 @@ class BinaryCollection:
     def write(self, document_id, data):
         (self.collection_dir / f'{document_id}.bin').write_bytes(data.astype(float).tobytes())
 
-    def read(self, document_id, start=0, end=-1):
-        with open(self.collection_dir / f'{document_id}.bin', 'rb') as file:
-            read_size = -1 if (end - start) < 0 else (end - start) * 8
-            file.seek(start * 8)
-            file_section = file.read(read_size)
-        return np.frombuffer(file_section, dtype=float)
+    def read_slice(self, document_id, start=0, end=-1):
+        with self.read_stream(document_id) as stream:
+            stream.seek(start)
+            return stream.read(end - start)
+
+    def read_stream(self, document_id):
+        return self.ReadStream(self.collection_dir / f'{document_id}.bin')
+
+    class ReadStream:
+        def __init__(self, filepath):
+            self.filepath = filepath
+
+        def open(self):
+            self.file = open(self.filepath, 'rb')
+            return self
+
+        def close(self):
+            self.file.close()
+
+        def seek(self, position):
+            self.file.seek(position * 8)
+
+        def read(self, size=-1):
+            read_size = -1 if size < 0 else size * 8
+            return np.frombuffer(self.file.read(read_size), dtype=float)
+
+        def tell(self):
+            return int(self.file.tell() / 8)
+
+        def __enter__(self):
+            return self.open()
+
+        def __exit__(self, type, value, traceback):
+            self.close()
