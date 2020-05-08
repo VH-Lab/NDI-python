@@ -235,20 +235,27 @@ class BinaryCollection:
     def write(self, document_id, data):
         (self.collection_dir / f'{document_id}.bin').write_bytes(data.astype(float).tobytes())
 
+    def write_stream(self, document_id):
+        return self.FileStream(self.collection_dir / f'{document_id}.bin', 'wb')
+
     def read_slice(self, document_id, start=0, end=-1):
         with self.read_stream(document_id) as stream:
             stream.seek(start)
             return stream.read(end - start)
 
     def read_stream(self, document_id):
-        return self.ReadStream(self.collection_dir / f'{document_id}.bin')
+        return self.FileStream(self.collection_dir / f'{document_id}.bin', 'rb')
 
-    class ReadStream:
-        def __init__(self, filepath):
+    class FileStream:
+        def __init__(self, filepath, mode):
             self.filepath = filepath
+            self.mode = mode
+
+        def write(self, item):
+            self.file.write(np.array([item]).astype(float).tobytes())
 
         def open(self):
-            self.file = open(self.filepath, 'rb')
+            self.file = open(self.filepath, self.mode)
             return self
 
         def close(self):
