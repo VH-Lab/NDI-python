@@ -1,74 +1,78 @@
 from ndi.database.file_system import BinaryCollection
 from pathlib import Path
 import numpy as np
+import pytest
 
-randarray = np.random.random(200000)
+randarray = lambda: np.random.random(200000)
+
+@pytest.fixture
+def binary_collection():
+    collection = BinaryCollection('./test_db', 'document')
+    test_array = randarray()
+    (collection.collection_dir / 'test_id.bin').write_bytes(test_array.tobytes())
+    yield collection, collection.collection_dir, test_array
+    rmrf(collection.collection_dir)
 
 class TestBinaryCollection:
-    def setup(self):
-        self.collection = BinaryCollection('./test_db', 'document')
-        self.collection_dir = self.collection.collection_dir
+    def test_directory_creation(self, binary_collection):
+        _, collection_dir, _ = binary_collection
+        assert collection_dir.exists()
+        assert collection_dir.is_dir()
 
-    def test_directory_creation(self):
-        self.setup()
+    def test_write(self, binary_collection):
+        collection, collection_dir, _ = binary_collection
+        test_array = randarray()
 
-        assert self.collection_dir.exists()
-        assert self.collection_dir.is_dir()
+        assert not (collection_dir / 'fake_id.bin').exists()
+        collection.write('fake_id', test_array)
 
-        self.tear_down()
+        assert (collection_dir / 'fake_id.bin').exists()
+        assert (collection_dir / 'fake_id.bin').is_file()
 
-        assert not self.collection_dir.exists()
+        file_content = np.frombuffer((collection_dir / 'fake_id.bin').read_bytes(), dtype=float)
+        for i, item in enumerate(file_content):
+            assert item == test_array[i]
 
-    def test_write(self):
-        self.setup()
+    def test_read_slice(self, binary_collection):
+        collection, _, test_arr = binary_collection
 
-        assert not (self.collection_dir / 'fake_id.bin').exists()
-
-        self.collection.write('fake_id', randarray)
-
-        assert (self.collection_dir / 'fake_id.bin').exists()
-        assert (self.collection_dir / 'fake_id.bin').is_file()
-
-    def test_read_slice(self):
-        result = self.collection.read_slice('fake_id')
+        result = collection.read_slice('test_id')
         assert type(result) == np.ndarray
         for i, item in enumerate(result):
-            assert item == randarray[i]
+            assert item == test_arr[i]
         
-        result = self.collection.read_slice('fake_id', 300, 40000)
+        result = collection.read_slice('test_id', 300, 40000)
         assert type(result) == np.ndarray
         for i, item in enumerate(result):
-            assert item == randarray[300:40000][i]
-        
-        self.tear_down()
-        assert not self.collection_dir.exists()
+            assert item == test_arr[300:40000][i]
     
-    def test_write_stream(self):
-        assert not (self.collection_dir / 'fake_id.bin').exists()
+    def test_write_stream(self, binary_collection):
+        collection, collection_dir, _ = binary_collection
+        test_arr = randarray()
 
-        with self.collection.write_stream('fake_id') as write_stream:
-            for item in randarray:
+        with collection.write_stream('fake_id') as write_stream:
+            for item in test_arr:
                 write_stream.write(item)
     
-        assert (self.collection_dir / 'fake_id.bin').exists()
-        assert (self.collection_dir / 'fake_id.bin').is_file()
-    
-    def test_read_stream(self):
-        with self.collection.read_stream('fake_id') as read_stream:
+        assert (collection_dir / 'fake_id.bin').exists()
+        assert (collection_dir / 'fake_id.bin').is_file()
+
+        file_content = np.frombuffer((collection_dir / 'fake_id.bin').read_bytes(), dtype=float)
+        for i, item in enumerate(file_content):
+            assert item == test_arr[i]
+
+    def test_read_stream(self, binary_collection):
+        collection, _, test_arr = binary_collection
+
+        with collection.read_stream('test_id') as read_stream:
             assert read_stream.tell() == 0
             read_stream.seek(2)
             assert read_stream.tell() == 2
-            assert read_stream.read(1)[0] == randarray[2]
+            assert read_stream.read(1)[0] == test_arr[2]
             assert read_stream.tell() == 3
             result = read_stream.read()
             for i, item in enumerate(result):
-                assert item == randarray[3:][i]
-
-        self.tear_down()
-        assert not self.collection_dir.exists()
-
-    def tear_down(self):
-        rmrf(self.collection_dir)
+                assert item == test_arr[3:][i]
 
 
 def rmrf(directory):
