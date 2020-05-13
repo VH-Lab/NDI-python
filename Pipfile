@@ -19,6 +19,7 @@ matplotlib = "*"
 sqlalchemy = "*"
 psycopg2-binary = "*"
 pytest = "*"
+neo = "*"
 
 [requires]
 python_version = "3.8"
