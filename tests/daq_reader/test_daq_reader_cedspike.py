@@ -16,3 +16,25 @@ class TestCEDSpike2:
     def test_samplerate(self, test_file, channel_number, expected_samplerate):
         daq_reader = CEDSpike2(test_file)
         assert daq_reader.samplerate(channel_number) == expected_samplerate
+    
+    def test_readchannel(self):
+        daq_reader = CEDSpike2('./tests/data/daqreaders/cedspike2/example1.smr')
+        channel_number = 21
+        start_time = 0
+        # end_time value of -1 means read to the end of channel data
+        end_time = -1
+        data = daq_reader.readchannel(channel_number, start_time, end_time)
+        expected_values_slice = [
+            -0.9647,
+            -0.9592,
+            -0.9644,
+            -0.9601,
+            -0.9644,
+            -0.9598,
+            -0.9604,
+            -0.9561,
+            -0.9555,
+            -0.9506
+        ]
+        for i, item in enumerate(expected_values_slice):
+            assert item == data[i]
