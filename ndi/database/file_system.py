@@ -31,6 +31,7 @@ class FileSystem:
 
     def add(self, ndi_document):
         file_path = self.db_dir / f'{ndi_document.id}.dat'
+        ndi_document.set_ctx(self)
         if not file_path.exists():
             self.__verify_dependencies(ndi_document)
             self.upsert(ndi_document)
@@ -60,11 +61,11 @@ class FileSystem:
         ]
 
         if ndi_query is None:
-            return ndi_documents
+            return [doc.with_ctx(self) for doc in ndi_documents]
 
         return [
-            ndi_document
-            for ndi_document in ndi_documents
+            doc.with_ctx(self)
+            for doc in ndi_documents
             if self.__parse_query(ndi_document.data, ndi_query)
         ]
 
@@ -79,7 +80,8 @@ class FileSystem:
             self.delete(ndi_document)
 
     def find_by_id(self, id_):
-        return Document.from_flatbuffer((self.db_dir / f'{id_}.dat').read_bytes())
+        doc = Document.from_flatbuffer((self.db_dir / f'{id_}.dat').read_bytes())
+        return doc.with_ctx(self)
 
     def update_by_id(self, id_, payload={}):
         ndi_document = self.find_by_id(id_)

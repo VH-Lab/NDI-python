@@ -5,15 +5,15 @@ from abc import ABCMeta
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import Table, Column, String, JSON
+from sqlalchemy import Table, Column, String, JSON, LargeBinary
 from sqlalchemy import and_, or_
 from .ndi_database import NDI_Database
 from functools import wraps
-from ndi import NDI_Object, Experiment, DaqSystem, Probe, Epoch, Channel, Document
+from ndi import NDI_Object, Document
 from ..utils import class_to_collection_name, flatten
 from ..decorators import handle_iter, handle_list
 from .query import Query, AndQuery, OrQuery, CompositeQuery
-from .utils import check_ndi_object, listify, check_ndi_objects, update_flatbuffer, recast_ndi_objects_to_documents, translate_query, with_session, with_open_session, reduce_ndi_objects_to_ids
+from .utils import check_ndi_object, listify, check_ndi_objects, update_flatbuffer, recast_ndi_object_to_document, translate_query, with_session, with_open_session, reduce_ndi_objects_to_ids
 
 
 # ============== #
@@ -21,6 +21,13 @@ from .utils import check_ndi_object, listify, check_ndi_objects, update_flatbuff
 # ============== #
 
 DOCUMENTS_TABLENAME = 'documents'
+FLATBUFFER_KEY = 'flatbuffer'
+
+class Datatype(Enum):
+    """This enum describes the 3 types of structure a document may exist as in the :class:`SQL` database class."""
+    NDI = 2
+    SQL_ALCHEMY = 1
+    FLATBUFFER = 0
 
 # ============== #
 #  SQL Database  #
@@ -38,7 +45,7 @@ class SQL:
     It is closely tied to its :class:`Collection` class, which handles low-level SQLA operations like CRUD implementations. Decorators on the Collection methods are where most of the translation between NDI and SQLA objects occurs (:term:`NDI object` -> :term:`SQLA document`, :term:`NDI query` -> :term:`SQLA query`, etc.). Each :term:`NDI class` translates to a Collection instance.
     """
 
-    _collections: T.SqlDatabaseCollections
+    _collections: T.SqlDatabaseCollections = {}
     relationships: T.RelationshipMap = {}
 
     def __init__(self, connection_string: str) -> None:
@@ -79,6 +86,7 @@ class SQL:
     def _documents_collection_config(self) -> T.SqlNdiCollectionConfig:
         return {
             'id': Column(String, primary_key=True),
+            FLATBUFFER_KEY: Column(LargeBinary),
             'data': Column(JSON)
         }
 
@@ -89,7 +97,7 @@ class SQL:
         table_fields = self._documents_collection_config()
 
         self._collections[table_name] = Collection(
-            self, self.Base, self.Session, table_name, table_fields
+            self, self.Base, self.Session, table_name, table_fields, Document
         )
                 
         self.Base.metadata.create_all(self.db)
@@ -150,7 +158,10 @@ class SQL:
         self,
         ndi_query: T.Query = None
     ) -> T.List[T.Document]:
-        items = self._collections[DOCUMENTS_TABLENAME].find(query=ndi_query)
+        items = self._collections[DOCUMENTS_TABLENAME].find(
+            query=ndi_query,
+            result_format=Datatype.NDI
+        )
         return [item.with_ctx(self) for item in items]
 
     def update_many(self, ndi_query: T.Query = None, payload: T.SqlCollectionDocument = {}) -> None:
@@ -161,7 +172,10 @@ class SQL:
         self._collections[DOCUMENTS_TABLENAME].delete_many(query=query)
 
     def find_by_id(self, id_: T.NdiId) -> T.Document:
-        item = self._collections[DOCUMENTS_TABLENAME].find_by_id(id_)
+        item = self._collections[DOCUMENTS_TABLENAME].find_by_id(
+            id_,
+            result_format=Datatype.NDI    
+        )
         return item.with_ctx(self)
 
     def update_by_id(self, id_: T.NdiId, payload: T.SqlCollectionDocument = {}) -> None:
@@ -211,9 +225,9 @@ class Collection:
         db: T.Engine,
         Base: T.DeclarativeMeta,
         Session: T.Session,
-        ndi_class: T.Union[T.NdiClass, str, None],
+        table_name: str,
         fields: T.Dict[str, T.Column],
-        table_name: T.Optional[str] = None
+        ndi_class: T.NdiClass = None
     ) -> None:
         """Initializes a :class:`SQL` :class:`Collection`.
 
@@ -221,130 +235,21 @@ class Collection:
         :type Base: :class:`sqlalchemy.ext.declarative.api.DeclarativeMeta`
         :param Session: `SQLA Session <https://docs.sqlalchemy.org/en/13/orm/session.html>`_
         :type Session: :class:`sqlalchemy.orm.session.sessionmaker`
-        :param ndi_class: The associated :term:`NDI class`. If table_name is defined, this will be set to None.
-
-        .. currentmodule:: ndi.ndi_object
-
-        :type ndi_class: :class:`NDI_Object`
+        :param table_name: 
+        :type table_name: str, optional
         :param fields: 
         :type fields:
-        :param table_name: Lookup tables do not have an :term:`NDI class`, so their name must be explicitly defined. Defaults to None.
-        :type table_name: str, optional
         """
         self.db = db
         self.Session = Session
-        self.ndi_class = None if table_name else ndi_class
-        self.table_name = class_to_collection_name(ndi_class) if isinstance(
-            ndi_class, ABCMeta) else table_name or str(ndi_class)
+        self.ndi_class = ndi_class
+        self.table_name = table_name
         self.table: T.DeclarativeMeta = type(self.table_name, (Base,), {
             '__tablename__': self.table_name,
             **fields
         })
         self.fields = fields
         self.relationships: T.List[T.SqlRelationship] = []
-
-    def lookup_relationships(self) -> T.List[T.SqlRelationship]:
-        """Filter relationships for those relying on a secondary(lookup) table.
-        
-        :rtype: T.List[T.SqlRelationship]
-        """
-        return [r for r in self.relationships if r.relationship.secondary is not None]
-
-    def __for_self_referencing_relationships_too(self, relationship: T.SqlRelationship, cb: T.Callable[[str], T.Any]) -> None:
-        """Checks to see if the given relationship is self-referencing. If false, calls the given function once with the relationship's reference key. If true, calls the given function twice, once with each key.
-
-        For example, given a table `people`, where each person may have either a child or parent relationship with another person, there would only be one self-referencing relationship configured. If we want to operate on both relations we could call this method on that single relationship and have both `child` and `parent` fields affected.
-
-        ::
-            # a common pattern:
-            def run(relationship_key):
-                ...some operations...
-            for r in many_relationships:
-                __for_self_referencing_relationships_too(r, run)
-        
-        .. currentmodule:: ndi.database.sql
-
-        :param relationship:
-        :type relationship: :class:`Relationship`
-        :param cb: The function to call 
-        :type cb: function
-        """
-        cb(relationship.key)
-        if hasattr(relationship.relationship, '_is_self_referential') and relationship.relationship._is_self_referential:
-            if backref_key := relationship.relationship.back_populates:
-                cb(backref_key)
-
-    def set_relationships(self, relationships: T.Dict[str, T.relationship]) -> None:
-        """Set the collection's relationships to its :term:`SQLA table`.
-
-        :param relationships: The relationship key/value pairs, where keys resolve to backref labels and values are objects created by :func:`SQL.define_relationship`.
-        :type relationships: dict
-        """
-        for key, relation in relationships.items():
-            setattr(self.table, key, relation)
-            self.relationships.append(Relationship(
-                target_collection=relation._ndi_class,
-                key=key,
-                sqla_relationship=relation,
-            ))
-
-    @with_session
-    def update_lookup_relationships(
-        self,
-        session: T.Session,
-        ndi_objects: T.List[T.NdiObject],
-        db_collections: T.SqlDatabaseCollections
-    ) -> None:
-        """Updates the relationships of the five ndi_objects for each many-to-many relationship associated with this collection.
-        
-        :param session:
-        :type session: T.Session
-        :param ndi_objects:
-        :type ndi_objects: T.List[T.NdiObject]
-        :param db_collections:
-        :type db_collections: T.SqlDatabaseCollections
-        """
-        for r in self.lookup_relationships():
-            for ndi_object in ndi_objects:
-                doc = session.query(self.table).get(ndi_object.id)
-
-                def run(r_key):
-                    if hasattr(ndi_object, r_key):
-                        relation_ids = getattr(ndi_object, r_key)
-                        self._update_lookup_relationships(
-                            r, doc, relation_ids, db_collections, session)
-                self.__for_self_referencing_relationships_too(r, run)
-
-    def _update_lookup_relationships(
-        self,
-        relationship: T.SqlRelationship,
-        document: T.SqlaDocument,
-        relation_ids: T.List[str],
-        db_collections: T.SqlDatabaseCollections,
-        session: T.Session
-    ) -> None:
-        """Given a self-referencing many-to-many relatonship, a document, and the ids of that document's relations, updates the relationship's lookup table with all new relationships.
-        
-        :param relationship:
-        :type relationship: T.SqlRelationship
-        :param document:
-        :type document: T.SqlaDocument
-        :param relation_ids:
-        :type relation_ids: T.List[str]
-        :param db_collections:
-        :type db_collections: T.SqlDatabaseCollections
-        :param session:
-        :type session: T.Session
-        """
-        # clear all old relationships
-        setattr(document, relationship.key, [])
-
-        # add all incoming relationships
-        target_table = db_collections[relationship.relationship._ndi_class].table
-        relation_docs = session.query(target_table).filter(
-            target_table.id.in_(relation_ids)).all()
-        for relation_doc in relation_docs:
-            getattr(document, relationship.key).append(relation_doc)
 
     def create_document(self, fields: T.Dict[str, T.Column]) -> T.SqlaDocument:
         """Create a :term:`SQLA document` with its respective fields/values
@@ -371,14 +276,6 @@ class Collection:
             for key in self.fields
             if key != FLATBUFFER_KEY
         }
-        def reduce_to_ids(objects): 
-            return [obj.id for obj in objects] if isinstance(objects, list) else objects.id
-        def run(r_key):
-            if r_key in metadata_fields:
-                metadata_fields[r_key] = reduce_to_ids(
-                    getattr(ndi_object, r_key))
-        for r in self.relationships:
-            self.__for_self_referencing_relationships_too(r, run)
         fields = {
             FLATBUFFER_KEY: ndi_object.serialize(),
             **metadata_fields,
@@ -401,14 +298,6 @@ class Collection:
             key: getattr(document, key)
             for key in self.fields
         }
-        def run(r_key):
-            relations = getattr(document, r_key)
-            if relations:
-                fields[r_key] = [document.id for document in relations]\
-                    if isinstance(relations, list)\
-                    else relations.id
-        for r in self.relationships:
-            self.__for_self_referencing_relationships_too(r, run)
         return fields
 
     @handle_list
@@ -441,16 +330,7 @@ class Collection:
             flatbuffer = bytearray(flatbuffer)
         else:
             raise TypeError(f'Unexpected type {type(flatbuffer)} for field {FLATBUFFER_KEY}. Expected bytearray.')
-        ndi_object = self.ndi_class.from_flatbuffer(flatbuffer)
-        def run(r_key):
-            if hasattr(ndi_object, r_key):
-                relations = getattr(document, r_key)
-                relation_ids = [doc.id for doc in relations] if isinstance(
-                    relations, list) else relations.id
-                setattr(ndi_object, r_key, relation_ids)
-        for r in self.relationships:
-            self.__for_self_referencing_relationships_too(r, run)
-        return ndi_object
+        return self.ndi_class.from_flatbuffer(flatbuffer)
 
     def __formatted_results(self, documents: T.SqlaDocument, result_format: T.DatatypeEnum) -> T.OneOrManySqlDatabaseDatatype:
         """Formats the given documents as either :term:`NDI object`\ s, :term:`SQLA document`\ s, or :term:`flatbuffer`\ s.
@@ -517,78 +397,75 @@ class Collection:
             return expr if query is None else expr.filter(query)
         return filter_
 
-    @recast_ndi_objects_to_documents
+    @recast_ndi_object_to_document
     @with_session
-    def add(self, session: T.Session, items: T.List[T.SqlaDocument]) -> None:
+    def add(self, session: T.Session, item: T.SqlaDocument) -> None:
         """Adds :term:`NDI object`\ s to the :class:`Collection` as :term:`SQLA document`\ s.
 
         .. currentmodule: ndi.database
 
         :param session: See :term:`SQLA session`. Argument passed by :func:`utils.with_session`.
         :type session: :class:`sqlalchemy.orm.session.Session`
-        :param items: Argument is passed in as :term:`NDI object`\ s and is converted to :term:`SQLA document`\ s by :func:`utils.recast_ndi_objects_to_documents`.
-        :type items: List<:term:`SQLA document`>
+        :param item: Argument is passed in as :term:`NDI object`\ s and is converted to :term:`SQLA document`\ s by :func:`utils.recast_ndi_object_to_document`.
+        :type item: List<:term:`SQLA document`>
         """
-        session.add_all(items)
+        session.add(item)
 
-    @recast_ndi_objects_to_documents
+    @recast_ndi_object_to_document
     @with_session
-    def update(self, session: T.Session, items: T.List[T.SqlaDocument]) -> None:
+    def update(self, session: T.Session, item: T.SqlaDocument) -> None:
         """Updates (replaces) the :term:`document`\ s of the given :term:`NDI object`\ s in the :class:`Collection` based on the object's id.
 
         .. currentmodule: ndi.database
 
         :param session: See :term:`SQLA session`. Argument passed by :func:`utils.with_session`.
         :type session: :class:`sqlalchemy.orm.session.Session`
-        :param items: Argument is passed in as :term:`NDI object`\ s and is converted to :term:`SQLA document`\ s by :func:`utils.recast_ndi_objects_to_documents`.
-        :type items: List<:term:`SQLA document`>
+        :param item: Argument is passed in as :term:`NDI object`\ s and is converted to :term:`SQLA document`\ s by :func:`utils.recast_ndi_object_to_document`.
+        :type item: List<:term:`SQLA document`>
         """
         q = session.query(self.table)
-        for item in items:
-            doc = q.get(item.id)
-            for key in self.fields:
-                setattr(doc, key, getattr(item, key))
+        doc = q.get(item.id)
+        for key in self.fields:
+            setattr(doc, key, getattr(item, key))
 
-    @recast_ndi_objects_to_documents
+    @recast_ndi_object_to_document
     @with_session
-    def upsert(self, session: T.Session, items: T.List[T.SqlaDocument]) -> None:
+    def upsert(self, session: T.Session, item: T.SqlaDocument) -> None:
         """Updates (replaces) the :term:`document`\ s of the given :term:`NDI object`\ s in the :class:`Collection`. Objects that do not already exist are added.
 
         .. currentmodule: ndi.database
 
         :param session: See :term:`SQLA session`. Argument passed by :func:`utils.with_session`.
         :type session: :class:`sqlalchemy.orm.session.Session`
-        :param items: Argument is passed in as :term:`NDI object`\ s and is converted to :term:`SQLA document`\ s by :func:`utils.recast_ndi_objects_to_documents`.
-        :type items: List<:term:`SQLA document`>
+        :param item: Argument is passed in as :term:`NDI object`\ s and is converted to :term:`SQLA document`\ s by :func:`utils.recast_ndi_object_to_document`.
+        :type item: List<:term:`SQLA document`>
         """
         q = session.query(self.table)
-        for item in items:
-            doc = q.get(item.id)
-            if doc is None:
-                session.add(item)
-            else:
-                for key in self.fields:
-                    setattr(doc, key, getattr(item, key))
+        doc = q.get(item.id)
+        if doc is None:
+            session.add(item)
+        else:
+            for key in self.fields:
+                setattr(doc, key, getattr(item, key))
 
-    @recast_ndi_objects_to_documents
+    @recast_ndi_object_to_document
     @with_session
-    def delete(self, session: T.Session, items: T.List[T.SqlaDocument]) -> None:
+    def delete(self, session: T.Session, item: T.SqlaDocument) -> None:
         """Removes the :term:`document`\ s of the given :term:`NDI object`\ s from the :class:`Collection`.
 
         .. currentmodule: ndi.database
 
         :param session: See :term:`SQLA session`. Argument passed by :func:`utils.with_session`.
         :type session: :class:`sqlalchemy.orm.session.Session`
-        :param items: Argument is passed in as :term:`NDI object`\ s and is converted to :term:`SQLA document`\ s by :func:`utils.recast_ndi_objects_to_documents`.
-        :type items: List<:term:`SQLA document`>
+        :param item: Argument is passed in as :term:`NDI object`\ s and is converted to :term:`SQLA document`\ s by :func:`utils.recast_ndi_object_to_document`.
+        :type item: List<:term:`SQLA document`>
         """
-        for item in items:
-            doc = session.query(self.table).get(item.id)
-            session.delete(doc)
+        doc = session.query(self.table).get(item.id)
+        session.delete(doc)
 
     @with_session
     @translate_query
-    def find(self, session: T.Session, query: T.SqlaFilter = None, order_by: T.Optional[str] = None, result_format: T.DatatypeEnum = Datatype.NDI) -> T.List[T.SqlDatabaseDatatype]:
+    def find(self, session: T.Session, query: T.SqlaFilter = None, result_format: T.DatatypeEnum = Datatype.NDI) -> T.List[T.SqlDatabaseDatatype]:
         """.. currentmodule:: ndi.database.sql
 
         Extracts the :term:`document`\ s in the :class:`Collection` matching the given :term:`SQLA query`.
@@ -597,14 +474,12 @@ class Collection:
         :type session: :class:`sqlalchemy.orm.session.Session`
         :param query: See :term:`SQLA query`. Defaults to find-all.
         :type query: :class:`sqlalchemy.orm.query.Query`, optional
-        :param order_by: :term:`label`. Defaults to last-updated.
-        :type order_by: str, optional
         :param as_flatbuffers: If False, find will return the results as :term:`SQLA document`\ s as ``dict``s; otherwise, will return :term:`flatbuffers`\ s as ``bytearray``s. Defaults to True.
         :type as_flatbuffers: bool, optional
         :rtype: List<bytearray> | List<dict>
         """
         filter_ = self._functionalize_query(query)
-        documents = filter_(session.query(self.table)).order_by(order_by).all()
+        documents = filter_(session.query(self.table)).all()
         formatted_results = self.__formatted_results(documents, result_format)
         if isinstance(formatted_results, list):
             return formatted_results
@@ -674,7 +549,7 @@ class Collection:
 
     @with_session
     @translate_query
-    def update_many(self, session: T.Session, db_collections: T.SqlDatabaseCollections, query: T.SqlaFilter = {}, payload: T.SqlCollectionDocument = {}) -> None:
+    def update_many(self, session: T.Session, query: T.SqlaFilter = {}, payload: T.SqlCollectionDocument = {}) -> None:
         """Updates (replaces) the :term:`document`\ s of the given :term:`NDI object`\ s in the :class:`Collection` matching the given :term:`SQLA query`.
 
         :param session: See :term:`SQLA session`. Argument passed by :func:`utils.with_session`.
@@ -690,14 +565,6 @@ class Collection:
         filter_ = self._functionalize_query(query)
         documents = filter_(session.query(self.table)).all()
         for d in documents:
-            # handle and remove many-to-many relationship items in payload
-            for r in self.lookup_relationships():
-                updated_relation_ids = payload[r.key]
-                del payload[r.key]
-                if updated_relation_ids and isinstance(updated_relation_ids, list):
-                    updated_relation_id_strings = [str(id_) for id_ in updated_relation_ids]
-                    self._update_lookup_relationships(
-                        r, d, updated_relation_id_strings, db_collections, session)
             self.__update_sqla_partial_document(d, payload)
 
     def __update_sqla_partial_document(self, document: T.SqlaDocument, payload: T.SqlCollectionDocument) -> None:
@@ -727,42 +594,3 @@ class Collection:
         setattr(document, FLATBUFFER_KEY, updated_flatbuffer)
 
 
-class Relationship:
-    """This class wraps the :class:`sqlalchemy.relationship` class with ndi-specific attributes. These relationships are tied to their key in a collection, and are used to establish the relationship between that collection and another one.    
-    """
-    def __init__(self, target_collection: T.SqlCollectionName, key: str, sqla_relationship: T.relationship) -> None:
-        """Initializes an NDI relationship.
-        
-        :param target_collection: The other collection in the relationship.
-        :type target_collection: T.SqlCollectionName
-        :param key: The key of the field in the 
-        :type key: str
-        :param sqla_relationship: [description]
-        :type sqla_relationship: T.relationship
-        """
-        self.relationship = sqla_relationship
-        self.reverse_relationship = self.__get_reverse_relationship()
-        self.key = key
-        self.secondary_key = self.__get_secondary_key()
-        self.collection = target_collection
-
-    def __get_reverse_relationship(self) -> T.Union[T.relationship, None]:
-        """For each relationship defined there may be a reverse relationship created by sqlalchemy. This method extracts that relationship object if it exists.
-        
-        :rtype: T.Union[T.relationship, None]
-        """
-        try:
-            return next(iter(self.relationship._reverse_property))
-        except StopIteration:
-            return None
-
-    def __get_secondary_key(self) -> T.Union[str, None]:
-        """For bi-directional self-referential relationships there is a secondary key. If it exists, this method extracts it.
-        
-        :return: [description]
-        :rtype: T.Union[str, None]
-        """
-        if self.relationship._is_self_referential and self.relationship.back_populates:
-            return self.relationship.back_populates
-        else:
-            return None
