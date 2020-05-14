@@ -4,8 +4,8 @@ from enum import Enum
 from abc import ABCMeta
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import Table, Column, String, JSON
+from sqlalchemy.orm import sessionmaker, relationship, backref
+from sqlalchemy import Table, Column, ForeignKey, Integer, String, LargeBinary, JSON
 from sqlalchemy import and_, or_
 from .ndi_database import NDI_Database
 from functools import wraps
@@ -16,17 +16,25 @@ from .query import Query, AndQuery, OrQuery, CompositeQuery
 from .utils import check_ndi_object, listify, check_ndi_objects, update_flatbuffer, recast_ndi_objects_to_documents, translate_query, with_session, with_open_session, reduce_ndi_objects_to_ids
 
 
-# ============== #
-#  Constants     #
-# ============== #
+# =========== #
+#  Constants  #
+# =========== #
 
-DOCUMENTS_TABLENAME = 'documents'
+FLATBUFFER_KEY = 'flatbuffer'
+
+
+class Datatype(Enum):
+    """This enum describes the 3 types of structure a document may exist as in the :class:`SQL` database class."""
+    NDI = 2
+    SQL_ALCHEMY = 1
+    FLATBUFFER = 0
+
 
 # ============== #
 #  SQL Database  #
 # ============== #
 
-class SQL:
+class SQL(NDI_Database):
     """Interface for SQL Databases.
 
     .. currentmodule:: ndi.database.ndi_database
@@ -50,7 +58,7 @@ class SQL:
         self.db = create_engine(connection_string)
         self.Session = sessionmaker(bind=self.db)
         self.Base = declarative_base()
-        self.__create_collection()
+        self.__create_collections(self.__configure_collections())
 
     @with_open_session
     def _sqla_open_session(self, session: T.Session) -> T.Session:
@@ -76,26 +84,246 @@ class SQL:
         """
         return self.db.execute(query)
 
-    def _documents_collection_config(self) -> T.SqlNdiCollectionConfig:
+    def __configure_collections(self) -> T.Dict[T.NdiClass, T.SqlNdiCollectionConfig]:
+        """Generates the configuration object for the database, not including lookup tables. Collection columns are relationships are defined here.
+
+        :return:
+        :rtype: T.SqlDatabaseConfig
+        """
         return {
-            'id': Column(String, primary_key=True),
-            'data': Column(JSON)
+            Experiment: {
+                'id': Column(String, primary_key=True),
+                FLATBUFFER_KEY: Column(LargeBinary),
+                'name': Column(String),
+
+                'daq_systems': self.define_relationship(DaqSystem, back_populates='experiment', lazy='joined', cascade='all, delete, delete-orphan'),
+                'documents': self.define_relationship(Document, back_populates='experiment', lazy='joined', cascade='all, delete, delete-orphan')
+            },
+            DaqSystem: {
+                'id': Column(String, primary_key=True),
+                FLATBUFFER_KEY: Column(LargeBinary),
+                'name': Column(String),
+
+                'experiment_id': Column(String, ForeignKey('experiments.id')),
+                'experiment': self.define_relationship(Experiment, back_populates='daq_systems'),
+
+                'probes': self.define_relationship(Probe, back_populates='daq_system', cascade='all, delete, delete-orphan'),
+                'epochs': self.define_relationship(Epoch, back_populates='daq_system', cascade='all, delete, delete-orphan'),
+                'channels': self.define_relationship(Channel, back_populates='daq_system', cascade='all, delete, delete-orphan'),
+            },
+            Probe: {
+                'id': Column(String, primary_key=True),
+                FLATBUFFER_KEY: Column(LargeBinary),
+                'name': Column(String),
+                'reference': Column(Integer),
+                'type': Column(String),
+
+                'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
+                'daq_system': self.define_relationship(DaqSystem, back_populates='probes'),
+
+                'channels': self.define_relationship(Channel, back_populates='probe', cascade='all, delete, delete-orphan'),
+            },
+            Epoch: {
+                'id': Column(String, primary_key=True),
+                FLATBUFFER_KEY: Column(LargeBinary),
+
+                'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
+                'daq_system': self.define_relationship(DaqSystem, back_populates='epochs'),
+
+                'channels': self.define_relationship(Channel, back_populates='epoch', cascade='all, delete, delete-orphan'),
+            },
+            Channel: {
+                'id': Column(String, primary_key=True),
+                FLATBUFFER_KEY: Column(LargeBinary),
+                'name': Column(String),
+                'number': Column(Integer),
+                'type': Column(String),
+                'clock_type': Column(String),
+                'source_file': Column(String),
+
+                'probe_id': Column(String, ForeignKey('probes.id')),
+                'probe': self.define_relationship(Probe, back_populates='channels'),
+                'epoch_id': Column(String, ForeignKey('epochs.id')),
+                'epoch': self.define_relationship(Epoch, back_populates='channels'),
+                'daq_system_id': Column(String, ForeignKey('daq_systems.id')),
+                'daq_system': self.define_relationship(DaqSystem, back_populates='channels'),
+            },
+            Document: {
+                'id': Column(String, primary_key=True),
+                FLATBUFFER_KEY: Column(LargeBinary),
+                'file_id': Column(String),
+                'version_depth': Column(Integer),
+                'asc_path': Column(String),
+
+                'experiment_id': Column(String, ForeignKey('experiments.id')),
+                'experiment': self.define_relationship(Experiment, back_populates='documents'),
+                'parent_id': Column(String, ForeignKey('documents.id'), nullable=True),
+                'parent': self.define_relationship(
+                    Document,
+                    after_create_collections_hook=lambda c: relationship(
+                        'documents',
+                        backref='children',
+                        remote_side=c[Document].table.id,
+                        lazy='joined',
+                        join_depth=1,
+                    )
+                ),
+
+                'dependencies': self.define_relationship(
+                    Document,
+                    after_create_collections_hook=lambda c: relationship(
+                        'documents',
+                        secondary=c['document_to_document'].table.__table__,
+                        primaryjoin=c[Document].table.id == c['document_to_document'].table.dependant_id,
+                        secondaryjoin=c[Document].table.id == c['document_to_document'].table.dependency_id,
+                        backref=backref('dependants', lazy='joined'),
+                        lazy='joined',
+                        join_depth=1,
+                    )
+                )
+            },
         }
 
-    def __create_collection(
-        self,
-    ) -> None:
-        table_name = DOCUMENTS_TABLENAME
-        table_fields = self._documents_collection_config()
+    def __configure_lookup_tables(self) -> T.Dict[str, T.SqlLookupTableConfig]:
+        """Generates the configuration object for database lookup tables.
 
-        self._collections[table_name] = Collection(
-            self, self.Base, self.Session, table_name, table_fields
-        )
-                
+        :rtype: T.SqlDatabaseConfig
+        """
+        return {
+            'document_to_document': {
+                'dependant_id': Column(String, ForeignKey('documents.id'), primary_key=True),
+                'dependency_id': Column(String, ForeignKey('documents.id'), primary_key=True),
+            }
+        }
+
+    def __get_columns(self, config: T.SqlNdiCollectionConfig) -> T.Dict[str, T.Column]:
+        """Takes the configuration object of a single :term:`Collection` and filters it for the `sqlalchemy.Column` fields.
+
+        :param config: 
+        :type config: T.SqlNdiCollectionConfig
+        :rtype: T.Dict[str, T.Column]
+        """
+        return {key: item for key, item in config.items() if isinstance(item, Column)}
+
+    def __get_relationships(self, config: T.SqlNdiCollectionConfig) -> T.Dict[str, T.relationship]:
+        """Takes the configuration object of a single :term:`Collection` and filters it for the `sqlalchemy.relationship` fields.
+
+        :param config: 
+        :type config: T.SqlNdiCollectionConfig
+        :rtype: T.Dict[str, T.relationship]
+        """
+        return {
+            heading: relationship_generator(self._collections)
+            for heading, relationship_generator in config.items()
+            if not isinstance(relationship_generator, Column)
+        }
+
+    def __create_collections(
+        self,
+        collection_configs: T.Dict[T.NdiClass, T.SqlNdiCollectionConfig]
+    ) -> None:
+        """Creates :class:`Collection`\ s from the given configs and adds them to the database.
+
+        :param collection_configs:
+        :type collection_configs: T.SqlDatabaseConfig
+        """
+        for ndi_class, config in collection_configs.items():
+            columns = self.__get_columns(config)
+            self.create_collection(ndi_class, columns, defer_create_all=True)
+        for table_name, columns in self.__configure_lookup_tables().items():
+            self._collections[table_name] = Collection(
+                self, self.Base, self.Session, None, columns, table_name=table_name)
+        self.Base.metadata.create_all(self.db)
+        for ndi_class, config in collection_configs.items():
+            relationships = self.__get_relationships(config)
+            self.set_relationships(ndi_class, relationships)
         self.Base.metadata.create_all(self.db)
 
+    def create_collection(
+        self,
+        ndi_class: T.NdiClass,
+        fields: T.Dict[str, T.Column],
+        defer_create_all: bool = False
+    ) -> T.SqlCollection:
+        """Creates a :class:`Collection` and stores it in _collections.
 
-    def get_tables(self) -> T.Dict[str, T.DeclarativeMeta]:
+        Postponing further documentation pending NDI_Collection.
+
+        :param ndi_class: The NDI Class this collection will be built on. 
+            CRUD operations on this database will require this class to specify the table to operate on.
+        :type ndi_class: :term:`NDI class`
+        :param fields:
+        :type fields:
+
+        :Keyword Arguments:
+            * **defer_create_all** (*bool, optional*) -- ; If set to :code:`True`, user must manually issue the `CREATE statement(s) <https://docs.sqlalchemy.org/en/13/core/metadata.html#creating-and-dropping-database-tables>`_ for the table. Defaults to :code:`False`\ .
+
+        Returns:
+            :class:`Collection`. The table object for the newly created collection.
+        """
+        self._collections[ndi_class] = Collection(
+            self, self.Base, self.Session, ndi_class, fields)
+        if not defer_create_all:
+            self.Base.metadata.create_all(self.db)
+        return self._collections[ndi_class]
+
+    @handle_iter
+    def drop_collection(self, ndi_class: T.NdiClass) -> None:
+        """Drops collection(s) from the database.
+
+
+        .. currentmodule:: ndi.ndi_object
+
+        :param ndi_classes: One or many :term:`NDI class`\ es associated with collections(s) in the database.
+        :type ndi_classes: List<:class:`NDI_Object`\ > | :class:`NDI_Object`
+        """
+        self._collections[ndi_class].table.__table__.drop(self.db)
+        self._collections.pop(ndi_class)
+
+    def define_relationship(
+        self,
+        ndi_class: T.NdiClass,
+        after_create_collections_hook: T.Optional[T.Callable] = None,
+        **kwargs: T.Any
+    ) -> T.SqlRelationshipGenerator:
+        """.. currentmodule:: ndi.database.sql
+
+        Creates an unset :func:`sqlalchemy.orm.relationship` pointing at the given :term:`NDI class`. Set relationships with :func:`SQL.set_relationships`.
+
+        Postponing further documentation pending NDI_Collection.
+
+        :param ndi_class: 
+        :type ndi_class: [type]
+        :rtype: [type]
+        """
+        def create_relationship(collections: T.SqlDatabaseCollections) -> T.relationship:
+            rel = after_create_collections_hook(collections) if after_create_collections_hook else relationship(
+                class_to_collection_name(ndi_class), **kwargs)
+            setattr(rel, '_ndi_class', ndi_class)
+            return rel
+        return create_relationship
+
+    def set_relationships(
+        self,
+        ndi_class: T.NdiClass,
+        relationships: T.Dict[str, T.relationship]
+    ) -> None:
+        """Sets one or many relationships on the given :term:`NDI class`.
+
+
+        .. currentmodule:: ndi.database.sql
+
+        :param ndi_class: The :term:`NDI class` associated with the :class:`Collection` the relationships are being set to.
+
+        .. currentmodule:: ndi.ndi_object
+
+        :type ndi_class: :class:`NDI_Object`
+        :param relationships: The relationship key/value pairs, where keys resolve to backref labels and values are objects created by :func:`SQL.define_relationship`.
+        :type relationships: dict
+        """
+        self._collections[ndi_class].set_relationships(relationships)
+
+    def get_tables(self) -> T.Dict[T.Union[T.NdiClass, str], T.DeclarativeMeta]:
         """Gets the :term:`SQLA table`\ s in the database.
 
         .. currentmodule:: ndi.database.sql
@@ -106,78 +334,249 @@ class SQL:
         :return: NDI class keys and their :term:`SQLA table` values.
         :rtype: dict
         """
-        return {table_name: collection.table for table_name, collection in self._collections.items()}
+        return {ndi_class: collection.table for ndi_class, collection in self._collections.items()}
 
-    def get_table(self, table_name: str) -> T.DeclarativeMeta:
-        """Get sql alchemy table object
+    def get_table(self, ndi_class: T.NdiClass) -> T.DeclarativeMeta:
+        """Gets a :term:`SQLA table`.
 
-        :param table_name: [description]
-        :type table_name: str
-        :return: [description]
-        :rtype: T.DeclarativeMeta
+        .. note::
+           This bypasses the :class:`Collection` layer and is only useful for very specific operations involving the sqlalchemy layer.
+
+        .. currentmodule:: ndi.ndi_object
+
+        :param ndi_class: The :term:`NDI class` associated with the desired table.
+        :type ndi_class: :class:`NDI_Object`
+        :return: :term:`SQLA table`
+        :rtype: :class:`sqlalchemy.Table`
         """
-        collection = self._collections[table_name]
+        collection = self._collections[ndi_class]
         return collection.table
 
-    def _get_collection(self, table_name: str) -> T.SqlCollection:
+    def _get_collection(self, ndi_object: T.NdiObject) -> T.SqlCollection:
         """.. currentmodule:: ndi.database.sql
 
-        Gets the ndi :class:`Collection` instance of a table.
+        Gets the :class:`Collection` associated with the :term:`NDI class` of the given :term:`NDI object`.
 
-        param table_name
-        type table_name: str
+        :param ndi_object:
+        :type ndi_object: :term:`NDI object`
         :rtype: :class:`Collection`
         """
-        return self._collections[table_name]
+        return self._collections[type(ndi_object)]
 
-    def __extract_fields(self, ndi_document: T.Document) -> T.SqlCollectionDocument:
-        return { key: getattr(ndi_document, key) for key in self._documents_collection_config().keys()}
+    def _group_by_collection(self, ndi_objects: T.List[T.NdiObject]) -> T.Dict[T.SqlCollection, T.List[T.NdiObject]]:
+        """Groups an assortment of :term:`NDI object`\ s by their :term:`NDI class`.
 
-    def add(self, ndi_document: T.Document) -> None:
-        self._collections[DOCUMENTS_TABLENAME].add(ndi_document)
-        ndi_document.set_ctx(self)
+        ::
+            p1 = Probe(*args, **kwargs)
+            p2 = Probe(*args, **kwargs)
+            p3 = Probe(*args, **kwargs)
 
-    def update(self, ndi_document: T.Document) -> None:
-        self._collections[DOCUMENTS_TABLENAME].update(ndi_document)
+            e1 = Epoch(*args, **kwargs)
+            e2 = Epoch(*args, **kwargs)
 
-    def upsert(self, ndi_document: T.Document) -> None:
-        self._collections[DOCUMENTS_TABLENAME].upsert(ndi_document)
+            db._group_by_collection([p1, e2, p2, p3, e1])
+            # returns {Probe: [p1, p2, p3], Epoch: [e2, e1]}
 
-    def delete(self, ndi_document: T.Document) -> None:
-        self._collections[DOCUMENTS_TABLENAME].upsert(ndi_document)
+        :param ndi_objects:
+        :type ndi_objects: List<:term:`NDI object`>
+        :rtype: dict
+        """
+        objects_by_collection: T.Dict[T.SqlCollection,
+                                      T.List[T.NdiObject]] = {}
+        for ndi_object in ndi_objects:
+            Collection = self._get_collection(ndi_object)
+            if Collection in objects_by_collection:
+                objects_by_collection[Collection].append(ndi_object)
+            else:
+                objects_by_collection[Collection] = [ndi_object]
+        return objects_by_collection
+
+    @listify
+    @check_ndi_objects
+    def add_experiment(self, experiments: T.List[T.Experiment]) -> None:
+        """.. currentmodule:: ndi.experiment
+
+        Add one or many :class:`Experiment` instances to the database. Extracts its contents to their respective collections (ei. Probes, Channels, etc.).
+
+        :param experiment: 
+        :type experiment: List<:class:`Experiment`> | :class:`Experiment`
+        """
+        daq_systems = [ds for e in experiments for ds in e.daq_systems]
+
+        def extract_dependants(ds):
+            return (ds.daq_reader.get_probes(),
+                    ds.daq_reader.get_epochs(),
+                    ds.daq_reader.get_channels())
+        grouped_dependants = zip(*map(extract_dependants, daq_systems))
+        flattened_dependants = [flatten(group) for group in grouped_dependants]
+        probes, epochs, channels = flattened_dependants
+
+        # self.add([*experiments, *daq_systems, *probes, *epochs, *channels], session=session)
+
+        self.add(experiments)
+        self.add(daq_systems)
+        self.add([*probes, *epochs])
+        self.add(channels)
+
+    @listify
+    @check_ndi_objects
+    def add(self, ndi_objects: T.List[T.NdiObject], session: T.Session = None) -> None:
+        """.. currentmodule:: ndi.ndi_database
+
+        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and adds them to the database. Objects may belong to different :term:`NDI class`\ es.
+
+        :param ndi_object: The object(s) to be added to the database.
+        :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
+        """
+        additions_by_collection = self._group_by_collection(ndi_objects)
+        for Collection, ndi_objects in additions_by_collection.items():
+            Collection.add(ndi_objects, session=session)
+            Collection.update_lookup_relationships(
+                ndi_objects, self._collections)
+        for ndi_object in ndi_objects:
+            ndi_object.set_ctx(self)
+
+    @listify
+    @check_ndi_objects
+    def update(self, ndi_objects: T.List[T.NdiObject]) -> None:
+        """.. currentmodule:: ndi.ndi_database
+
+        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. Objects may belong to different :term:`NDI class`\ es. 
+
+        :param ndi_object: The object(s) to be updated in the database.
+        :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
+        """
+        updates_by_collection = self._group_by_collection(ndi_objects)
+        for Collection, ndi_objects in updates_by_collection.items():
+            Collection.update(ndi_objects)
+            Collection.update_lookup_relationships(
+                ndi_objects, self._collections)
+
+    @listify
+    @check_ndi_objects
+    def upsert(self, ndi_objects: T.List[T.NdiObject]) -> None:
+        """.. currentmodule:: ndi.ndi_database
+
+        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and updates their :term:`document` in the database. If an object doesn't have a document representation, it is added to the collection. Objects may belong to different :term:`NDI class`\ es. 
+
+        :param ndi_object: The object(s) to be upserted into the database.
+        :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
+        """
+        upserts_by_collection = self._group_by_collection(ndi_objects)
+        for Collection, ndi_objects in upserts_by_collection.items():
+            Collection.upsert(ndi_objects)
+            Collection.update_lookup_relationships(
+                ndi_objects, self._collections)
+
+    @listify
+    @check_ndi_objects
+    def delete(self, ndi_objects: T.List[T.NdiObject]) -> None:
+        """.. currentmodule:: ndi.ndi_database
+
+        Takes any :term:`NDI object`\ (s) with a :term:`collection` representation in the database and deletes their :term:`document` in the database. Objects may belong to different :term:`NDI class`\ es. 
+
+        :param ndi_object: The object(s) to be removed from the database.
+        :type ndi_object: List<:term:`NDI object`> | :term:`NDI object`
+        """
+        deletions_by_collection = self._group_by_collection(ndi_objects)
+        for Collection, ndi_objects in deletions_by_collection.items():
+            Collection.delete(ndi_objects)
 
     def find(
         self,
-        ndi_query: T.Query = None
-    ) -> T.List[T.Document]:
-        items = self._collections[DOCUMENTS_TABLENAME].find(query=ndi_query)
-        return [item.with_ctx(self) for item in items]
+        ndi_class: T.NdiClass,
+        query: T.Query = None,
+        order_by: T.Optional[str] = None,
+        as_sql_data: bool = False
+    ) -> T.List[T.SqlDatabaseDatatype]:
+        """Extracts all documents matching the given :term:`NDI query` in the specified :term:`collection`.
 
-    def update_many(self, ndi_query: T.Query = None, payload: T.SqlCollectionDocument = {}) -> None:
-        self._collections[DOCUMENTS_TABLENAME].update_many(
-            self._collections, query=ndi_query, payload=payload)
+        .. currentmodule:: ndi.ndi_database
 
-    def delete_many(self, query: T.SqlaFilter = None) -> None:
-        self._collections[DOCUMENTS_TABLENAME].delete_many(query=query)
+        :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
+        :type ndi_class: :class:`ndi.ndi_database`
+        :param query: See :term:`NDI query`, defaults to find-all
+        :type query: dict, optional
+        :param order_by: Field name to order results by. Defaults to None.
+        :type order_by: str, optional
+        :param as_sql_data: If set to ``True``, find will return contents of SQL table row as a dict; otherwise, will return :term:`NDI object`\ s. Defaults to ``False``.
+        :type as_sql_data: bool, optional
+        :rtype: List<:term:`NDI object`> | List<dict>
+        """
+        items = self._collections[ndi_class].find(
+            query=query,
+            order_by=order_by,
+            result_format=Datatype.SQL_ALCHEMY if as_sql_data else Datatype.NDI
+        )
+        if not as_sql_data:
+            return [item.with_ctx(self) for item in items]
+        else:
+            return items
 
-    def find_by_id(self, id_: T.NdiId) -> T.Document:
-        item = self._collections[DOCUMENTS_TABLENAME].find_by_id(id_)
-        return item.with_ctx(self)
+    def update_many(self, ndi_class: T.NdiClass, query: T.SqlaFilter = None, payload: T.SqlCollectionDocument = {}) -> None:
+        """Updates all documents matching the given :term:`NDI query` in the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
 
-    def update_by_id(self, id_: T.NdiId, payload: T.SqlCollectionDocument = {}) -> None:
+        .. currentmodule:: ndi.ndi_database
+
+        :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
+        :type ndi_class: :class:`ndi.ndi_database`
+        :param query: See :term:`NDI query`, defaults to update-all
+        :type query: dict, optional
+        :param payload: Field and update values to be updated, defaults to {}
+        :type payload: :term:`payload`, optional
+        :param order_by: Field name to order results by. Defaults to None.
+        :type order_by: str, optional
+        """
+        self._collections[ndi_class].update_many(
+            self._collections, query=query, payload=payload)
+
+    def delete_many(self, ndi_class: T.NdiClass, query: T.SqlaFilter = None) -> None:
+        """Deletes all documents matching the given :term:`NDI query` in the specified :term:`collection`.
+
+        .. currentmodule:: ndi.ndi_database
+
+        :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to query.
+        :type ndi_class: :class:`NDI_Database`
+        :param query: See :term:`NDI query`, defaults to {}
+        :type query: dict, optional
+        """
+        self._collections[ndi_class].delete_many(query=query)
+
+    def find_by_id(self, ndi_class: T.NdiClass, id_: T.NdiId, as_sql_data: bool = False) -> T.SqlDatabaseDatatype:
+        """Retrieves the :term:`NDI object` with the given id from the specified :term:`collection`.
+
+        .. currentmodule:: ndi.ndi_database
+
+        :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to search.
+        :type ndi_class: :class:`NDI_Database`
+        :param id_: The identifier of the :term:`document` to extract.
+        :type id_: str
+        :param as_sql_data: If set to ``True``, find will return contents of SQL table row as a dict; otherwise, will return :term:`NDI object`\ s. Defaults to ``False``.
+        :type as_sql_data: bool, optional
+        :rtype: :term:`NDI object` | dict
+        """
+        item = self._collections[ndi_class].find_by_id(
+            id_,
+            result_format=Datatype.SQL_ALCHEMY if as_sql_data else Datatype.NDI
+        )
+        return item if as_sql_data else item.with_ctx(self)
+
+    def update_by_id(self, ndi_class: T.NdiClass, id_: T.NdiId, payload: T.SqlCollectionDocument = {}) -> None:
         """Updates the :term:`NDI object` with the given id from the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
 
         .. currentmodule:: ndi.ndi_database
 
+        :param ndi_class: The :term:`NDI class` that defines the :term:`collection` to update.
+        :type ndi_class: :class:`NDI_Database`
         :param id_: The identifier of the :term:`document` to update.
         :type id_: str
         :param payload: Field and update values to be updated, defaults to {}
         :type payload: :term:`payload`, optional
         """
-        self._collections[DOCUMENTS_TABLENAME].update_by_id(
+        self._collections[ndi_class].update_by_id(
             id_, payload=payload)
 
-    def delete_by_id(self, id_: T.NdiId) -> None:
+    def delete_by_id(self, ndi_class: T.NdiClass, id_: T.NdiId) -> None:
         """Deletes the :term:`NDI object` with the given id from the specified :term:`collection`.
 
         .. currentmodule:: ndi.ndi_database
@@ -187,7 +586,7 @@ class SQL:
         :param id_: The identifier of the :term:`document` to delete.
         :type id_: str
         """
-        self._collections[DOCUMENTS_TABLENAME].delete_by_id(id_)
+        self._collections[ndi_class].delete_by_id(id_)
 
 
 # ============ #
