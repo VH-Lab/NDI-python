@@ -1,3 +1,5 @@
+from __future__ import annotations
+import ndi.types as T
 from .schema import Document as build_document
 import json
 from .ndi_object import NDI_Object
@@ -11,7 +13,7 @@ class Document(NDI_Object):
 
     Inherits from the :class:`NDI_Object` abstract class.
     """
-    def __init__(self, data, id_=None):
+    def __init__(self, data: dict, type_: str = '', name: str = '', experiment_id: str = '', id_=None):
         """Creates new ndi_document
 
         :param id_: [description], defaults to None
@@ -22,10 +24,12 @@ class Document(NDI_Object):
         super().__init__(id_)
         self.data = {
             '_metadata': {
-                'experiment_id': '',
-                'version_depth': 0,
+                'name': name,
+                'type': type_,
+                'experiment_id': experiment_id,
                 'parent_id': '',
                 'asc_path': '',
+                'version_depth': 0,
             },
             '_dependencies': {},
             **data
@@ -73,19 +77,53 @@ class Document(NDI_Object):
         build_document.DocumentAddData(builder, data)
         return build_document.DocumentEnd(builder)
 
-    def _save_updates(self):
-        """Updates version and creates a new id for this ndi_document.
+    def save_updates(self):
+        """Updates version and creates a new id for this ndi_document and saves changes in database.
 
         Updates id, version_depth, parent_id with previous id, and document_extension with new ndi_document id.
         Adds parent_id to asc_path.
 
         To be used in database implementations only.
         """
+        parent_id = self.id
         super().__init__(None)
         metadata = self.data['_metadata']
-        metadata['parent_id'] = self.id
+        metadata['parent_id'] = parent_id
         metadata['asc_path'] = ',' + metadata['parent_id'] + metadata['asc_path']
         metadata['version_depth'] += 1
 
-    def add_dependency(self, dependency):
-        self.data['_dependencies'] = { **self.data['_dependencies'], **dependency }
+        if not self.ctx:
+            """Will fire if the document is not in the database (ctx is attached any time a document is added or retrieved from the database; only user-initialized Documents should not have a ctx)."""
+            # TODO: make this error message more helpful when ctx is well defined
+            raise RuntimeError('This document is not attached to a database.')
+        else:
+            self.ctx.add(self)
+
+    def __check_dependency_key_exists(self, id_: str):
+        dependencies = self.data['_dependencies']
+        return any([id_ is extant_id for extant_id in dependencies.keys()])
+
+    def __check_dependency_id_exists(self, id_: str):
+        return any([id_ is extant_id for extant_id in self.data['_dependencies'].values()])
+
+    def add_dependency(self, ndi_document: T.Document, key: str = None):
+        key = key or ndi_document.data['_metadata']['name']
+        if self.__check_dependency_key_exists(ndi_document.id):
+            raise RuntimeError('Dependency key is already in use (dependency keys default to the document name if not specified).')
+        elif self.__check_dependency_id_exists(ndi_document.id):
+            dependency_name = ndi_document.data['_metadata']['name']
+            own_name = self.data['_metadata']['name']
+            raise RuntimeError(f'Document {dependency_name} is already a dependency of document {own_name}.')
+        else:
+            new_dependency = {key: ndi_document.id}
+            self.data['_dependencies'] = { 
+                **self.data['_dependencies'], 
+                **new_dependency 
+            }
+            self.ctx.add(ndi_document)
+            self.ctx.update(self, force=True)
+
+    def get_dependencies(self):
+        for key, value in self.data['_dependencies'].items():
+            self.data['_dependencies'][key] = self.ctx.find_by_id(value)
+

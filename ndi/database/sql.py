@@ -13,7 +13,7 @@ from ndi import NDI_Object, Document
 from ..utils import class_to_collection_name, flatten
 from ..decorators import handle_iter, handle_list
 from .query import Query, AndQuery, OrQuery, CompositeQuery
-from .utils import check_ndi_object, listify, check_ndi_objects, update_flatbuffer, recast_ndi_object_to_document, translate_query, with_session, with_open_session, reduce_ndi_objects_to_ids
+from .utils import check_ndi_object, listify, check_ndi_objects, with_update_warning, update_flatbuffer, recast_ndi_object_to_document, translate_query, with_session, with_open_session, reduce_ndi_objects_to_ids
 
 
 # ============== #
@@ -145,10 +145,12 @@ class SQL:
         self._collections[DOCUMENTS_TABLENAME].add(ndi_document)
         ndi_document.set_ctx(self)
 
-    def update(self, ndi_document: T.Document) -> None:
+    @with_update_warning
+    def update(self, ndi_document: T.Document, force: bool = False) -> None:
         self._collections[DOCUMENTS_TABLENAME].update(ndi_document)
 
-    def upsert(self, ndi_document: T.Document) -> None:
+    @with_update_warning
+    def upsert(self, ndi_document: T.Document, force: bool = False) -> None:
         self._collections[DOCUMENTS_TABLENAME].upsert(ndi_document)
 
     def delete(self, ndi_document: T.Document) -> None:
@@ -164,7 +166,8 @@ class SQL:
         )
         return [item.with_ctx(self) for item in items]
 
-    def update_many(self, ndi_query: T.Query = None, payload: T.SqlCollectionDocument = {}) -> None:
+    @with_update_warning
+    def update_many(self, ndi_query: T.Query = None, payload: T.SqlCollectionDocument = {}, force: bool = False) -> None:
         self._collections[DOCUMENTS_TABLENAME].update_many(
             self._collections, query=ndi_query, payload=payload)
 
@@ -178,7 +181,8 @@ class SQL:
         )
         return item.with_ctx(self)
 
-    def update_by_id(self, id_: T.NdiId, payload: T.SqlCollectionDocument = {}) -> None:
+    @with_update_warning
+    def update_by_id(self, id_: T.NdiId, payload: T.SqlCollectionDocument = {}, force: bool = False) -> None:
         """Updates the :term:`NDI object` with the given id from the specified :term:`collection` with the fields/values in the :term:`payload`. Fields that aren't included in the payload are not touched.
 
         .. currentmodule:: ndi.ndi_database
