@@ -99,7 +99,7 @@ def with_update_warning(func):
         if 'force' in kwargs and kwargs['force']:
             func(self, *args, **kwargs)
         else:
-            raise RuntimeWarning('Manual updates are strongly discouraged to maintain data integrity across depenencies. To update anyway, use force: db.update(document, force=True).')
+            raise RuntimeWarning('Manual updates are strongly discouraged to maintain data integrity across depenencies. To update anyway, use the force argument: db.update(document, force=True).')
     return decorator
 
 def update_flatbuffer(ndi_class, flatbuffer, payload):

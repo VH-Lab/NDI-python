@@ -33,7 +33,7 @@ class Datatype(Enum):
 #  SQL Database  #
 # ============== #
 
-class SQL:
+class SQL(NDI_Database):
     """Interface for SQL Databases.
 
     .. currentmodule:: ndi.database.ndi_database

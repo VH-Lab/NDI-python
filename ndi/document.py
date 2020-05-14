@@ -30,6 +30,7 @@ class Document(NDI_Object):
                 'parent_id': '',
                 'asc_path': '',
                 'version_depth': 0,
+                'latest_version': True,
             },
             '_dependencies': {},
             **data
@@ -86,11 +87,14 @@ class Document(NDI_Object):
         To be used in database implementations only.
         """
         parent_id = self.id
+        self.data['_metadata']['latest_version'] = False
+        self.ctx.update(self, force=True)
         super().__init__(None)
         metadata = self.data['_metadata']
         metadata['parent_id'] = parent_id
         metadata['asc_path'] = ',' + metadata['parent_id'] + metadata['asc_path']
         metadata['version_depth'] += 1
+        metadata['latest_version'] = True
 
         if not self.ctx:
             """Will fire if the document is not in the database (ctx is attached any time a document is added or retrieved from the database; only user-initialized Documents should not have a ctx)."""
@@ -126,4 +130,22 @@ class Document(NDI_Object):
     def get_dependencies(self):
         for key, value in self.data['_dependencies'].items():
             self.data['_dependencies'][key] = self.ctx.find_by_id(value)
+        return self.data['_dependencies']
 
+    def get_history(self):
+        """oldest to newest"""
+        ids = self.data['_metadata']['asc_path'].split(',')[1:]
+        return [self.ctx.find_by_id(id) for id in reversed(ids)]
+
+    def delete(self, force=False, remove_history=False,):
+        if force:
+            deletees = [
+                self,
+                *self.get_dependencies()
+            ]
+            if remove_history:
+                deletees.extend(self.get_history())
+            for ndi_document in deletees:
+                self.ctx.delete(ndi_document)
+        else:
+            raise RuntimeWarning('Are you sure you want to delete this document? This will permanently remove it and its dependencies. To delete anyway, use the force argument: db.update(document, force=True). To clear the version history of this document and related dependencies, use the remove_history argument.')

@@ -9,7 +9,7 @@ import re
 import numpy as np
 
 
-class FileSystem:
+class FileSystem(NDI_Database):
     """File system database API.
 
     .. currentmodule:: ndi.database.ndi_database
