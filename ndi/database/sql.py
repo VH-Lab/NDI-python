@@ -5,7 +5,8 @@ from abc import ABCMeta
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import Table, Column, String, JSON, LargeBinary
+from sqlalchemy import Table, Column, String, LargeBinary
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import and_, or_
 from .ndi_database import NDI_Database
 from functools import wraps
@@ -87,7 +88,7 @@ class SQL(NDI_Database):
         return {
             'id': Column(String, primary_key=True),
             FLATBUFFER_KEY: Column(LargeBinary),
-            'data': Column(JSON)
+            'data': Column(JSONB)
         }
 
     def __create_collection(
@@ -385,7 +386,7 @@ class Collection:
                 return self._sqla_filter_ops[type(q)](nested_queries)
             else:
                 field, operator, value = q.query
-                column = self.fields[field]
+                column = self.fields['data'][tuple(field.split('.'))].astext
                 return self._sqla_filter_ops[operator](column, value)
         return recurse(query)
 

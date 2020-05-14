@@ -64,7 +64,7 @@ class NDI_Database(ABC):
         pass
 
     @abstractmethod
-    def find_by_id(self, ndi_class, id_):
+    def find_by_id(self, id_):
         """It should be able to retrieve a single :term:`document` given the :term:`NDI class` it belongs to and its id.
 
         :param ndi_class:
