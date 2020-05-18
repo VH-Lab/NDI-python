@@ -70,6 +70,10 @@ class Document(NDI_Object):
         :param builder: Builder class in flatbuffers module.
         :type builder: flatbuffers.Builder
         """
+        self.data['_dependencies'] = {
+            key: dep.id if isinstance(dep, Document) else dep 
+            for key, dep in self.data['_dependencies'].items() }
+
         id_ = builder.CreateString(self.id)
         data = builder.CreateString(json.dumps(self.data, separators=(',', ':')))
 
@@ -95,6 +99,7 @@ class Document(NDI_Object):
         metadata['asc_path'] = ',' + metadata['parent_id'] + metadata['asc_path']
         metadata['version_depth'] += 1
         metadata['latest_version'] = True
+        self.data['_dependencies'] = {}
 
         if not self.ctx:
             """Will fire if the document is not in the database (ctx is attached any time a document is added or retrieved from the database; only user-initialized Documents should not have a ctx)."""
@@ -103,16 +108,21 @@ class Document(NDI_Object):
         else:
             self.ctx.add(self)
 
-    def __check_dependency_key_exists(self, id_: str):
+    def get_history(self):
+        """oldest to newest"""
+        ids = self.data['_metadata']['asc_path'].split(',')[1:]
+        return [self.ctx.find_by_id(id) for id in reversed(ids)]
+
+    def __check_dependency_key_exists(self, key: str):
         dependencies = self.data['_dependencies']
-        return any([id_ is extant_id for extant_id in dependencies.keys()])
+        return any([key is extant for extant in dependencies.keys()])
 
     def __check_dependency_id_exists(self, id_: str):
         return any([id_ is extant_id for extant_id in self.data['_dependencies'].values()])
 
     def add_dependency(self, ndi_document: T.Document, key: str = None):
         key = key or ndi_document.data['_metadata']['name']
-        if self.__check_dependency_key_exists(ndi_document.id):
+        if self.__check_dependency_key_exists(key):
             raise RuntimeError('Dependency key is already in use (dependency keys default to the document name if not specified).')
         elif self.__check_dependency_id_exists(ndi_document.id):
             dependency_name = ndi_document.data['_metadata']['name']
@@ -129,23 +139,17 @@ class Document(NDI_Object):
 
     def get_dependencies(self):
         for key, value in self.data['_dependencies'].items():
-            self.data['_dependencies'][key] = self.ctx.find_by_id(value)
+            if isinstance(value, str):
+                self.data['_dependencies'][key] = self.ctx.find_by_id(value)
         return self.data['_dependencies']
-
-    def get_history(self):
-        """oldest to newest"""
-        ids = self.data['_metadata']['asc_path'].split(',')[1:]
-        return [self.ctx.find_by_id(id) for id in reversed(ids)]
 
     def delete(self, force=False, remove_history=False,):
         if force:
-            deletees = [
-                self,
-                *self.get_dependencies()
-            ]
+            deletees = self.get_dependencies().values()
             if remove_history:
                 deletees.extend(self.get_history())
             for ndi_document in deletees:
-                self.ctx.delete(ndi_document)
+                ndi_document.delete(force=force, remove_history=remove_history)
+            self.ctx.delete(self)
         else:
             raise RuntimeWarning('Are you sure you want to delete this document? This will permanently remove it and its dependencies. To delete anyway, use the force argument: db.update(document, force=True). To clear the version history of this document and related dependencies, use the remove_history argument.')

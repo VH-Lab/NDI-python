@@ -49,14 +49,18 @@ class SQL(NDI_Database):
     _collections: T.SqlDatabaseCollections = {}
     relationships: T.RelationshipMap = {}
 
-    def __init__(self, connection_string: str) -> None:
+    def __init__(self, connection_string: str, mock_session=None) -> None:
         """Sets up a SQL database with collections, binds a sqlAlchemy sessionmaker, and instantiates a slqAlchemy metadata Base.
 
         :param connection_string: A standard SQL Server connection string.
         :type connection_string: str
         """
-        self.db = create_engine(connection_string)
-        self.Session = sessionmaker(bind=self.db)
+        if mock_session:
+            self.Session = mock_session
+        else:
+            self.db = create_engine(connection_string)
+            self.Session = sessionmaker(bind=self.db)
+        
         self.Base = declarative_base()
         self.__create_collection()
 
@@ -100,8 +104,9 @@ class SQL(NDI_Database):
         self._collections[table_name] = Collection(
             self, self.Base, self.Session, table_name, table_fields, Document
         )
-                
-        self.Base.metadata.create_all(self.db)
+
+        if hasattr(self, 'db'): # is None when db is mocked with alchemy-mock    
+            self.Base.metadata.create_all(self.db)
 
 
     def get_tables(self) -> T.Dict[str, T.DeclarativeMeta]:
@@ -155,7 +160,7 @@ class SQL(NDI_Database):
         self._collections[DOCUMENTS_TABLENAME].upsert(ndi_document)
 
     def delete(self, ndi_document: T.Document) -> None:
-        self._collections[DOCUMENTS_TABLENAME].upsert(ndi_document)
+        self._collections[DOCUMENTS_TABLENAME].delete(ndi_document)
 
     def find(
         self,
