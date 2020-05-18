@@ -10,5 +10,5 @@ class CEDSpike2(DaqReader):
         channel_index = self.__reader.channel_id_to_index([channel_number - 1]) 
         return self.__reader.get_signal_sampling_rate(channel_index)
 
-    def readchannel(self, channel_number, start_time, end_time):
+    def readchannel(self, channel_number, start_time=0, end_time=None):
         pass
