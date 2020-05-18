@@ -35,3 +35,24 @@ class TestCEDSpike2:
         assert len(data) == expected_length
         for i, item in enumerate(expected_values_slice):
             assert item == round(float(data[i]), 4)
+
+    def test_readevents(self):
+        daq_reader = CEDSpike2('./tests/data/daqreaders/cedspike2/example1.smr')
+        channel_number = 22
+        start_time = 0
+        end_time = None
+        events = daq_reader.readevents(channel_number, start_time, end_time)
+        expected_values_slice = [
+            9.4653,
+            20.2397,
+            31.0161,
+            41.7925,
+            52.5689,
+            63.3453,
+            74.1227,
+            84.8991,
+            95.6754,
+            106.4518
+        ]
+        for i, item in enumerate(expected_values_slice):
+            assert item == events[i]
