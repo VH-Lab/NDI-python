@@ -1,6 +1,7 @@
 from ndi.daqreaders.cedspike2 import CEDSpike2
 import pytest
 
+
 class TestCEDSpike2:
     @pytest.mark.parametrize(
         'test_file, channel_number, expected_samplerate',
@@ -16,25 +17,21 @@ class TestCEDSpike2:
     def test_samplerate(self, test_file, channel_number, expected_samplerate):
         daq_reader = CEDSpike2(test_file)
         assert daq_reader.samplerate(channel_number) == expected_samplerate
-    
-    def test_readchannel(self):
-        daq_reader = CEDSpike2('./tests/data/daqreaders/cedspike2/example1.smr')
-        channel_number = 21
-        start_time = 0
-        # end_time value of -1 means read to the end of channel data
-        end_time = -1
-        data = daq_reader.readchannel(channel_number, start_time, end_time)
-        expected_values_slice = [
-            -0.9647,
-            -0.9592,
-            -0.9644,
-            -0.9601,
-            -0.9644,
-            -0.9598,
-            -0.9604,
-            -0.9561,
-            -0.9555,
-            -0.9506
+
+    @pytest.mark.parametrize(
+        'test_file, channel_number,  start_index, end_index, expected_length, expected_values_slice',
+        [
+            ('./tests/data/daqreaders/cedspike2/example1.smr', 21, 0, None, 5569702, [-0.9647, -0.9592, -0.9644, -0.9601, -0.9644]),
+            ('./tests/data/daqreaders/cedspike2/example2.smr', 21, 500, 505, 5, [-0.7330, -0.7352, -0.7346, -0.7318, -0.7352]),
+            ('./tests/data/daqreaders/cedspike2/example3.smr', 21, 1234, 2345, 1111, [-0.8685, -0.8685, -0.8640, -0.8728, -0.8621]),
+            ('./tests/data/daqreaders/cedspike2/DemoData.smr', 1, 86, 101, 15, [-0.0391, -0.0391, 0.1927, 0.5370, 0.9959]),
+            ('./tests/data/daqreaders/cedspike2/DemoData.smr', 2, 44, 57, 13, [112.7167, 116.3635, 110.0616, 105.4535, 105.4993]),
+            ('./tests/data/daqreaders/cedspike2/DemoData.smr', 3, 42, 84, 42, [0.1591, 0.2080, 0.2129, 0.2226, 0.2422]),
         ]
+    )
+    def test_readchannel(self, test_file, channel_number, start_index, end_index, expected_length, expected_values_slice):
+        daq_reader = CEDSpike2(test_file)
+        data = daq_reader.readchannel(channel_number, start_index, end_index)
+        assert len(data) == expected_length
         for i, item in enumerate(expected_values_slice):
-            assert item == data[i]
+            assert item == round(float(data[i]), 4)
