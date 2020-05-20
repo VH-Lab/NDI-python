@@ -2,10 +2,10 @@ from __future__ import annotations
 import ndi.types as T
 from .schema import Document as build_document
 import json
-from .ndi_object import NDI_Object
+from .flatbuffer_object import Flatbuffer_Object
 
 
-class Document(NDI_Object):
+class Document(Flatbuffer_Object):
     """
     A flatbuffer interface for documents.
 
@@ -13,7 +13,7 @@ class Document(NDI_Object):
 
     Inherits from the :class:`NDI_Object` abstract class.
     """
-    def __init__(self, data: dict, type_: str = '', name: str = '', experiment_id: str = '', id_=None):
+    def __init__(self, data: dict = {}, name: str = '', type_: str = '', experiment_id: str = '', id_=None):
         """Creates new ndi_document
 
         :param id_: [description], defaults to None
@@ -39,64 +39,16 @@ class Document(NDI_Object):
     @property
     def metadata(self):
         return self.data['_metadata']
-
     @metadata.setter
     def metadata(self, new_metadata):
         self.data['_metadata'] = new_metadata
-    
+
     @property
     def dependencies(self):
         return self.data['_dependencies']
-
     @dependencies.setter
     def dependencies(self, dependencies):
         self.data['_dependencies'] = dependencies
-
-    @classmethod
-    def from_flatbuffer(cls, flatbuffer):
-        """For constructing ndi_document from a flatbuffer
-
-        :param flatbuffer: [description]
-        :type flatbuffer: bytes
-        :return: [description]
-        :rtype: Document
-        """
-        document = build_document.Document.GetRootAsDocument(flatbuffer, 0)
-        return cls._reconstruct(document)
-
-    @classmethod
-    def _reconstruct(cls, document):
-        """For constructing ndi_document from a flatbuffer object
-
-        :param document: [description]
-        :type document: build_document.Document
-        :return: [description]
-        :rtype: Document
-        """
-        return cls(
-            id_=document.Id().decode(),
-            data=json.loads(document.Data())
-        )
-
-    def _build(self, builder):
-        """.. currentmodule:: ndi.ndi_object
-
-        Called in NDI_Object.serialize() as part of flatbuffer bytearray generation from Experiment instance.
-
-        :param builder: Builder class in flatbuffers module.
-        :type builder: flatbuffers.Builder
-        """
-        self.data['_dependencies'] = {
-            key: dep.id if isinstance(dep, Document) else dep 
-            for key, dep in self.dependencies.items() }
-
-        id_ = builder.CreateString(self.id)
-        data = builder.CreateString(json.dumps(self.data, separators=(',', ':')))
-
-        build_document.DocumentStart(builder)
-        build_document.DocumentAddId(builder, id_)
-        build_document.DocumentAddData(builder, data)
-        return build_document.DocumentEnd(builder)
 
     def save_updates(self):
         """Updates version and creates a new id for this ndi_document and saves changes in database.
@@ -169,3 +121,57 @@ class Document(NDI_Object):
             self.ctx.delete(self)
         else:
             raise RuntimeWarning('Are you sure you want to delete this document? This will permanently remove it and its dependencies. To delete anyway, use the force argument: db.update(document, force=True). To clear the version history of this document and related dependencies, use the remove_history argument.')
+
+    
+    @classmethod
+    def from_flatbuffer(cls, flatbuffer):
+        """For constructing ndi_document from a flatbuffer
+
+        :param flatbuffer: [description]
+        :type flatbuffer: bytes
+        :return: [description]
+        :rtype: Document
+        """
+        document = build_document.Document.GetRootAsDocument(flatbuffer, 0)
+        return cls._reconstruct(document)
+
+    @classmethod
+    def _reconstruct(cls, document):
+        """For constructing ndi_document from a flatbuffer object
+
+        :param document: [description]
+        :type document: build_document.Document
+        :return: [description]
+        :rtype: Document
+        """
+        return cls(
+            id_=document.Id().decode(),
+            data=json.loads(document.Data())
+        )
+
+    def _build(self, builder):
+        """.. currentmodule:: ndi.ndi_object
+
+        Called in NDI_Object.serialize() as part of flatbuffer bytearray generation from Experiment instance.
+
+        :param builder: Builder class in flatbuffers module.
+        :type builder: flatbuffers.Builder
+        """
+        self.data['_dependencies'] = {
+            key: dep.id if isinstance(dep, Document) else dep 
+            for key, dep in self.dependencies.items() }
+
+        id_ = builder.CreateString(self.id)
+        data = builder.CreateString(json.dumps(self.data, separators=(',', ':')))
+
+        build_document.DocumentStart(builder)
+        build_document.DocumentAddId(builder, id_)
+        build_document.DocumentAddData(builder, data)
+        return build_document.DocumentEnd(builder)
+    
+    def set_ctx(self, ctx: T.NdiDatabase) -> None:
+        self.ctx = ctx
+
+    def with_ctx(self, ctx: T.NdiDatabase) -> T.NDI_Object:
+        self.ctx = ctx
+        return self

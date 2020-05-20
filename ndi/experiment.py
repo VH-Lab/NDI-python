@@ -29,8 +29,8 @@ class Experiment(NDI_Object):
         :type id_: str, optional
         """
         super().__init__(id_)
-        self.name = name
-        self.daq_systems: T.List[T.DaqSystem] = []
+        self.metadata['name'] = name
+        self.add_data_property('daq_systems', [])
         for daq_system in daq_systems:
             self.add_daq_system(daq_system)
 
