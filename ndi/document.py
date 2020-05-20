@@ -36,6 +36,22 @@ class Document(NDI_Object):
             **data
         }
 
+    @property
+    def metadata(self):
+        return self.data['_metadata']
+
+    @metadata.setter
+    def metadata(self, new_metadata):
+        self.data['_metadata'] = new_metadata
+    
+    @property
+    def dependencies(self):
+        return self.data['_dependencies']
+
+    @dependencies.setter
+    def dependencies(self, dependencies):
+        self.data['_dependencies'] = dependencies
+
     @classmethod
     def from_flatbuffer(cls, flatbuffer):
         """For constructing ndi_document from a flatbuffer
@@ -72,7 +88,7 @@ class Document(NDI_Object):
         """
         self.data['_dependencies'] = {
             key: dep.id if isinstance(dep, Document) else dep 
-            for key, dep in self.data['_dependencies'].items() }
+            for key, dep in self.dependencies.items() }
 
         id_ = builder.CreateString(self.id)
         data = builder.CreateString(json.dumps(self.data, separators=(',', ':')))
@@ -91,15 +107,15 @@ class Document(NDI_Object):
         To be used in database implementations only.
         """
         parent_id = self.id
-        self.data['_metadata']['latest_version'] = False
+        self.metadata['latest_version'] = False
         self.ctx.update(self, force=True)
         super().__init__(None)
-        metadata = self.data['_metadata']
+        metadata = self.metadata
         metadata['parent_id'] = parent_id
         metadata['asc_path'] = ',' + metadata['parent_id'] + metadata['asc_path']
         metadata['version_depth'] += 1
         metadata['latest_version'] = True
-        self.data['_dependencies'] = {}
+        self.dependencies = {}
 
         if not self.ctx:
             """Will fire if the document is not in the database (ctx is attached any time a document is added or retrieved from the database; only user-initialized Documents should not have a ctx)."""
@@ -110,38 +126,38 @@ class Document(NDI_Object):
 
     def get_history(self):
         """oldest to newest"""
-        ids = self.data['_metadata']['asc_path'].split(',')[1:]
+        ids = self.metadata['asc_path'].split(',')[1:]
         return [self.ctx.find_by_id(id) for id in reversed(ids)]
 
     def __check_dependency_key_exists(self, key: str):
-        dependencies = self.data['_dependencies']
+        dependencies = self.dependencies
         return any([key is extant for extant in dependencies.keys()])
 
     def __check_dependency_id_exists(self, id_: str):
-        return any([id_ is extant_id for extant_id in self.data['_dependencies'].values()])
+        return any([id_ is extant_id for extant_id in self.dependencies.values()])
 
     def add_dependency(self, ndi_document: T.Document, key: str = None):
-        key = key or ndi_document.data['_metadata']['name']
+        key = key or ndi_document.metadata['name']
         if self.__check_dependency_key_exists(key):
             raise RuntimeError('Dependency key is already in use (dependency keys default to the document name if not specified).')
         elif self.__check_dependency_id_exists(ndi_document.id):
-            dependency_name = ndi_document.data['_metadata']['name']
-            own_name = self.data['_metadata']['name']
+            dependency_name = ndi_document.metadata['name']
+            own_name = self.metadata['name']
             raise RuntimeError(f'Document {dependency_name} is already a dependency of document {own_name}.')
         else:
             new_dependency = {key: ndi_document.id}
-            self.data['_dependencies'] = { 
-                **self.data['_dependencies'], 
+            self.dependencies = { 
+                **self.dependencies, 
                 **new_dependency 
             }
             self.ctx.add(ndi_document)
             self.ctx.update(self, force=True)
 
     def get_dependencies(self):
-        for key, value in self.data['_dependencies'].items():
+        for key, value in self.dependencies.items():
             if isinstance(value, str):
-                self.data['_dependencies'][key] = self.ctx.find_by_id(value)
-        return self.data['_dependencies']
+                self.dependencies[key] = self.ctx.find_by_id(value)
+        return self.dependencies
 
     def delete(self, force=False, remove_history=False,):
         if force:
