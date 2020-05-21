@@ -35,3 +35,21 @@ class TestCEDSpike2:
         assert len(data) == expected_length
         for i, item in enumerate(expected_values_slice):
             assert item == round(float(data[i]), 4)
+
+    @pytest.mark.parametrize(
+        'test_file, channel_number, start_time, end_time, expected_length, expected_values_slice',
+        [
+            ('./tests/data/daqreaders/cedspike2/example1.smr', 22, 0, None, 46, [9.4653, 20.2397, 31.0161, 41.7925, 52.5689]),
+            ('./tests/data/daqreaders/cedspike2/example2.smr', 22, 200, 400, 18, [210.2610, 221.0374, 231.8137, 242.5911, 253.3675]),
+            ('./tests/data/daqreaders/cedspike2/example3.smr', 22, 350, 450, 5, [357.4348, 377.4465, 397.4573, 417.4690, 437.4807]),
+            ('./tests/data/daqreaders/cedspike2/DemoData.smr', 4, 15, None, 51, [15.6375, 16.5390, 17.4485, 18.3618, 19.2071]),
+            ('./tests/data/daqreaders/cedspike2/DemoData.smr', 5, 30, 50, 50, [33.0790, 33.1012, 33.1051, 33.1210, 33.1420]),
+            ('./tests/data/daqreaders/cedspike2/DemoData.smr', 6, 0, 15, 5, [0.0013, 3.2781, 6.5549, 9.8317, 13.1085]),
+        ]
+    )
+    def test_readevents(self, test_file, channel_number, start_time, end_time, expected_length, expected_values_slice):
+        daq_reader = CEDSpike2(test_file)
+        events = daq_reader.readevents(channel_number, start_time, end_time)
+        assert len(events) == expected_length
+        for i, item in enumerate(expected_values_slice):
+            assert item == round(float(events[i]), 4)
