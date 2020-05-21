@@ -3,7 +3,7 @@ from .ndi_database import NDI_Database
 from pathlib import Path
 from ..document import Document
 from .query import CompositeQuery, AndQuery, OrQuery
-from .utils import with_update_warning
+from .utils import with_update_warning, with_delete_warning
 import ndi.types as T
 import re
 import numpy as np
@@ -40,16 +40,20 @@ class FileSystem(NDI_Database):
         else:
             raise FileExistsError(f'File \'{file_path}\' already exists')
 
-    def update(self, ndi_document, force=False):
-        self.upsert(ndi_document, force=force)
+    def update(self, ndi_document, force=False):        
+        file_path = self.db_dir / f'{ndi_document.id}.dat'
+        if file_path.exists():
+            self.upsert(ndi_document)
+        else:
+            raise FileNotFoundError(f'File \'{file_path}\' does not exist')
 
     @with_update_warning
     def upsert(self, ndi_document, force=False):
         (self.db_dir /
         f'{ndi_document.id}.dat').write_bytes(ndi_document.serialize())
 
-    def delete(self, ndi_document):
-        self.delete_by_id(ndi_document.id)
+    def delete(self, ndi_document, force=False):
+        self.delete_by_id(ndi_document.id, force=force)
 
     def find(self, ndi_query=None):
         ndi_documents = [
@@ -71,10 +75,10 @@ class FileSystem(NDI_Database):
         for ndi_document in ndi_documents:
             self.__update(ndi_document, payload, force=force)
 
-    def delete_many(self, ndi_query=None):
+    def delete_many(self, ndi_query=None, force=False):
         ndi_documents = self.find(ndi_query)
         for ndi_document in ndi_documents:
-            self.delete(ndi_document)
+            self.delete(ndi_document, force=force)
 
     def find_by_id(self, id_):
         doc = Document.from_flatbuffer((self.db_dir / f'{id_}.dat').read_bytes())
@@ -90,7 +94,8 @@ class FileSystem(NDI_Database):
                 ndi_document.data[key] = value
                 self.update(ndi_document, force=force)
 
-    def delete_by_id(self, id_):
+    @with_delete_warning
+    def delete_by_id(self, id_, force=False):
         self.__delete_dependents(id_)
         (self.db_dir / f'{id_}.dat').unlink()
 

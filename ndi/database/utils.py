@@ -102,6 +102,21 @@ def with_update_warning(func):
             raise RuntimeWarning('Manual updates are strongly discouraged to maintain data integrity across depenencies. To update anyway, use the force argument: db.update(document, force=True).')
     return decorator
 
+def with_delete_warning(func):
+    """Decorator: meant to work with :class:`SQL` methods. Ensures that every item in the first argument is a valid :term:`NDI object`.
+    
+    :param func:
+    :type func: function
+    :return: Returns return value of decorated function.
+    """
+    @wraps(func)
+    def decorator(self, *args, **kwargs):
+        if 'force' in kwargs and kwargs['force']:
+            func(self, *args, **kwargs)
+        else:
+            raise RuntimeWarning('Manual deletes are strongly discouraged to maintain data integrity across depenencies. To delete anyway, use the force argument: db.delete(document, force=True).')
+    return decorator
+
 def update_flatbuffer(ndi_class, flatbuffer, payload):
     """Decorator: meant to work with :class:`Collection` methods. Converts a list of :term:`NDI object`\ s into their :term:`SQLA document` equivalents.
     

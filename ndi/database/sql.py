@@ -14,7 +14,7 @@ from ndi import NDI_Object, Document
 from ..utils import class_to_collection_name, flatten
 from ..decorators import handle_iter, handle_list
 from .query import Query, AndQuery, OrQuery, CompositeQuery
-from .utils import check_ndi_object, listify, check_ndi_objects, with_update_warning, update_flatbuffer, recast_ndi_object_to_document, translate_query, with_session, with_open_session, reduce_ndi_objects_to_ids
+from .utils import check_ndi_object, listify, check_ndi_objects, with_update_warning, with_delete_warning, update_flatbuffer, recast_ndi_object_to_document, translate_query, with_session, with_open_session, reduce_ndi_objects_to_ids
 
 
 # ============== #
@@ -95,9 +95,7 @@ class SQL(NDI_Database):
             'data': Column(JSONB)
         }
 
-    def __create_collection(
-        self,
-    ) -> None:
+    def __create_collection(self) -> None:
         table_name = DOCUMENTS_TABLENAME
         table_fields = self._documents_collection_config()
 
@@ -159,13 +157,11 @@ class SQL(NDI_Database):
     def upsert(self, ndi_document: T.Document, force: bool = False) -> None:
         self._collections[DOCUMENTS_TABLENAME].upsert(ndi_document)
 
-    def delete(self, ndi_document: T.Document) -> None:
+    @with_delete_warning
+    def delete(self, ndi_document: T.Document, force:bool = False) -> None:
         self._collections[DOCUMENTS_TABLENAME].delete(ndi_document)
 
-    def find(
-        self,
-        ndi_query: T.Query = None
-    ) -> T.List[T.Document]:
+    def find(self, ndi_query: T.Query = None) -> T.List[T.Document]:
         items = self._collections[DOCUMENTS_TABLENAME].find(
             query=ndi_query,
             result_format=Datatype.NDI
@@ -177,7 +173,8 @@ class SQL(NDI_Database):
         self._collections[DOCUMENTS_TABLENAME].update_many(
             self._collections, query=ndi_query, payload=payload)
 
-    def delete_many(self, query: T.SqlaFilter = None) -> None:
+    @with_delete_warning
+    def delete_many(self, query: T.SqlaFilter = None, force:bool = False) -> None:
         self._collections[DOCUMENTS_TABLENAME].delete_many(query=query)
 
     def find_by_id(self, id_: T.NdiId) -> T.Document:
@@ -201,7 +198,8 @@ class SQL(NDI_Database):
         self._collections[DOCUMENTS_TABLENAME].update_by_id(
             id_, payload=payload)
 
-    def delete_by_id(self, id_: T.NdiId) -> None:
+    @with_delete_warning
+    def delete_by_id(self, id_: T.NdiId, force:bool = False) -> None:
         """Deletes the :term:`NDI object` with the given id from the specified :term:`collection`.
 
         .. currentmodule:: ndi.ndi_database

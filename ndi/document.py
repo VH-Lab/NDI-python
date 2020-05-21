@@ -161,7 +161,7 @@ class Document(NDI_Object):
 
     def delete(self, force=False, remove_history=False,):
         if force:
-            deletees = self.get_dependencies().values()
+            deletees = list(self.get_dependencies().values())
             if remove_history:
                 deletees.extend(self.get_history())
             for ndi_document in deletees:

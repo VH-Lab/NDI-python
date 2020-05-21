@@ -15,11 +15,6 @@ class NDI_Database(ABC):
     Child classes of :class:`NDI_Database` are standardized, and share the same base methods and data signatures.
     """
     _collections: T.Dict = {
-        Experiment: None,
-        DaqSystem: None,
-        Probe: None,
-        Epoch: None,
-        Channel: None,
         Document: None
     }
 
@@ -55,7 +50,7 @@ class NDI_Database(ABC):
         pass
 
     @abstractmethod
-    def delete(self, ndi_document):
+    def delete(self, ndi_document, force=False):
         """It should be able to delete one or many instances of an :term:`NDI object`.
         
         :param ndi_document:
@@ -88,7 +83,7 @@ class NDI_Database(ABC):
         pass
 
     @abstractmethod
-    def delete_by_id(self, id_):
+    def delete_by_id(self, id_, force=False):
         """It should be able to remove a single :term:`document` from a collection given its :term:`NDI class` and id.
 
         :param ndi_class:
@@ -121,7 +116,7 @@ class NDI_Database(ABC):
         pass
 
     @abstractmethod
-    def delete_many(self, query):
+    def delete_many(self, query, force=False):
         """It should be able to delete all :term:`document`\ s matching the given :term:`NDI query` in the :term:`collection` of the given :term:`NDI class`.
 
         :param ndi_class:
