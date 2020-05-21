@@ -14,6 +14,8 @@ class Experiment(NDI_Object):
     Inherits from the :class:`NDI_Object` abstract class.
     """
 
+    DOCUMENT_TYPE = 'experiment'
+
     def __init__(self, name: str, daq_systems: T.List[T.DaqSystem] = [], id_: T.NdiId = None):
         """Experiment constructor: initializes with fields defined in `ndi_schema <https://>`_'s Experiment table. For use when creating a new Experiment instance from scratch.
         ::
@@ -30,26 +32,39 @@ class Experiment(NDI_Object):
         """
         super().__init__(id_)
         self.metadata['name'] = name
+        self.metadata['type'] = self.DOCUMENT_TYPE
+        self.metadata['experiment_id'] = self.id
         self.add_data_property('daq_systems', [])
         for daq_system in daq_systems:
             self.add_daq_system(daq_system)
 
-    # Flatbuffer Methods
+    # Document Methods
     @classmethod
-    def from_flatbuffer(cls, flatbuffer: bytes) -> Experiment:
-        """Alternate Experiment constructor. For use whan initializing from a flatbuffer bytearray.
+    def from_database(cls, db, ndi_query: T.Query):
+        documents = db.find(ndi_query=ndi_query)
+        return [
+            cls.from_document(d) 
+            for d in documents 
+            if d.metadata['type'] == cls.DOCUMENT_TYPE
+        ]
+        
+    @classmethod
+    def from_document(cls, document) -> Experiment:
+        """Alternate Experiment constructor. For use whan initializing from a document bytearray.
         ::
-            reconstructed_experiment = Experiment.from_flatbuffer(fb)
+            reconstructed_experiment = Experiment.from_document(fb)
 
-        :type flatbuffer: bytearray
+        :type document: ndi.Document
 
         .. currentmodule:: ndi.experiment
 
         :rtype: :class:`Experiment`
         """
-        experiment = build_experiment.Experiment.GetRootAsExperiment(
-            flatbuffer, 0)
-        return cls._reconstruct(experiment)
+        return cls(
+            id_=document.id,
+            name=document.metadata['name'],
+            daq_systems=document.daq_systems
+        )
 
     @classmethod
     def _reconstruct(cls, experiment: T.Experiment_schema) -> Experiment:
@@ -66,22 +81,6 @@ class Experiment(NDI_Object):
             id_=T.NdiId(experiment.Id().decode('utf8')),
             name=experiment.Name().decode('utf8')
         )
-
-    def _build(self, builder: T.Builder) -> T.BuildOffset:
-        """.. currentmodule:: ndi.ndi_object
-
-        Called in NDI_Object.serialize() as part of flatbuffer bytearray generation from Experiment instance.
-
-        :param builder: Builder class in flatbuffers module.
-        :type builder: flatbuffers.Builder
-        """
-        id_ = builder.CreateString(self.id)
-        name = builder.CreateString(self.name)
-
-        build_experiment.ExperimentStart(builder)
-        build_experiment.ExperimentAddId(builder, id_)
-        build_experiment.ExperimentAddName(builder, name)
-        return build_experiment.ExperimentEnd(builder)
 
     # Experiment Methods
     def update(self, name: str) -> None:
