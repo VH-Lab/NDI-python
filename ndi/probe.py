@@ -69,9 +69,9 @@ class Probe(NDI_Object):
         return cls(
             id_=document.id,
             name=document.metadata['name'],
-            reference=document.reference,
-            type_=document.type,
-            daq_system_id=document.daq_system_id,
+            reference=document.data['reference'],
+            type_=document.data['type'],
+            daq_system_id=document.data['daq_system_id'],
             experiment_id=document.metadata['experiment_id'],
         )
 

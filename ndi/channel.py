@@ -87,13 +87,13 @@ class Channel(NDI_Object):
         return cls(
             id_=document.id,
             name=document.metadata['name'],
-            number=document.number,
-            type_=document.type_,
-            clock_type=document.clock_type,
-            source_file=document.source_file,
-            epoch_id=document.epoch_id,
-            probe_id=document.probe_id,
-            daq_system_id=document.daq_system_id,
+            number=document.data['number'],
+            type_=document.data['type'],
+            clock_type=document.data['clock_type'],
+            source_file=document.data['source_file'],
+            epoch_id=document.data['epoch_id'],
+            probe_id=document.data['probe_id'],
+            daq_system_id=document.data['daq_system_id'],
             experiment_id=document.metadata['experiment_id'],
         )
 
@@ -111,7 +111,7 @@ class Channel(NDI_Object):
     ) -> None:
         if name: self.name = name
         if number: self.number = number
-        if type_: self.type_ = type_
+        if type_: self.type = type_
         if source_file: self.source_file = source_file
         if epoch_id: self.epoch_id = epoch_id
         if probe_id: self.probe_id = probe_id
@@ -120,4 +120,3 @@ class Channel(NDI_Object):
         if clock_type: self.clock_type = clock_type
 
         self.ctx.update(self.document, force=True)
-        

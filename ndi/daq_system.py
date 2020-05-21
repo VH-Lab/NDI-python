@@ -47,7 +47,7 @@ class DaqSystem(NDI_Object):
         self.metadata['type'] = self.DOCUMENT_TYPE
         self.metadata['experiment_id'] = experiment_id
 
-        # TODO: figure out how to handle these as documents
+        # TODO: figure out how to handle these as documents (pending daq sys)
         self.file_navigator = file_navigator
         self.add_daq_reader(daq_reader)
         
@@ -69,8 +69,8 @@ class DaqSystem(NDI_Object):
             id_=document.id,
             name=document.metadata['name'],
             experiment_id=document.metadata['experiment_id'],
-            file_navigator=document.file_navigator,
-            daq_reader=document.daq_reader,
+            file_navigator=None,
+            daq_reader=lambda id: None,
         )
 
     def add_daq_reader(self, daq_reader: T.DaqReader) -> None:

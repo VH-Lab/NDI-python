@@ -50,8 +50,8 @@ class Epoch(NDI_Object):
         """
         return cls(
             id_=document.id,
-            daq_system_id=document.daq_system_id,
-            experiment_id=document.experiment_id,
+            daq_system_id=document.data['daq_system_id'],
+            experiment_id=document.metadata['experiment_id'],
         )
 
     def update(
