@@ -13,6 +13,9 @@ class Document(Flatbuffer_Object):
 
     Inherits from the :class:`NDI_Object` abstract class.
     """
+    ctx = None
+    bin = None
+
     def __init__(self, data: dict = {}, name: str = '', type_: str = '', experiment_id: str = '', id_=None):
         """Creates new ndi_document
 

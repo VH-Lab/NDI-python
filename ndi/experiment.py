@@ -63,7 +63,7 @@ class Experiment(NDI_Object):
         return cls(
             id_=document.id,
             name=document.metadata['name'],
-            daq_systems=document.daq_systems
+            daq_systems=document.data['daq_systems']
         )
 
     @classmethod
@@ -95,10 +95,15 @@ class Experiment(NDI_Object):
 
         :type daq_system: :class:`DaqSystem`
         """
-        daq_system.experiment_id = self.id
         # TODO: add daq_systems as deps
-        self.daq_systems.append(daq_system.id)
-        self.ctx.add(daq_system.document)
+        if isinstance(daq_system, str): # if daq_system is an id
+            self.daq_systems.append(daq_system)
+        else:
+            daq_system.experiment_id = self.id
+            self.daq_systems.append(daq_system.id)
+            if self.ctx:
+                self.ctx.add(daq_system.document)
+
 
     def add_related_obj_to_db(self, obj: T.NdiObjectWithExperimentId) -> None:
         obj.experiment_id = self.id

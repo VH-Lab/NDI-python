@@ -21,8 +21,15 @@ class NDI_Object(ABC):
         :param id_: A unique id.
         :type id_: str, optional
         """
-        self.document = Document()
+        self.document = Document(id_=id_)
     
+    @property
+    def ctx(self):
+        return self.document.ctx
+    @ctx.setter
+    def ctx(self, new_ctx):
+        self.document.ctx = new_ctx
+
     @property
     def id(self):
         return self.document.id
