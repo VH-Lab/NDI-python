@@ -13,8 +13,9 @@ class Document(Flatbuffer_Object):
 
     Inherits from the :class:`NDI_Object` abstract class.
     """
-    ctx = None
-    bin = None
+    ctx = 'ctx'
+    binary_collection = 'bin_col'
+    binary = None
 
     def __init__(self, data: dict = {}, name: str = '', type_: str = '', experiment_id: str = '', id_=None):
         """Creates new ndi_document
@@ -52,6 +53,17 @@ class Document(Flatbuffer_Object):
     @dependencies.setter
     def dependencies(self, dependencies):
         self.data['_dependencies'] = dependencies
+    
+    def set_ctx(self, ctx: T.NdiDatabase) -> None:
+        self.ctx = ctx
+
+    def with_ctx(self, ctx: T.NdiDatabase) -> T.Document:
+        self.ctx = ctx
+        return self
+
+    def set_binary_collecton(self, binary_collection):
+        self.binary_collection = binary_collection
+        self.binary = BinaryWrapper(binary_collection, self.id)
 
     def save_updates(self):
         """Updates version and creates a new id for this ndi_document and saves changes in database.
@@ -105,6 +117,7 @@ class Document(Flatbuffer_Object):
                 **self.dependencies, 
                 **new_dependency 
             }
+            print(self.data)
             self.ctx.add(ndi_document)
             self.ctx.update(self, force=True)
 
@@ -171,10 +184,23 @@ class Document(Flatbuffer_Object):
         build_document.DocumentAddId(builder, id_)
         build_document.DocumentAddData(builder, data)
         return build_document.DocumentEnd(builder)
-    
-    def set_ctx(self, ctx: T.NdiDatabase) -> None:
-        self.ctx = ctx
 
-    def with_ctx(self, ctx: T.NdiDatabase) -> T.Document:
-        self.ctx = ctx
-        return self
+
+class BinaryWrapper:
+    def __init__(self, binary_collection, id_):
+        self.id = id_
+        self.binary_collection = binary_collection
+    
+    def write(self, data):
+        return self.binary_collection(self.id, data)
+
+    def write_stream(self):
+        return self.binary_collection.write_stream(self.id)
+
+    def read_slice(self, start=None, end=None):
+        return self.binary_collection.read_slice(self.id, start=start, end=end)
+
+    def read_stream(self):
+        return self.binary_collection.read_stream(self.id)
+
+    
