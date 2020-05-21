@@ -49,7 +49,7 @@ class TestNdiDocument_SQL:
 
         # newly instantiated documents do not have a ctx
         doc = Document({ "data": "yeah" })
-        assert not hasattr(doc, 'ctx')
+        assert doc.ctx is None
 
         # documents get assigned a ctx on add,
         #   and the ctx is the database instance it was added to
@@ -192,7 +192,6 @@ class TestNdiDocument_SQL:
         doc.delete(force=True)
 
         get_deleted(db)
-        assert False
 
 def get_deleted(db):
     calls = [call for call in db.Session._mock_mock_calls if 'delete' in str(call)]
