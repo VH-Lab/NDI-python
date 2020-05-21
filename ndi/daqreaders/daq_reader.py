@@ -8,3 +8,7 @@ class DaqReader(ABC):
     @abstractmethod
     def samplerate(self, channel_number):
         pass
+
+    @abstractmethod
+    def readchannel(self, channel_number, start_time, end_time):
+        pass
