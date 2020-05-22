@@ -27,7 +27,6 @@ class NDI_Object:
         return self.document.ctx
     @ctx.setter
     def ctx(self, new_ctx):
-        print('setting ctx to document')
         self.document.ctx = new_ctx
     
     @property
@@ -68,14 +67,25 @@ class NDI_Object:
         self.document.data[key] = value
 
     def __getattribute__(self, key):
+        """Allows user to access properties in ndi_object.document.data off of the ndi_object instance."""
         try:
             return object.__getattribute__(self, 'document').data[key]
         except (KeyError, AttributeError):
             return object.__getattribute__(self, key)
 
     def __setattr__(self, key, value):
+        """Allows user to set properties in ndi_object.document.data from the ndi_object."""
         try:
+            object.__getattribute__(self, 'document').data[key]
+            # This looks weird, so...
+            # If line above does not throw an error, then we set the value.
+            # Line below does not work alone because instead of a key error,
+            #   it will just create the key and set the value to it.
             object.__getattribute__(self, 'document').data[key] = value
         except (KeyError, AttributeError):
-            setattr(self.__main__, key, value)
-
+            propobj = getattr(self.__class__, key, None)
+            if isinstance(propobj, property):
+                if propobj.fset:
+                    propobj.fset(self, value)
+            else:
+                super().__setattr__(key, value)

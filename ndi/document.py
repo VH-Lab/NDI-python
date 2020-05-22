@@ -13,8 +13,8 @@ class Document(Flatbuffer_Object):
 
     Inherits from the :class:`NDI_Object` abstract class.
     """
-    ctx = 'ctx'
-    binary_collection = 'bin_col'
+    ctx = 'BAD_ctx'
+    binary_collection = 'BAD_bin_col'
     binary = None
 
     def __init__(self, data: dict = {}, name: str = '', type_: str = '', experiment_id: str = '', id_=None):
@@ -46,6 +46,12 @@ class Document(Flatbuffer_Object):
     @metadata.setter
     def metadata(self, new_metadata):
         self.data['_metadata'] = new_metadata
+    @property
+    def metadata(self):
+        return self.data['_metadata']
+    @metadata.setter
+    def metadata(self, new_metadata):
+        self.data['_metadata'] = new_metadata
 
     @property
     def dependencies(self):
@@ -61,7 +67,7 @@ class Document(Flatbuffer_Object):
         self.ctx = ctx
         return self
 
-    def set_binary_collecton(self, binary_collection):
+    def set_binary_collection(self, binary_collection):
         self.binary_collection = binary_collection
         self.binary = BinaryWrapper(binary_collection, self.id)
 
@@ -117,7 +123,6 @@ class Document(Flatbuffer_Object):
                 **self.dependencies, 
                 **new_dependency 
             }
-            print(self.data)
             self.ctx.add(ndi_document)
             self.ctx.update(self, force=True)
 

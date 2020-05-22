@@ -39,23 +39,11 @@ class Experiment(NDI_Object):
             self.add_daq_system(daq_system)
 
     def connect(self, database=None, binary_collection=None):
-
-        print('connecting')
-        print(self)
-        print('---')
         if database: 
-            print('database')
-            print(self.ctx)
             self.ctx = database
-            print('-')
-            print(self.ctx)
-            print('---')
+            self.ctx.upsert(self.document, force=True)
         if binary_collection:
-            print('binary_collection')
-            print(self.binary_collection)
             self.binary_collection = binary_collection
-            print('-')
-            print(self.binary_collection)
         return self
 
     # Document Methods
@@ -110,6 +98,8 @@ class Experiment(NDI_Object):
 
     def add_related_obj_to_db(self, obj: T.NdiObjectWithExperimentId, key = None) -> None:
         obj.metadata['experiment_id'] = self.id
+        obj.ctx = self.ctx
+        obj.binary_collection = self.binary_collection
         self.add_dependency(obj.document, key=key)
 
     add_probe = add_related_obj_to_db
@@ -118,4 +108,6 @@ class Experiment(NDI_Object):
     
     def add_document(self, doc, key=None):
         doc.metadata['experiment_id'] = self.id
+        doc.set_ctx(self.ctx)
+        doc.set_binary_collection(self.binary_collection)
         self.add_dependency(doc, key=key)

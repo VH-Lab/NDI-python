@@ -262,6 +262,7 @@ class BinaryCollection:
 
         def write(self, item):
             self.file.write(np.array([item]).astype(float).tobytes())
+            return self
 
         def open(self):
             self.file = open(self.filepath, self.mode)
@@ -272,6 +273,7 @@ class BinaryCollection:
 
         def seek(self, position):
             self.file.seek(position * 8)
+            return self
 
         def read(self, size=-1):
             read_size = -1 if size < 0 else size * 8
