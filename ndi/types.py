@@ -147,7 +147,7 @@ if TYPE_CHECKING:
 
     # SQL
 
-    SqlCollectionName = Union[NdiClass, str]
+    SqlCollectionName = str
 
     SqlDatabaseCollections = Dict[
         SqlCollectionName,

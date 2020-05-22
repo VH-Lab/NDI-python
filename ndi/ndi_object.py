@@ -102,6 +102,3 @@ class NDI_Object(ABC):
     def with_ctx(self, ctx: T.NdiDatabase) -> NDI_Object:
         self.ctx = ctx
         return self
-
-    def delete(self) -> None:
-        self.ctx.delete(self)

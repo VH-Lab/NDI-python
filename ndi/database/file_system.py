@@ -3,12 +3,13 @@ from .ndi_database import NDI_Database
 from pathlib import Path
 from ..document import Document
 from .query import CompositeQuery, AndQuery, OrQuery
+from .utils import with_update_warning, with_delete_warning
 import ndi.types as T
 import re
 import numpy as np
 
 
-class FileSystem:
+class FileSystem(NDI_Database):
     """File system database API.
 
     .. currentmodule:: ndi.database.ndi_database
@@ -31,27 +32,28 @@ class FileSystem:
 
     def add(self, ndi_document):
         file_path = self.db_dir / f'{ndi_document.id}.dat'
+        ndi_document.set_ctx(self)
         if not file_path.exists():
             self.__verify_dependencies(ndi_document)
-            self.upsert(ndi_document)
+            self.upsert(ndi_document, force=True)
             self.__add_relationships(ndi_document)
         else:
             raise FileExistsError(f'File \'{file_path}\' already exists')
 
-    def update(self, ndi_document):
+    def update(self, ndi_document, force=False):        
         file_path = self.db_dir / f'{ndi_document.id}.dat'
         if file_path.exists():
-            ndi_document._save_updates()
             self.upsert(ndi_document)
         else:
             raise FileNotFoundError(f'File \'{file_path}\' does not exist')
 
-    def upsert(self, ndi_document):
+    @with_update_warning
+    def upsert(self, ndi_document, force=False):
         (self.db_dir /
-         f'{ndi_document.id}.dat').write_bytes(ndi_document.serialize())
+        f'{ndi_document.id}.dat').write_bytes(ndi_document.serialize())
 
-    def delete(self, ndi_document):
-        self.delete_by_id(ndi_document.id)
+    def delete(self, ndi_document, force=False):
+        self.delete_by_id(ndi_document.id, force=force)
 
     def find(self, ndi_query=None):
         ndi_documents = [
@@ -60,38 +62,40 @@ class FileSystem:
         ]
 
         if ndi_query is None:
-            return ndi_documents
+            return [doc.with_ctx(self) for doc in ndi_documents]
 
         return [
-            ndi_document
-            for ndi_document in ndi_documents
+            doc.with_ctx(self)
+            for doc in ndi_documents
             if self.__parse_query(ndi_document.data, ndi_query)
         ]
 
-    def update_many(self, ndi_query=None, payload={}):
+    def update_many(self, ndi_query=None, payload={}, force=False):
         ndi_documents = self.find(ndi_query)
         for ndi_document in ndi_documents:
-            self.__update(ndi_document, payload)
+            self.__update(ndi_document, payload, force=force)
 
-    def delete_many(self, ndi_query=None):
+    def delete_many(self, ndi_query=None, force=False):
         ndi_documents = self.find(ndi_query)
         for ndi_document in ndi_documents:
-            self.delete(ndi_document)
+            self.delete(ndi_document, force=force)
 
     def find_by_id(self, id_):
-        return Document.from_flatbuffer((self.db_dir / f'{id_}.dat').read_bytes())
+        doc = Document.from_flatbuffer((self.db_dir / f'{id_}.dat').read_bytes())
+        return doc.with_ctx(self)
 
-    def update_by_id(self, id_, payload={}):
+    def update_by_id(self, id_, payload={}, force=False):
         ndi_document = self.find_by_id(id_)
-        self.__update(ndi_document, payload)
+        self.__update(ndi_document, payload, force=force)
 
-    def __update(self, ndi_document, payload):
+    def __update(self, ndi_document, payload, force):
         for key, value in payload.items():
             if key in ndi_document.data:
                 ndi_document.data[key] = value
-                self.update(ndi_document)
+                self.update(ndi_document, force=force)
 
-    def delete_by_id(self, id_):
+    @with_delete_warning
+    def delete_by_id(self, id_, force=False):
         self.__delete_dependents(id_)
         (self.db_dir / f'{id_}.dat').unlink()
 
