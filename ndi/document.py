@@ -121,7 +121,7 @@ class Document(Flatbuffer_Object):
                 deletees.extend(self.get_history())
             for ndi_document in deletees:
                 ndi_document.delete(force=force, remove_history=remove_history)
-            self.ctx.delete(self)
+            self.ctx.delete(self, force=force)
         else:
             raise RuntimeWarning('Are you sure you want to delete this document? This will permanently remove it and its dependencies. To delete anyway, use the force argument: db.update(document, force=True). To clear the version history of this document and related dependencies, use the remove_history argument.')
 
@@ -175,6 +175,6 @@ class Document(Flatbuffer_Object):
     def set_ctx(self, ctx: T.NdiDatabase) -> None:
         self.ctx = ctx
 
-    def with_ctx(self, ctx: T.NdiDatabase) -> T.NDI_Object:
+    def with_ctx(self, ctx: T.NdiDatabase) -> T.Document:
         self.ctx = ctx
         return self

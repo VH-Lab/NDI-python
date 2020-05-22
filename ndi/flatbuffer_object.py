@@ -43,17 +43,6 @@ class Flatbuffer_Object(ABC):
         """
         pass
 
-    @classmethod
-    def _reconstructList(cls, flatbuffer_object_parent) -> T.List[T.NdiObject]:
-        """
-        Creates ndi_object instances for flatbuffer objects in a vector 
-        """
-        return [
-            cls._reconstruct(
-                getattr(flatbuffer_object_parent, f'{cls.__name__}s')(i))
-            for i in range(getattr(flatbuffer_object_parent, f'{cls.__name__}sLength')())
-        ]
-
     @abstractmethod
     def _build(self, builder: T.Builder) -> T.BuildOffset:
         """
@@ -66,21 +55,6 @@ class Flatbuffer_Object(ABC):
             return NDIObjectEnd(builder)
         """
         pass
-
-    @staticmethod
-    def _buildStringVector(builder: T.Builder, strings: T.List[str]) -> T.BuildOffset:
-        """
-        Builds flatbuffer vector from list of strings
-        """
-        built_strings = [
-            builder.CreateString(string)
-            for string in strings
-        ]
-
-        builder.StartVector(4, len(built_strings), 4)
-        for built_string in reversed(built_strings):
-            builder.PrependUOffsetTRelative(built_string)
-        return builder.EndVector(len(built_strings))
 
     def serialize(self) -> bytearray:
         """
