@@ -149,7 +149,7 @@ def print_everything_in(db):
 
 def destroy_everything_in(db):
     for collection in db._collections:
-        db.delete_many()
+        db.delete_many(force=True)
 
 
 
