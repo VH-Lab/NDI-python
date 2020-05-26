@@ -38,6 +38,14 @@ class Experiment(NDI_Object):
         for daq_system in daq_systems:
             self.add_daq_system(daq_system)
 
+    def connect(self, database=None, binary_collection=None):
+        if database: 
+            self.ctx = database
+            self.ctx.upsert(self.document, force=True)
+        if binary_collection:
+            self.binary_collection = binary_collection
+        return self
+
     # Document Methods
     @classmethod
     def from_database(cls, db, ndi_query: T.Query):
@@ -79,7 +87,6 @@ class Experiment(NDI_Object):
 
         :type daq_system: :class:`DaqSystem`
         """
-        # TODO: add daq_systems as deps
         if isinstance(daq_system, str): # if daq_system is an id
             self.daq_systems.append(daq_system)
         else:
@@ -89,20 +96,18 @@ class Experiment(NDI_Object):
                 self.ctx.add(daq_system.document)
 
 
-    def add_related_obj_to_db(self, obj: T.NdiObjectWithExperimentId) -> None:
-        obj.experiment_id = self.id
-        self.ctx.add(obj.document)
+    def add_related_obj_to_db(self, obj: T.NdiObjectWithExperimentId, key = None) -> None:
+        obj.metadata['experiment_id'] = self.id
+        obj.ctx = self.ctx
+        obj.binary_collection = self.binary_collection
+        self.add_dependency(obj.document, key=key)
 
     add_probe = add_related_obj_to_db
     add_channel = add_related_obj_to_db
     add_epoch = add_related_obj_to_db
-
-    def add_related_objects_to_db(self, objects: T.Sequence[T.NdiObjectWithExperimentId]) -> None:
-        for o in objects:
-            o.experiment_id = self.id
-            self.ctx.add(o.document)
-
-    add_probes = add_related_objects_to_db
-    add_channels = add_related_objects_to_db
-    add_epochs = add_related_objects_to_db
-
+    
+    def add_document(self, doc, key=None):
+        doc.metadata['experiment_id'] = self.id
+        doc.set_ctx(self.ctx)
+        doc.set_binary_collection(self.binary_collection)
+        self.add_dependency(doc, key=key)
