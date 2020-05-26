@@ -197,13 +197,18 @@ class BinaryWrapper:
         self.binary_collection = binary_collection
     
     def write(self, data):
-        return self.binary_collection(self.id, data)
+        return self.binary_collection.write(self.id, data)
 
     def write_stream(self):
         return self.binary_collection.write_stream(self.id)
 
     def read_slice(self, start=None, end=None):
-        return self.binary_collection.read_slice(self.id, start=start, end=end)
+        args = {}
+        if start:
+            args['start'] = start
+        if end:
+            args['end'] = end
+        return self.binary_collection.read_slice(self.id, **args)
 
     def read_stream(self):
         return self.binary_collection.read_stream(self.id)
