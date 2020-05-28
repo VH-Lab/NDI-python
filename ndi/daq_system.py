@@ -1,9 +1,9 @@
 from __future__ import annotations
 import ndi.types as T
 from .ndi_object import NDI_Object
-from .file_navigator import FileNavigator
-import ndi.schema.DaqSystem as build_daq_system
-import ndi.daqreaders as DaqReaders
+from .channel import Channel
+from .epoch import Epoch
+from .probe import Probe
 
 
 class DaqSystem(NDI_Object):
@@ -22,6 +22,7 @@ class DaqSystem(NDI_Object):
         name: str,
         file_navigator: T.FileNavigator,
         daq_reader: T.DaqReader,
+        epoch_probe_map_class,
         experiment_id: T.NdiId = None,
         id_: T.NdiId = None
     ) -> None:
@@ -49,8 +50,8 @@ class DaqSystem(NDI_Object):
 
         # TODO: figure out how to handle these as documents (pending daq sys)
         self.file_navigator = file_navigator
-        self.add_daq_reader(daq_reader)
-        
+        self.epoch_probe_map_class = epoch_probe_map_class
+        self.daq_reader = daq_reader
 
     @classmethod
     def from_document(cls, document) -> DaqSystem:
@@ -70,20 +71,34 @@ class DaqSystem(NDI_Object):
             name=document.metadata['name'],
             experiment_id=document.metadata['experiment_id'],
             file_navigator=None,
+            epoch_probe_map_class=None,
             daq_reader=lambda id: None,
         )
 
-    def add_daq_reader(self, daq_reader: T.DaqReader) -> None:
-        self.daq_reader = daq_reader(self.id)
-
-    def provision(self, experiment: T.Experiment) -> None:
-        if self not in experiment.daq_systems:
+    def provision(self, experiment: T.Experiment):
+        if self.id not in experiment.daq_systems:
             experiment.add_daq_system(self)
 
-        # NOTE: This is where the channels, probes, and epochs would all be added 
-        # to the database as a part of the given experiment.
+        epoch_sets = self.file_navigator.get_epoch_set(experiment.directory)
+        epochprobemap = self.epoch_probe_map_class(
+            daq_reader=self.daq_reader,
+            epoch_sets=epoch_sets,
+            daq_system_id=self.id,
+            experiment_id=experiment.id
+        )
 
-        # NOTE: I think this is also where the daq system will add itself to the database 
-        #   (if it's not already in it)
+        epochs, probes, channels = epochprobemap.get_epochs_probes_channels()
+        self.epochs = epochs
+        self.probes = probes
+        self.channels = channels
+        for ndi_object in epochs + probes + channels:
+            self.ctx.add(ndi_object.document)
 
-        
+    def get_epochs(self):
+        return self.epochs
+
+    def get_probes(self):
+        return self.probes
+
+    def get_channels(self):
+        return self.channels
