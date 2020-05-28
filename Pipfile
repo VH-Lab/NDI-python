@@ -18,6 +18,9 @@ jupyter = "*"
 matplotlib = "*"
 sqlalchemy = "*"
 psycopg2-binary = "*"
+pytest = "*"
+neo = "*"
+alchemy-mock = "*"
 
 [requires]
 python_version = "3.8"

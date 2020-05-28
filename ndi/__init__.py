@@ -9,4 +9,3 @@ from .probe_type import ProbeType
 from .probe import Probe
 from .ndi_object import NDI_Object
 from .document import Document
-from .document_extension import DocumentExtension

@@ -1,11 +1,11 @@
 from __future__ import annotations
-from .ndi_object import NDI_Object
-from .decorators import handle_iter
-import ndi.schema.Document as build_document
 import ndi.types as T
+from .schema import Document as build_document
+import json
+from .flatbuffer_object import Flatbuffer_Object
 
 
-class Document(NDI_Object):
+class Document(Flatbuffer_Object):
     """
     A flatbuffer interface for documents.
 
@@ -13,56 +13,139 @@ class Document(NDI_Object):
 
     Inherits from the :class:`NDI_Object` abstract class.
     """
+    ctx = 'BAD_ctx'
+    binary_collection = 'BAD_bin_col'
+    binary = None
 
-    def __init__(
-        self,
-        name: str,
-        document_extension: T.Optional[T.DocumentExtension] = None,
-        id_: T.NdiId = None,
-        experiment_id: T.NdiId = None,
-        document_type: str = '',
-        version_depth: int = 0,
-        file_id: T.NdiId = None,
-        parent_id: T.NdiId = None,
-        asc_path: str = '',
-        dependencies: T.List[T.NdiId] = [],
-    ) -> None:
+    def __init__(self, data: dict = {}, name: str = '', type_: str = '', experiment_id: str = '', id_=None):
         """Creates new ndi_document
 
-        :param name: [description]
-        :type name: str
-        :param document_extension: [description], defaults to None
-        :type document_extension: T.Optional[T.DocumentExtension], optional
         :param id_: [description], defaults to None
         :type id_: T.NdiId, optional
-        :param experiment_id: [description], defaults to None
-        :type experiment_id: T.NdiId, optional
-        :param document_type: [description], defaults to ''
-        :type document_type: str, optional
-        :param version_depth: [description], defaults to 0
-        :type version_depth: int, optional
-        :param file_id: [description], defaults to None
-        :type file_id: T.NdiId, optional
-        :param parent_id: [description], defaults to None
-        :type parent_id: T.NdiId, optional
-        :param asc_path: [description], defaults to ''
-        :type asc_path: str, optional
-        :param dependencies: [description], defaults to []
-        :type dependencies: T.List[T.NdiId], optional
+        :param data: [description], defaults to None
+        :type data: dict, optional
         """
         super().__init__(id_)
-        self.name = name
-        self.experiment_id = experiment_id
-        self.document_type = document_type
-        self.version_depth = version_depth
-        self.file_id = file_id
-        self.parent_id = parent_id
-        self.asc_path = asc_path
-        self.dependencies = dependencies
-        self.set_document_extension(document_extension)
+        self.data = {
+            '_metadata': {
+                'name': name,
+                'type': type_,
+                'experiment_id': experiment_id,
+                'parent_id': '',
+                'asc_path': '',
+                'version_depth': 0,
+                'latest_version': True,
+            },
+            '_dependencies': {},
+            **data
+        }
 
+    @property
+    def metadata(self):
+        return self.data['_metadata']
+    @metadata.setter
+    def metadata(self, new_metadata):
+        self.data['_metadata'] = new_metadata
+    @property
+    def metadata(self):
+        return self.data['_metadata']
+    @metadata.setter
+    def metadata(self, new_metadata):
+        self.data['_metadata'] = new_metadata
+
+    @property
+    def dependencies(self):
+        return self.data['_dependencies']
+    @dependencies.setter
+    def dependencies(self, dependencies):
+        self.data['_dependencies'] = dependencies
+    
+    def set_ctx(self, ctx: T.NdiDatabase) -> None:
+        self.ctx = ctx
+
+    def with_ctx(self, ctx: T.NdiDatabase) -> T.Document:
+        self.ctx = ctx
+        return self
+
+    def set_binary_collection(self, binary_collection):
+        self.binary_collection = binary_collection
+        self.binary = BinaryWrapper(binary_collection, self.id)
+
+    def save_updates(self):
+        """Updates version and creates a new id for this ndi_document and saves changes in database.
+
+        Updates id, version_depth, parent_id with previous id, and document_extension with new ndi_document id.
+        Adds parent_id to asc_path.
+
+        To be used in database implementations only.
+        """
+        parent_id = self.id
+        self.metadata['latest_version'] = False
+        self.ctx.update(self, force=True)
+        super().__init__(None)
+        metadata = self.metadata
+        metadata['parent_id'] = parent_id
+        metadata['asc_path'] = ',' + metadata['parent_id'] + metadata['asc_path']
+        metadata['version_depth'] += 1
+        metadata['latest_version'] = True
+        self.dependencies = {}
+
+        if not self.ctx:
+            """Will fire if the document is not in the database (ctx is attached any time a document is added or retrieved from the database; only user-initialized Documents should not have a ctx)."""
+            # TODO: make this error message more helpful when ctx is well defined
+            raise RuntimeError('This document is not attached to a database.')
+        else:
+            self.ctx.add(self)
+
+    def get_history(self):
+        """oldest to newest"""
+        ids = self.metadata['asc_path'].split(',')[1:]
+        return [self.ctx.find_by_id(id) for id in reversed(ids)]
+
+    def __check_dependency_key_exists(self, key: str):
+        dependencies = self.dependencies
+        return any([key is extant for extant in dependencies.keys()])
+
+    def __check_dependency_id_exists(self, id_: str):
+        return any([id_ is extant_id for extant_id in self.dependencies.values()])
+
+    def add_dependency(self, ndi_document: T.Document, key: str = None):
+        key = key or ndi_document.metadata['name']
+        if self.__check_dependency_key_exists(key):
+            raise RuntimeError('Dependency key is already in use (dependency keys default to the document name if not specified).')
+        elif self.__check_dependency_id_exists(ndi_document.id):
+            dependency_name = ndi_document.metadata['name']
+            own_name = self.metadata['name']
+            raise RuntimeError(f'Document {dependency_name} is already a dependency of document {own_name}.')
+        else:
+            new_dependency = {key: ndi_document.id}
+            self.dependencies = { 
+                **self.dependencies, 
+                **new_dependency 
+            }
+            self.ctx.add(ndi_document)
+            self.ctx.update(self, force=True)
+
+    def get_dependencies(self):
+        for key, value in self.dependencies.items():
+            if isinstance(value, str):
+                self.dependencies[key] = self.ctx.find_by_id(value)
+        return self.dependencies
+
+    def delete(self, force=False, remove_history=False,):
+        if force:
+            deletees = list(self.get_dependencies().values())
+            if remove_history:
+                deletees.extend(self.get_history())
+            for ndi_document in deletees:
+                ndi_document.delete(force=force, remove_history=remove_history)
+            self.ctx.delete(self, force=force)
+        else:
+            raise RuntimeWarning('Are you sure you want to delete this document? This will permanently remove it and its dependencies. To delete anyway, use the force argument: db.update(document, force=True). To clear the version history of this document and related dependencies, use the remove_history argument.')
+
+    
     @classmethod
-    def from_flatbuffer(cls, flatbuffer: bytes) -> Document:
+    def from_flatbuffer(cls, flatbuffer):
         """For constructing ndi_document from a flatbuffer
 
         :param flatbuffer: [description]
@@ -74,7 +157,7 @@ class Document(NDI_Object):
         return cls._reconstruct(document)
 
     @classmethod
-    def _reconstruct(cls, document: T.Document_schema) -> Document:
+    def _reconstruct(cls, document):
         """For constructing ndi_document from a flatbuffer object
 
         :param document: [description]
@@ -83,17 +166,11 @@ class Document(NDI_Object):
         :rtype: Document
         """
         return cls(
-            id_=T.NdiId(document.Id().decode('utf8')),
-            name=document.Name().decode('utf8'),
-            experiment_id=T.NdiId(document.ExperimentId().decode('utf8')),
-            document_type=document.DocumentType().decode('utf8'),
-            version_depth=document.VersionDepth(),
-            file_id=T.NdiId(document.FileId().decode('utf8')) or None,
-            parent_id=T.NdiId(document.ParentId().decode('utf8')) or None,
-            asc_path=document.AscPath().decode('utf8')
+            id_=document.Id().decode(),
+            data=json.loads(document.Data())
         )
 
-    def _build(self, builder: T.Builder) -> T.BuildOffset:
+    def _build(self, builder):
         """.. currentmodule:: ndi.ndi_object
 
         Called in NDI_Object.serialize() as part of flatbuffer bytearray generation from Experiment instance.
@@ -101,47 +178,39 @@ class Document(NDI_Object):
         :param builder: Builder class in flatbuffers module.
         :type builder: flatbuffers.Builder
         """
-        name = builder.CreateString(self.name)
+        self.data['_dependencies'] = {
+            key: dep.id if isinstance(dep, Document) else dep 
+            for key, dep in self.dependencies.items() }
+
         id_ = builder.CreateString(self.id)
-        experiment_id = builder.CreateString(self.experiment_id)
-        document_type = builder.CreateString(self.document_type)
-        file_id = builder.CreateString(self.file_id or '')
-        parent_id = builder.CreateString(self.parent_id or '')
-        asc_path = builder.CreateString(self.asc_path)
+        data = builder.CreateString(json.dumps(self.data, separators=(',', ':')))
 
         build_document.DocumentStart(builder)
-        build_document.DocumentAddName(builder, name)
         build_document.DocumentAddId(builder, id_)
-        build_document.DocumentAddExperimentId(builder, experiment_id)
-        build_document.DocumentAddDocumentType(builder, document_type)
-        build_document.DocumentAddVersionDepth(builder, self.version_depth)
-        build_document.DocumentAddFileId(builder, file_id)
-        build_document.DocumentAddParentId(builder, parent_id)
-        build_document.DocumentAddAscPath(builder, asc_path)
+        build_document.DocumentAddData(builder, data)
         return build_document.DocumentEnd(builder)
 
-    def set_document_extension(self, document_extension: T.Optional[T.DocumentExtension]) -> None:
-        """Sets the document_extension for this ndi_document
 
-        :param document_extension: [description]
-        :type document_extension: DocumentExtension
-        """
-        self.document_extension = document_extension
-        if self.document_extension:
-            self.document_extension.document_id = self.id
-            self.document_type = type(self.document_extension).__name__
+class BinaryWrapper:
+    def __init__(self, binary_collection, id_):
+        self.id = id_
+        self.binary_collection = binary_collection
+    
+    def write(self, data):
+        return self.binary_collection.write(self.id, data)
 
-    def _save_updates(self) -> None:
-        """Updates version and creates a new id for this ndi_document.
+    def write_stream(self):
+        return self.binary_collection.write_stream(self.id)
 
-        Updates id, version_depth, parent_id with previous id, and document_extension with new ndi_document id.
-        Adds parent_id to asc_path.
+    def read_slice(self, start=None, end=None):
+        args = {}
+        if start:
+            args['start'] = start
+        if end:
+            args['end'] = end
+        return self.binary_collection.read_slice(self.id, **args)
 
-        To be used in database implementations only.
-        """
-        self.parent_id = self.id
-        self.asc_path = f',{self.parent_id}' + self.asc_path
-        super().__init__(None)
-        if self.document_extension:
-            self.document_extension.document_id = self.id
-        self.version_depth += 1
+    def read_stream(self):
+        return self.binary_collection.read_stream(self.id)
+
+    

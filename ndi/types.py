@@ -94,7 +94,7 @@ if TYPE_CHECKING:
         Experiment_schema,
         FileNavigator_schema,
         Probe_schema,
-        Document_schema
+        Document_schema,
     )
 
     SchemaEnumClass = Union[
@@ -112,6 +112,8 @@ if TYPE_CHECKING:
     """NDI Types
         Associated with the NDI classes and types."""
 
+    NdiDatabase = Union[SQL, FileSystem]
+
     NdiClass = Union[
         Type[Experiment],
         Type[Probe],
@@ -128,13 +130,24 @@ if TYPE_CHECKING:
         Channel,
         Document,
     ]
+    NdiObjectWithExperimentId = Union[
+        Probe,
+        DaqSystem,
+        Epoch,
+        Channel,
+    ]
+    NdiQueryClass = Union[
+        Type[Query],
+        Type[AndQuery],
+        Type[OrQuery]
+    ]
 
     """Database Types
         Associated with ndi.database drivers."""
 
     # SQL
 
-    SqlCollectionName = Union[NdiClass, str]
+    SqlCollectionName = str
 
     SqlDatabaseCollections = Dict[
         SqlCollectionName,

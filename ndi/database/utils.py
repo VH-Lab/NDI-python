@@ -87,6 +87,36 @@ def check_ndi_objects(func):
             func(self, ndi_objects, *args, **kwargs)
     return decorator
 
+def with_update_warning(func):
+    """Decorator: meant to work with :class:`SQL` methods. Ensures that every item in the first argument is a valid :term:`NDI object`.
+    
+    :param func:
+    :type func: function
+    :return: Returns return value of decorated function.
+    """
+    @wraps(func)
+    def decorator(self, *args, **kwargs):
+        if 'force' in kwargs and kwargs['force']:
+            func(self, *args, **kwargs)
+        else:
+            raise RuntimeWarning('Manual updates are strongly discouraged to maintain data integrity across depenencies. To update anyway, use the force argument: db.update(document, force=True).')
+    return decorator
+
+def with_delete_warning(func):
+    """Decorator: meant to work with :class:`SQL` methods. Ensures that every item in the first argument is a valid :term:`NDI object`.
+    
+    :param func:
+    :type func: function
+    :return: Returns return value of decorated function.
+    """
+    @wraps(func)
+    def decorator(self, *args, **kwargs):
+        if 'force' in kwargs and kwargs['force']:
+            func(self, *args, **kwargs)
+        else:
+            raise RuntimeWarning('Manual deletes are strongly discouraged to maintain data integrity across depenencies. To delete anyway, use the force argument: db.delete(document, force=True).')
+    return decorator
+
 def update_flatbuffer(ndi_class, flatbuffer, payload):
     """Decorator: meant to work with :class:`Collection` methods. Converts a list of :term:`NDI object`\ s into their :term:`SQLA document` equivalents.
     
@@ -101,7 +131,6 @@ def update_flatbuffer(ndi_class, flatbuffer, payload):
 
 def print_everything_in(db):
     for collection in db._collections:
-        print(collection)
         if isinstance(collection, str):
             # is a lookup table
             print(f'Lookup Table: {collection}')
@@ -113,14 +142,14 @@ def print_everything_in(db):
             for doc in results:
                 try: print(f'  - {doc.name}')
                 except AttributeError: print(f'  - {doc.id}')
-            if results:
+            if not results:
                 print('  ---NONE---')
             print('')
 
 
 def destroy_everything_in(db):
     for collection in db._collections:
-        db.delete_many(collection)
+        db.delete_many(force=True)
 
 
 
@@ -136,7 +165,7 @@ def reduce_ndi_objects_to_ids(ndi_objects):
     except TypeError:
         return ndi_objects.id
 
-def recast_ndi_objects_to_documents(func):
+def recast_ndi_object_to_document(func):
     """Decorator: meant to work with :class:`Collection` methods. Converts a list of :term:`NDI object`\ s into their :term:`SQLA document` equivalents.
     
     :param func:
@@ -144,9 +173,9 @@ def recast_ndi_objects_to_documents(func):
     :return: Returns return value of decorated function.
     """
     @wraps(func)
-    def decorator(self, ndi_objects, *args, **kwargs):
-        items = [ self.create_document_from_ndi_object(o) for o in ndi_objects ]
-        return func(self, items, *args, **kwargs)
+    def decorator(self, ndi_object, *args, **kwargs):
+        item = self.create_document_from_ndi_object(ndi_object)
+        return func(self, item, *args, **kwargs)
     return decorator
 
 def translate_query(func):
