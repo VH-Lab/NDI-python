@@ -11,13 +11,14 @@ def new_experiment():
     name = 'abc'
     daq_system_ids = ['1', '2', '3']
     daq_systems = [MockDaqSystem(id_=id_) for id_ in daq_system_ids]
-    e = Experiment(name, daq_systems)
-    yield e, name, daq_system_ids
+    directory = './tests/data/intracell_example'
+    e = Experiment(name, directory, daq_systems)
+    yield e, name, directory, daq_system_ids
 
 class TestExperimentDocument:
     def test_new_experiment(self, new_experiment):
         """ndi.Experiment.__init__"""
-        e, name, ds_ids = new_experiment
+        e, name, directory, ds_ids = new_experiment
 
         # metadata is properly set in document
         assert e.document.data['_metadata']['name'] == name
@@ -29,8 +30,8 @@ class TestExperimentDocument:
 
     def test_document_to_experiment(self, new_experiment):
         """ndi.Experiment.from_document"""
-        e, name, ds_ids = new_experiment
+        e, name, directory, ds_ids = new_experiment
 
         d = e.document
-        rebuilt_experiment = Experiment.from_document(d)
+        rebuilt_experiment = Experiment.from_document(d, directory)
         assert rebuilt_experiment == e
