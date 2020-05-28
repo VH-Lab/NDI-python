@@ -1,11 +1,6 @@
 from __future__ import annotations
 import ndi.types as T
 from .ndi_object import NDI_Object
-import ndi.schema.Channel as build_channel
-from ndi.schema.ClockType import ClockType as build_clock_type
-from ndi.schema.ChannelType import ChannelType as build_channel_type
-from .channel_type import ChannelType
-from .clock_type import ClockType
 
 
 class Channel(NDI_Object):
@@ -21,7 +16,6 @@ class Channel(NDI_Object):
     # TODO: require daq_system_id after implementing DaqReaders
     def __init__(
         self,
-        name: str,
         number: int,
         type_: str,
         source_file: str,
@@ -29,6 +23,7 @@ class Channel(NDI_Object):
         #       would need a list of epoch_ids
         epoch_id: T.NdiId,
         probe_id: T.NdiId,
+        daq_reader,
         daq_system_id: T.NdiId = None,
         experiment_id: T.NdiId = None,
         id_: T.NdiId = None,
@@ -61,7 +56,6 @@ class Channel(NDI_Object):
         :rtype: :class:`Channel`
         """
         super().__init__(id_)
-        self.metadata['name'] = name
         self.metadata['type'] = self.DOCUMENT_TYPE
         self.metadata['experiment_id'] = experiment_id
         self.add_data_property('number', number)
@@ -71,9 +65,10 @@ class Channel(NDI_Object):
         self.add_data_property('epoch_id', epoch_id)
         self.add_data_property('probe_id', probe_id)
         self.add_data_property('daq_system_id', daq_system_id)
+        self.daq_reader = daq_reader(source_file)
 
     @classmethod
-    def from_document(cls, document) -> Channel:
+    def from_document(cls, document, daq_reader) -> Channel:
         """Alternate Channel constructor. For use whan initializing from a document.
         ::
             reconstructed_channel = Channel.from_document(fb)
@@ -86,20 +81,19 @@ class Channel(NDI_Object):
         """
         return cls(
             id_=document.id,
-            name=document.metadata['name'],
             number=document.data['number'],
             type_=document.data['type'],
             clock_type=document.data['clock_type'],
             source_file=document.data['source_file'],
             epoch_id=document.data['epoch_id'],
             probe_id=document.data['probe_id'],
+            daq_reader=daq_reader,
             daq_system_id=document.data['daq_system_id'],
             experiment_id=document.metadata['experiment_id'],
         )
 
     def update(
         self,
-        name: str,
         number: int,
         type_: str,
         source_file: str,
@@ -109,7 +103,6 @@ class Channel(NDI_Object):
         experiment_id: T.NdiId = None,
         clock_type: str = 'no_time'
     ) -> None:
-        if name: self.name = name
         if number: self.number = number
         if type_: self.type = type_
         if source_file: self.source_file = source_file
@@ -120,3 +113,12 @@ class Channel(NDI_Object):
         if clock_type: self.clock_type = clock_type
 
         self.ctx.update(self.document, force=True)
+
+    def read(self, **kwargs):
+        if self.type == 'event':
+            return self.daq_reader.readevents(self.number, **kwargs)
+        else:
+            return self.daq_reader.readchannel(self.number, **kwargs)
+
+    def samplerate(self):
+        return self.daq_reader.samplerate(self.number)

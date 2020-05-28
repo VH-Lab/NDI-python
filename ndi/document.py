@@ -13,7 +13,7 @@ class Document(Flatbuffer_Object):
 
     Inherits from the :class:`NDI_Object` abstract class.
     """
-    ctx = 'BAD_ctx'
+    ctx = None
     binary_collection = 'BAD_bin_col'
     binary = None
 
@@ -212,5 +212,3 @@ class BinaryWrapper:
 
     def read_stream(self):
         return self.binary_collection.read_stream(self.id)
-
-    

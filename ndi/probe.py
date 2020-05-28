@@ -1,9 +1,6 @@
 from __future__ import annotations
 import ndi.types as T
 from .ndi_object import NDI_Object
-import ndi.schema.Probe as build_probe
-from ndi.schema.ProbeType import ProbeType as build_probe_type
-from .probe_type import ProbeType
 
 
 class Probe(NDI_Object):
@@ -48,10 +45,7 @@ class Probe(NDI_Object):
         self.metadata['experiment_id'] = experiment_id
         self.add_data_property('reference', reference)
         self.add_data_property('daq_system_id', daq_system_id)
-        if type_ in ProbeType:
-            self.add_data_property('type', type_)
-        else:
-            raise TypeError(f'Type must be in {ProbeType}')
+        self.add_data_property('type', type_)
 
     # Document Methods
     @classmethod

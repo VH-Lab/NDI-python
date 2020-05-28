@@ -2,7 +2,6 @@ from __future__ import annotations
 import ndi.types as T
 from .ndi_object import NDI_Object
 from uuid import uuid4
-import ndi.schema.Experiment as build_experiment
 
 
 class Experiment(NDI_Object):
@@ -16,7 +15,7 @@ class Experiment(NDI_Object):
 
     DOCUMENT_TYPE = 'experiment'
 
-    def __init__(self, name: str, daq_systems: T.List[T.DaqSystem] = [], id_: T.NdiId = None):
+    def __init__(self, name: str, directory: str, daq_systems: T.List[T.DaqSystem] = [], id_: T.NdiId = None):
         """Experiment constructor: initializes with fields defined in `ndi_schema <https://>`_'s Experiment table. For use when creating a new Experiment instance from scratch.
         ::
             new_experiment = Experiment(**fields)
@@ -35,6 +34,7 @@ class Experiment(NDI_Object):
         self.metadata['type'] = self.DOCUMENT_TYPE
         self.metadata['experiment_id'] = self.id
         self.add_data_property('daq_systems', [])
+        self.directory = directory
         for daq_system in daq_systems:
             self.add_daq_system(daq_system)
 
@@ -48,16 +48,16 @@ class Experiment(NDI_Object):
 
     # Document Methods
     @classmethod
-    def from_database(cls, db, ndi_query: T.Query):
+    def from_database(cls, db, directory, ndi_query: T.Query):
         documents = db.find(ndi_query=ndi_query)
         return [
-            cls.from_document(d) 
+            cls.from_document(d, directory) 
             for d in documents 
             if d.metadata['type'] == cls.DOCUMENT_TYPE
         ]
         
     @classmethod
-    def from_document(cls, document) -> Experiment:
+    def from_document(cls, document, directory) -> Experiment:
         """Alternate Experiment constructor. For use whan initializing from a document bytearray.
         ::
             reconstructed_experiment = Experiment.from_document(fb)
@@ -70,6 +70,7 @@ class Experiment(NDI_Object):
         """
         return cls(
             id_=document.id,
+            directory=directory,
             name=document.metadata['name'],
             daq_systems=document.data['daq_systems']
         )
@@ -87,6 +88,7 @@ class Experiment(NDI_Object):
 
         :type daq_system: :class:`DaqSystem`
         """
+
         if isinstance(daq_system, str): # if daq_system is an id
             self.daq_systems.append(daq_system)
         else:

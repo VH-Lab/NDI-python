@@ -1,7 +1,6 @@
 from __future__ import annotations
 import ndi.types as T
 from .ndi_object import NDI_Object
-import ndi.schema.Epoch as build_epoch
 
 
 class Epoch(NDI_Object):
@@ -18,7 +17,6 @@ class Epoch(NDI_Object):
 
     def __init__(
         self, 
-        daq_system_id: T.NdiId = None, 
         experiment_id: T.NdiId = None, 
         id_: T.NdiId = None
     ) -> None:
@@ -34,7 +32,6 @@ class Epoch(NDI_Object):
         super().__init__(id_)
         self.metadata['type'] = self.DOCUMENT_TYPE
         self.metadata['experiment_id'] = experiment_id
-        self.daq_system_id = daq_system_id
 
     @classmethod
     def from_document(cls, document) -> Epoch:
@@ -50,16 +47,9 @@ class Epoch(NDI_Object):
         """
         return cls(
             id_=document.id,
-            daq_system_id=document.data['daq_system_id'],
             experiment_id=document.metadata['experiment_id'],
         )
 
-    def update(
-        self, 
-        daq_system_id: T.NdiId = None, 
-        experiment_id: T.NdiId = None, 
-    ) -> None:
-        if daq_system_id: self.daq_system_id = daq_system_id
+    def update(self, experiment_id: T.NdiId = None) -> None:
         if experiment_id: self.experiment_id = experiment_id
-
         self.ctx.update(self.document, force=True)
