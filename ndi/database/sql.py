@@ -182,7 +182,7 @@ class SQL(NDI_Database):
             id_,
             result_format=Datatype.NDI    
         )
-        return item.with_ctx(self)
+        return item.with_ctx(self) if item else item
 
     @with_update_warning
     def update_by_id(self, id_: T.NdiId, payload: T.SqlCollectionDocument = {}, force: bool = False) -> None:
@@ -523,6 +523,8 @@ class Collection:
         :rtype: bytearray | dict
         """
         document = session.query(self.table).get(id_)
+        if not document:
+            return document
         formatted_results = self.__formatted_results(document, result_format)
         if not isinstance(formatted_results, list):
             return formatted_results

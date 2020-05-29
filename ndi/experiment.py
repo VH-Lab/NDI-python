@@ -132,37 +132,34 @@ class Experiment(NDI_Object):
                 self.ctx.add(daq_system.document)
 
 
-    def add_related_obj_to_db(self, obj: T.NdiObjectWithExperimentId, key = None) -> None:
-        obj.metadata['experiment_id'] = self.id
-        obj.ctx = self.ctx
-        obj.binary_collection = self.binary_collection
-        self.add_dependency(obj.document, key=key)
+    def add_related_obj_to_db(self, ndi_object: T.NdiObjectWithExperimentId) -> None:
+        ndi_object.metadata['experiment_id'] = self.id
+        ndi_object.ctx = self.ctx
+        ndi_object.binary_collection = self.binary_collection
+        self.ctx.add(ndi_object.document)
 
     def add_epoch(self, epoch: T.Epoch):
         if not isinstance(epoch, Epoch):
             raise TypeError(f'Object {epoch} is not an instance of ndi.Epoch.')
-        self.__check_dependency_requirements(epoch, ['daq_system'])
+        self.__check_foreign_key_requirements(epoch, ['daq_system'])
 
-        key = f'epoch:{epoch.id}'
-        self.add_related_obj_to_db(epoch, key)
+        self.add_related_obj_to_db(epoch)
 
     def add_probe(self, probe: T.Probe):
         if not isinstance(probe, Probe):
             raise TypeError(f'Object {probe} is not an instance of ndi.Probe.')
-        self.__check_dependency_requirements(probe, ['daq_system'])
+        self.__check_foreign_key_requirements(probe, ['daq_system'])
         
-        key = f'probe:{probe.id}'
-        self.add_related_obj_to_db(probe, key)
+        self.add_related_obj_to_db(probe)
 
     def add_channel(self, channel: T.Channel):
         if not isinstance(channel, Channel):
             raise TypeError(f'Object {channel} is not an instance of ndi.Channel.')
-        self.__check_dependency_requirements(channel, ['epoch', 'probe', 'daq_system'])
+        self.__check_foreign_key_requirements(channel, ['epoch', 'probe', 'daq_system'])
         
-        key = f'channel:{channel.id}'
-        self.add_related_obj_to_db(channel, key)
+        self.add_related_obj_to_db(channel)
 
-    def __check_dependency_requirements(self, ndi_object, relations):
+    def __check_foreign_key_requirements(self, ndi_object, relations):
         for relation in relations:
             id_key = f'{relation}_id'
             related_id = getattr(ndi_object, id_key)
@@ -173,9 +170,17 @@ class Experiment(NDI_Object):
                 if related_id not in self.daq_systems:
                     raise missing_relation_error
             else:    
-                relation_exists = self.check_dependency_exists(related_id)
+                relation_exists = self.check_id_in_database(related_id)
                 if not relation_exists:
                     raise missing_relation_error
+    
+    def delete_ndi_dependency(self, ndi_object, force=False):
+        if force:
+            pass
+        else:
+            raise RuntimeWarning('Are you sure you want to delete this? This will permanently remove it and its dependencies. To delete anyway, set the force argument to True. To clear the version history of this document and related dependencies, set the remove_history argument to True.')
+
+
 
     def get_epochs(self):
         return self.get_ndi_dependencies(Epoch)
@@ -185,12 +190,10 @@ class Experiment(NDI_Object):
         return self.get_ndi_dependencies(Channel)
 
     def get_ndi_dependencies(self, NdiClass):
-        dependencies = self.document.get_dependencies()
-        ndi_objects = [
-            NdiClass.from_document(value) 
-            for key, value in dependencies.items() 
-            if key.startswith(f'{NdiClass.DOCUMENT_TYPE}:')
-        ]
+        has_this_experiment_id = Q('_metadata.experiment_id') == self.id
+        is_desired_class = Q('_metadata.type') == NdiClass.DOCUMENT_TYPE
+        documents = self.ctx.find(has_this_experiment_id & is_desired_class)
+        ndi_objects = [NdiClass.from_document(d) for d in documents]
         return ndi_objects
 
     def find_epochs(self, ndi_query):
@@ -204,6 +207,9 @@ class Experiment(NDI_Object):
         class_filter = Q('_metadata.type') == NdiClass.DOCUMENT_TYPE
         docs = self.ctx.find(class_filter & ndi_query)
         return [NdiClass.from_document(d) for d in docs]
+
+    def check_id_in_database(self, id_):
+        return bool(self.ctx.find_by_id(id_))
 
     def check_dependency_exists(self, id_):
         for item in self.dependencies.values():

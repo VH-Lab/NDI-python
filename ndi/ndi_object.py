@@ -56,7 +56,22 @@ class NDI_Object:
     def dependencies(self, dependencies):
         self.document.dependencies = dependencies
 
-    def add_dependency(self, ndi_document, key):
+    @property
+    def depends_on(self):
+        return self.document.depends_on
+    @depends_on.setter
+    def depends_on(self, depends_on):
+        self.document.depends_on = depends_on
+    
+    @property
+    def current(self):
+        return self.refresh()
+
+    def refresh(self):
+        self.document.refresh()
+        return self
+
+    def add_dependency(self, ndi_document, key=None):
         return self.document.add_dependency(ndi_document, key=key)
 
     def __eq__(self, ndi_object) -> bool:
