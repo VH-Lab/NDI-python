@@ -3,6 +3,7 @@ import numpy as np
 import struct
 import pytest
 import io
+from tests.utils import rmrf
 
 
 def randarray(): return np.random.random(200000)
@@ -29,14 +30,14 @@ class TestBinaryCollection:
         collection, collection_dir, _ = binary_collection
         test_arr = randarray()
 
-        with collection.open_write_stream('fake_id') as open_write_stream:
+        with collection.open_write_stream('fake_id') as write_stream:
             # Test that the write stream is an io object
-            assert isinstance(open_write_stream, io.BufferedIOBase)
+            assert isinstance(write_stream, io.BufferedIOBase)
 
             # Writing contents into file
-            open_write_stream.write(b'hello test')
+            write_stream.write(b'hello test')
             for item in test_arr:
-                open_write_stream.write(struct.pack('d', item))
+                write_stream.write(struct.pack('d', item))
 
         # Test that binary file was made
         assert (collection_dir / 'fake_id.bin').exists()
@@ -55,32 +56,23 @@ class TestBinaryCollection:
     def test_read_stream(self, binary_collection):
         collection, _, test_arr = binary_collection
 
-        with collection.open_read_stream('test_id') as open_read_stream:
+        with collection.open_read_stream('test_id') as read_stream:
             # Test that the write stream is an io object
-            assert isinstance(open_read_stream, io.BufferedIOBase)
+            assert isinstance(read_stream, io.BufferedIOBase)
 
             # Test that first 10 bytes are as expected
-            assert open_read_stream.read(10) == b'hello test'
+            assert read_stream.read(10) == b'hello test'
 
             # Test that stream offset is at 10 after reading 10 bytes
-            assert open_read_stream.tell() == 10
+            assert read_stream.tell() == 10
 
             # Move stream offset to 18
-            open_read_stream.seek(18)
+            read_stream.seek(18)
 
             # Test that stream offset is at 18 after calling seek()
-            assert open_read_stream.tell() == 18
+            assert read_stream.tell() == 18
 
             # Test that the values from the rest of the stream are as expected
-            assert open_read_stream.read(8) == struct.pack('d', test_arr[1])
+            assert read_stream.read(8) == struct.pack('d', test_arr[1])
             for i, item in enumerate(test_arr[2:]):
-                assert open_read_stream.read(8) == struct.pack('d', item)
-
-
-def rmrf(directory):
-    for item in directory.iterdir():
-        if item.is_dir():
-            rmrf(item)
-        elif item.is_file():
-            item.unlink()
-    directory.rmdir()
+                assert read_stream.read(8) == struct.pack('d', item)

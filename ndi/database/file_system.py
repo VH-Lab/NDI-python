@@ -24,7 +24,6 @@ class FileSystem(NDI_Database):
         # Initializing FS Database
         if self.exp_dir.exists() and self.exp_dir.is_dir():
             self.lookup_dir = LookupCollection(self.db_dir, 'document')
-            self.binary_dir = BinaryCollection(self.db_dir, 'document')
             self.db_dir.mkdir(parents=True, exist_ok=True)
         else:
             raise FileNotFoundError(
@@ -43,7 +42,7 @@ class FileSystem(NDI_Database):
     def update(self, ndi_document, force=False):
         file_path = self.db_dir / f'{ndi_document.id}.dat'
         if file_path.exists():
-            self.upsert(ndi_document)
+            self.upsert(ndi_document, force=force)
         else:
             raise FileNotFoundError(f'File \'{file_path}\' does not exist')
 
@@ -67,7 +66,7 @@ class FileSystem(NDI_Database):
         return [
             doc.with_ctx(self)
             for doc in ndi_documents
-            if self.__parse_query(ndi_document.data, ndi_query)
+            if self.__parse_query(doc.data, ndi_query)
         ]
 
     def update_many(self, ndi_query=None, payload={}, force=False):
@@ -155,19 +154,6 @@ class FileSystem(NDI_Database):
             self.__delete_dependents(dependent)
             (self.db_dir / f'{dependent}.dat').unlink()
             self.lookup_dir.remove(dependent, id_)
-
-    def binary_write(self, ndi_document, data):
-        self.binary_dir.write(ndi_document.id, data)
-
-    def binary_read(self, ndi_document, start=0, end=-1):
-        return self.binary_dir.read_slice(ndi_document.id, start, end)
-
-    def binary_write_stream(self, ndi_document):
-        return self.binary_dir.open_write_stream(ndi_document.id)
-
-    def binary_read_stream(self, ndi_document):
-        return self.binary_dir.open_read_stream(ndi_document.id)
-
 
 class LookupCollection:
     """Collection class for File System lookups
