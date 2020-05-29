@@ -1,78 +1,80 @@
 from ndi.database.file_system import BinaryCollection
-from pathlib import Path
 import numpy as np
+import struct
 import pytest
+import io
 
-randarray = lambda: np.random.random(200000)
+
+def randarray(): return np.random.random(200000)
+
 
 @pytest.fixture
 def binary_collection():
     collection = BinaryCollection('./test_db', 'document')
     test_array = randarray()
-    (collection.collection_dir / 'test_id.bin').write_bytes(test_array.tobytes())
+    (collection.collection_dir /
+     'test_id.bin').write_bytes(b'hello test' + test_array.tobytes())
     yield collection, collection.collection_dir, test_array
     rmrf(collection.collection_dir)
 
+
 class TestBinaryCollection:
     def test_directory_creation(self, binary_collection):
+        # Test the collection directory was made
         _, collection_dir, _ = binary_collection
         assert collection_dir.exists()
         assert collection_dir.is_dir()
 
-    def test_write(self, binary_collection):
-        collection, collection_dir, _ = binary_collection
-        test_array = randarray()
-
-        assert not (collection_dir / 'fake_id.bin').exists()
-        collection.write('fake_id', test_array)
-
-        assert (collection_dir / 'fake_id.bin').exists()
-        assert (collection_dir / 'fake_id.bin').is_file()
-
-        file_content = np.frombuffer((collection_dir / 'fake_id.bin').read_bytes(), dtype=float)
-        for i, item in enumerate(file_content):
-            assert item == test_array[i]
-
-    def test_read_slice(self, binary_collection):
-        collection, _, test_arr = binary_collection
-
-        result = collection.read_slice('test_id')
-        assert type(result) == np.ndarray
-        for i, item in enumerate(result):
-            assert item == test_arr[i]
-        
-        result = collection.read_slice('test_id', 300, 40000)
-        assert type(result) == np.ndarray
-        for i, item in enumerate(result):
-            assert item == test_arr[300:40000][i]
-    
     def test_write_stream(self, binary_collection):
         collection, collection_dir, _ = binary_collection
         test_arr = randarray()
 
-        with collection.write_stream('fake_id') as write_stream:
+        with collection.open_write_stream('fake_id') as open_write_stream:
+            # Test that the write stream is an io object
+            assert isinstance(open_write_stream, io.BufferedIOBase)
+
+            # Writing contents into file
+            open_write_stream.write(b'hello test')
             for item in test_arr:
-                write_stream.write(item)
-    
+                open_write_stream.write(struct.pack('d', item))
+
+        # Test that binary file was made
         assert (collection_dir / 'fake_id.bin').exists()
         assert (collection_dir / 'fake_id.bin').is_file()
 
-        file_content = np.frombuffer((collection_dir / 'fake_id.bin').read_bytes(), dtype=float)
-        for i, item in enumerate(file_content):
+        # Pulling file contents into variables
+        file_buffer = (collection_dir / 'fake_id.bin').read_bytes()
+        hello_test = file_buffer[0:10]
+        array_content = np.frombuffer(file_buffer[10:], dtype=float)
+
+        # Test that contents are what was written
+        assert hello_test == b'hello test'
+        for i, item in enumerate(array_content):
             assert item == test_arr[i]
 
     def test_read_stream(self, binary_collection):
         collection, _, test_arr = binary_collection
 
-        with collection.read_stream('test_id') as read_stream:
-            assert read_stream.tell() == 0
-            read_stream.seek(2)
-            assert read_stream.tell() == 2
-            assert read_stream.read(1)[0] == test_arr[2]
-            assert read_stream.tell() == 3
-            result = read_stream.read()
-            for i, item in enumerate(result):
-                assert item == test_arr[3:][i]
+        with collection.open_read_stream('test_id') as open_read_stream:
+            # Test that the write stream is an io object
+            assert isinstance(open_read_stream, io.BufferedIOBase)
+
+            # Test that first 10 bytes are as expected
+            assert open_read_stream.read(10) == b'hello test'
+
+            # Test that stream offset is at 10 after reading 10 bytes
+            assert open_read_stream.tell() == 10
+
+            # Move stream offset to 18
+            open_read_stream.seek(18)
+
+            # Test that stream offset is at 18 after calling seek()
+            assert open_read_stream.tell() == 18
+
+            # Test that the values from the rest of the stream are as expected
+            assert open_read_stream.read(8) == struct.pack('d', test_arr[1])
+            for i, item in enumerate(test_arr[2:]):
+                assert open_read_stream.read(8) == struct.pack('d', item)
 
 
 def rmrf(directory):

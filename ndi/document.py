@@ -43,12 +43,15 @@ class Document(Flatbuffer_Object):
     @property
     def metadata(self):
         return self.data['_metadata']
+
     @metadata.setter
     def metadata(self, new_metadata):
         self.data['_metadata'] = new_metadata
+
     @property
     def metadata(self):
         return self.data['_metadata']
+
     @metadata.setter
     def metadata(self, new_metadata):
         self.data['_metadata'] = new_metadata
@@ -56,10 +59,11 @@ class Document(Flatbuffer_Object):
     @property
     def dependencies(self):
         return self.data['_dependencies']
+
     @dependencies.setter
     def dependencies(self, dependencies):
         self.data['_dependencies'] = dependencies
-    
+
     def set_ctx(self, ctx: T.NdiDatabase) -> None:
         self.ctx = ctx
 
@@ -85,7 +89,8 @@ class Document(Flatbuffer_Object):
         super().__init__(None)
         metadata = self.metadata
         metadata['parent_id'] = parent_id
-        metadata['asc_path'] = ',' + metadata['parent_id'] + metadata['asc_path']
+        metadata['asc_path'] = ',' + \
+            metadata['parent_id'] + metadata['asc_path']
         metadata['version_depth'] += 1
         metadata['latest_version'] = True
         self.dependencies = {}
@@ -112,16 +117,18 @@ class Document(Flatbuffer_Object):
     def add_dependency(self, ndi_document: T.Document, key: str = None):
         key = key or ndi_document.metadata['name']
         if self.__check_dependency_key_exists(key):
-            raise RuntimeError('Dependency key is already in use (dependency keys default to the document name if not specified).')
+            raise RuntimeError(
+                'Dependency key is already in use (dependency keys default to the document name if not specified).')
         elif self.__check_dependency_id_exists(ndi_document.id):
             dependency_name = ndi_document.metadata['name']
             own_name = self.metadata['name']
-            raise RuntimeError(f'Document {dependency_name} is already a dependency of document {own_name}.')
+            raise RuntimeError(
+                f'Document {dependency_name} is already a dependency of document {own_name}.')
         else:
             new_dependency = {key: ndi_document.id}
-            self.dependencies = { 
-                **self.dependencies, 
-                **new_dependency 
+            self.dependencies = {
+                **self.dependencies,
+                **new_dependency
             }
             self.ctx.add(ndi_document)
             self.ctx.update(self, force=True)
@@ -143,7 +150,6 @@ class Document(Flatbuffer_Object):
         else:
             raise RuntimeWarning('Are you sure you want to delete this document? This will permanently remove it and its dependencies. To delete anyway, use the force argument: db.update(document, force=True). To clear the version history of this document and related dependencies, use the remove_history argument.')
 
-    
     @classmethod
     def from_flatbuffer(cls, flatbuffer):
         """For constructing ndi_document from a flatbuffer
@@ -179,11 +185,12 @@ class Document(Flatbuffer_Object):
         :type builder: flatbuffers.Builder
         """
         self.data['_dependencies'] = {
-            key: dep.id if isinstance(dep, Document) else dep 
-            for key, dep in self.dependencies.items() }
+            key: dep.id if isinstance(dep, Document) else dep
+            for key, dep in self.dependencies.items()}
 
         id_ = builder.CreateString(self.id)
-        data = builder.CreateString(json.dumps(self.data, separators=(',', ':')))
+        data = builder.CreateString(
+            json.dumps(self.data, separators=(',', ':')))
 
         build_document.DocumentStart(builder)
         build_document.DocumentAddId(builder, id_)
@@ -195,20 +202,9 @@ class BinaryWrapper:
     def __init__(self, binary_collection, id_):
         self.id = id_
         self.binary_collection = binary_collection
-    
-    def write(self, data):
-        return self.binary_collection.write(self.id, data)
 
-    def write_stream(self):
-        return self.binary_collection.write_stream(self.id)
+    def open_write_stream(self):
+        return self.binary_collection.open_write_stream(self.id)
 
-    def read_slice(self, start=None, end=None):
-        args = {}
-        if start:
-            args['start'] = start
-        if end:
-            args['end'] = end
-        return self.binary_collection.read_slice(self.id, **args)
-
-    def read_stream(self):
-        return self.binary_collection.read_stream(self.id)
+    def open_read_stream(self):
+        return self.binary_collection.open_read_stream(self.id)
