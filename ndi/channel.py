@@ -11,7 +11,7 @@ class Channel(NDI_Object):
     Inherits from the :class:`NDI_Object` abstract class.
     """
 
-    DOCUMENT_TYPE = 'channel'
+    DOCUMENT_TYPE = 'ndi_channel'
 
     # TODO: require daq_system_id after implementing DaqReaders
     def __init__(

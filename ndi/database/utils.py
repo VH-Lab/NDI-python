@@ -7,7 +7,7 @@ import ndi.types as T
 from ..ndi_object import NDI_Object
 from functools import wraps
 from contextlib import contextmanager
-from .query import Query
+from ..query import Query
 
 
 def check_ndi_object(func):

@@ -13,7 +13,7 @@ class Epoch(NDI_Object):
     """
     # TODO: require daq_system_id after implementing DaqReaders
 
-    DOCUMENT_TYPE = 'epoch'
+    DOCUMENT_TYPE = 'ndi_epoch'
 
     def __init__(
         self, 
@@ -35,7 +35,7 @@ class Epoch(NDI_Object):
         self.metadata['type'] = self.DOCUMENT_TYPE
         self.metadata['experiment_id'] = experiment_id
         self.add_data_property('reference_dir', reference_dir)
-        self.add_data_property('daq_systems', daq_systems)
+        self.add_data_property('daq_system_id', daq_system_id)
 
     @classmethod
     def from_document(cls, document) -> Epoch:

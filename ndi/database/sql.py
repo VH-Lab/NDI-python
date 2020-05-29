@@ -13,7 +13,7 @@ from functools import wraps
 from ndi import NDI_Object, Document
 from ..utils import class_to_collection_name, flatten
 from ..decorators import handle_iter, handle_list
-from .query import Query, AndQuery, OrQuery, CompositeQuery
+from ..query import Query, AndQuery, OrQuery, CompositeQuery
 from .utils import check_ndi_object, listify, check_ndi_objects, with_update_warning, with_delete_warning, update_flatbuffer, recast_ndi_object_to_document, translate_query, with_session, with_open_session, reduce_ndi_objects_to_ids
 
 
@@ -363,6 +363,7 @@ class Collection:
         AndQuery: lambda conditions: and_(*conditions),
         OrQuery: lambda conditions: or_(*conditions),
         # operators
+        # value must be string (because all queries are on JSON data field)
         '==': lambda field, value: field == value,
         '!=': lambda field, value: field != value,
         'contains': lambda field, value: field.contains(value),
@@ -390,7 +391,7 @@ class Collection:
             else:
                 field, operator, value = q.query
                 column = self.fields['data'][tuple(field.split('.'))].astext
-                return self._sqla_filter_ops[operator](column, value)
+                return self._sqla_filter_ops[operator](column, str(value))
         return recurse(query)
 
     def _functionalize_query(self, query: T.SqlaFilter) -> T.Callable[[T.SqlaQuery], T.SqlaQuery]:

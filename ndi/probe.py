@@ -12,7 +12,7 @@ class Probe(NDI_Object):
     Inherits from the :class:`NDI_Object` abstract class.
     """
 
-    DOCUMENT_TYPE = 'probe'
+    DOCUMENT_TYPE = 'ndi_probe'
 
     def __init__(
         self,

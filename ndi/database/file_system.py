@@ -2,7 +2,7 @@ from __future__ import annotations
 from .ndi_database import NDI_Database
 from pathlib import Path
 from ..document import Document
-from .query import CompositeQuery, AndQuery, OrQuery
+from ..query import CompositeQuery, AndQuery, OrQuery
 from .utils import with_update_warning, with_delete_warning
 import ndi.types as T
 import re

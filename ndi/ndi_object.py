@@ -5,7 +5,6 @@ import flatbuffers
 from uuid import uuid4
 from .document import Document
 
-
 class NDI_Object:
     """
     Abstract class for NDI flatbuffer interfaces.
