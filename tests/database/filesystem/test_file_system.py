@@ -14,7 +14,7 @@ def fs_database():
         name='line',
         type_='test'
     )
-    (database.db_dir / f'{test_doc.id}.dat').write_bytes(test_doc.serialize())
+    (database.collection_dir / f'{test_doc.id}.dat').write_bytes(test_doc.serialize())
     yield database, test_doc
     rmrf(database.db_dir)
 
@@ -38,8 +38,8 @@ class TestFileSystem:
         database.add(doc)
 
         # Test that document was added to database
-        assert (database.db_dir / f'{doc.id}.dat').exists()
-        assert (database.db_dir / f'{doc.id}.dat').is_file()
+        assert (database.collection_dir / f'{doc.id}.dat').exists()
+        assert (database.collection_dir / f'{doc.id}.dat').is_file()
 
         # Test that error is raised when adding a document that already exists
         with pytest.raises(FileExistsError):
@@ -50,7 +50,7 @@ class TestFileSystem:
 
         test_doc.data['y'] = 'f(x)'
         database.update(test_doc, force=True)
-        rebuilt_doc = Document.from_flatbuffer((database.db_dir / f'{test_doc.id}.dat').read_bytes())
+        rebuilt_doc = Document.from_flatbuffer((database.collection_dir / f'{test_doc.id}.dat').read_bytes())
 
         # Test that the saved document was updated in the database
         assert rebuilt_doc.data['y'] == test_doc.data['y']
@@ -75,12 +75,12 @@ class TestFileSystem:
         database.upsert(doc, force=True)
 
         # Test that document was added to database
-        assert (database.db_dir / f'{doc.id}.dat').exists()
-        assert (database.db_dir / f'{doc.id}.dat').is_file()
+        assert (database.collection_dir / f'{doc.id}.dat').exists()
+        assert (database.collection_dir / f'{doc.id}.dat').is_file()
         
         test_doc.data['y'] = 'f(x)'
         database.upsert(test_doc, force=True)
-        rebuilt_doc = Document.from_flatbuffer((database.db_dir / f'{test_doc.id}.dat').read_bytes())
+        rebuilt_doc = Document.from_flatbuffer((database.collection_dir / f'{test_doc.id}.dat').read_bytes())
        
         # Test that the saved document was updated in the database
         assert rebuilt_doc.data['y'] == test_doc.data['y']
@@ -91,7 +91,7 @@ class TestFileSystem:
         database.delete(test_doc, force=True)
 
         # Test that deleted document no longer exists
-        assert not (database.db_dir / f'{test_doc.id}.dat').exists()
+        assert not (database.collection_dir / f'{test_doc.id}.dat').exists()
     
     def test_find(self, fs_database):
         database, test_doc = fs_database
@@ -106,7 +106,7 @@ class TestFileSystem:
         database, test_doc = fs_database
 
         database.update_many(Q('y') == 'mx + b', {'y': 'f(x)'}, force=True)
-        rebuilt_doc = Document.from_flatbuffer((database.db_dir / f'{test_doc.id}.dat').read_bytes())
+        rebuilt_doc = Document.from_flatbuffer((database.collection_dir / f'{test_doc.id}.dat').read_bytes())
 
         # Test that the document affected was updated in the database
         assert rebuilt_doc.data['y'] == 'f(x)'
@@ -116,7 +116,7 @@ class TestFileSystem:
         database.delete_many(Q('y') == 'mx + b', force=True)
 
         # Test that the document affected no longer exists
-        assert not (database.db_dir / f'{test_doc.id}.dat').exists()
+        assert not (database.collection_dir / f'{test_doc.id}.dat').exists()
     
     def test_find_by_id(self, fs_database):
         database, test_doc = fs_database
@@ -131,7 +131,7 @@ class TestFileSystem:
         database, test_doc = fs_database
 
         database.update_by_id(test_doc.id, {'y': 'f(x)'}, force=True)
-        rebuilt_doc = Document.from_flatbuffer((database.db_dir / f'{test_doc.id}.dat').read_bytes())
+        rebuilt_doc = Document.from_flatbuffer((database.collection_dir / f'{test_doc.id}.dat').read_bytes())
 
         # Test that the document affected was updated in the database
         assert rebuilt_doc.data['y'] == 'f(x)'

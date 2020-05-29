@@ -19,18 +19,19 @@ class FileSystem(NDI_Database):
 
     def __init__(self, exp_dir, db_name='.ndi'):
         self.exp_dir = Path(exp_dir)
-        self.db_dir = self.exp_dir / db_name / 'documents'
+        self.db_dir = self.exp_dir / db_name
+        self.collection_dir = self.db_dir / 'documents'
 
         # Initializing FS Database
         if self.exp_dir.exists() and self.exp_dir.is_dir():
             self.lookup_dir = LookupCollection(self.db_dir, 'document')
-            self.db_dir.mkdir(parents=True, exist_ok=True)
+            self.collection_dir.mkdir(parents=True, exist_ok=True)
         else:
             raise FileNotFoundError(
                 f'No such file or directory: \'{self.exp_dir}\'')
 
     def add(self, ndi_document):
-        file_path = self.db_dir / f'{ndi_document.id}.dat'
+        file_path = self.collection_dir / f'{ndi_document.id}.dat'
         ndi_document.set_ctx(self)
         if not file_path.exists():
             self.__verify_dependencies(ndi_document)
@@ -39,8 +40,8 @@ class FileSystem(NDI_Database):
         else:
             raise FileExistsError(f'File \'{file_path}\' already exists')
 
-    def update(self, ndi_document, force=False):
-        file_path = self.db_dir / f'{ndi_document.id}.dat'
+    def update(self, ndi_document, force=False):        
+        file_path = self.collection_dir / f'{ndi_document.id}.dat'
         if file_path.exists():
             self.upsert(ndi_document, force=force)
         else:
@@ -48,8 +49,8 @@ class FileSystem(NDI_Database):
 
     @with_update_warning
     def upsert(self, ndi_document, force=False):
-        (self.db_dir /
-         f'{ndi_document.id}.dat').write_bytes(ndi_document.serialize())
+        (self.collection_dir /
+        f'{ndi_document.id}.dat').write_bytes(ndi_document.serialize())
 
     def delete(self, ndi_document, force=False):
         self.delete_by_id(ndi_document.id, force=force)
@@ -57,7 +58,7 @@ class FileSystem(NDI_Database):
     def find(self, ndi_query=None):
         ndi_documents = [
             Document.from_flatbuffer(file.read_bytes())
-            for file in self.db_dir.glob('*.dat')
+            for file in self.collection_dir.glob('*.dat')
         ]
 
         if ndi_query is None:
@@ -80,8 +81,7 @@ class FileSystem(NDI_Database):
             self.delete(ndi_document, force=force)
 
     def find_by_id(self, id_):
-        doc = Document.from_flatbuffer(
-            (self.db_dir / f'{id_}.dat').read_bytes())
+        doc = Document.from_flatbuffer((self.collection_dir / f'{id_}.dat').read_bytes())
         return doc.with_ctx(self)
 
     def update_by_id(self, id_, payload={}, force=False):
@@ -97,7 +97,7 @@ class FileSystem(NDI_Database):
     @with_delete_warning
     def delete_by_id(self, id_, force=False):
         self.__delete_dependents(id_)
-        (self.db_dir / f'{id_}.dat').unlink()
+        (self.collection_dir / f'{id_}.dat').unlink()
 
     # Query Parsing Methods
     def __parse_query(self, data, ndi_query):
@@ -152,7 +152,7 @@ class FileSystem(NDI_Database):
     def __delete_dependents(self, id_):
         for dependent in self.lookup_dir.find_dependents(id_):
             self.__delete_dependents(dependent)
-            (self.db_dir / f'{dependent}.dat').unlink()
+            (self.collection_dir / f'{dependent}.dat').unlink()
             self.lookup_dir.remove(dependent, id_)
 
 class LookupCollection:
