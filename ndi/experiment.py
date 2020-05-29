@@ -46,7 +46,7 @@ class Experiment(NDI_Object):
     def __overwrite_with_document(self, document):
         self.document = document
 
-    def connect(self, database=None, binary_collection=None, new_experiment=False):
+    def connect(self, database=None, binary_collection=None, load_existing=False):
         """This will connect the experiment to the database and binary collection. 
         If this experiment already exists in the database (identified by _metadata.name),
         then this experiment is loaded with its contents in database.
@@ -56,8 +56,9 @@ class Experiment(NDI_Object):
         :type database: [type], optional
         :param binary_collection: [description], defaults to None
         :type binary_collection: [type], optional
-        :param new_experiment: [description], defaults to False
-        :type new_experiment: bool, optional
+        :param load_existing: [description], defaults to False
+        :type load_existing: bool, optional
+        :raises RuntimeError: [description]
         :raises Warning: [description]
         :return: [description]
         :rtype: [type]
@@ -65,13 +66,16 @@ class Experiment(NDI_Object):
         if database: 
             self.ctx = database
             isExperiment = Q('_metadata.type') == self.DOCUMENT_TYPE
-            hasOwnName = Q('_metadata.name') == self.metadata['name']
+            ownName = self.metadata['name']
+            hasOwnName = Q('_metadata.name') == ownName
             preexisting_experiment = database.find(isExperiment & hasOwnName)
             if preexisting_experiment:
+                if not load_existing:
+                    raise RuntimeError(f'An experiment with the name {ownName} already exists in this database. To connect to it, set load_existing to True. To make a new experiment, please choose a unique name.')
                 self.__overwrite_with_document(preexisting_experiment[0])
             else:
-                if not new_experiment:
-                    raise Warning(f'New Experiment {self} added to database. To prevent this warning, set argument new_experiment to True.')
+                if load_existing:
+                    raise Warning(f'An experiment with the name {ownName} does not yet exist in this database. To add this experiment to the database, set load_existing to False.')
                 self.ctx.add(self.document)
         if binary_collection:
             self.binary_collection = binary_collection
