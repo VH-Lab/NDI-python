@@ -1,6 +1,8 @@
 from __future__ import annotations
 import ndi.types as T
 from .ndi_object import NDI_Object
+from .constants import PROBE_DOCUMENT_TYPE, CHANNEL_DOCUMENT_TYPE
+from .query import Query as Q
 
 
 class Probe(NDI_Object):
@@ -12,7 +14,7 @@ class Probe(NDI_Object):
     Inherits from the :class:`NDI_Object` abstract class.
     """
 
-    DOCUMENT_TYPE = 'ndi_probe'
+    DOCUMENT_TYPE = PROBE_DOCUMENT_TYPE
 
     def __init__(
         self,
@@ -88,3 +90,27 @@ class Probe(NDI_Object):
         if experiment_id:
             self.experiment_id = experiment_id
         self.ctx.update(self.document, force=True)
+
+    def add_channel(self, channel):
+        if channel.metadata['type'] != CHANNEL_DOCUMENT_TYPE:
+            raise TypeError(f'Object {channel} is not an instance of ndi.Channel.')
+        
+        channel.metadata['experiment_id'] = self.metadata['experiment_id']
+        channel.probe_id = self.id
+        channel.daq_system_id = self.daq_system_id
+
+        channel.ctx = self.ctx
+        channel.binary_collection = self.binary_collection
+        self.ctx.add(channel.document)
+
+    def get_channels(self):
+        is_ndi_channel_type = Q('_metadata.type') == CHANNEL_DOCUMENT_TYPE
+        is_related = Q('probe_id') == self.id
+        query = is_ndi_channel_type & is_related
+        return self.ctx.find(query)
+
+    def get_daq_system(self):
+        self.ctx.find_by_id(self.daq_system_id)
+
+    def get_experiment(self):
+        self.ctx.find_by_id(self.experiment_id)

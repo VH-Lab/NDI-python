@@ -7,6 +7,7 @@ from .probe import Probe
 from .channel import Channel
 from .query import Query as Q
 from uuid import uuid4
+from .constants import EXPERIMENT_DOCUMENT_TYPE
 
 
 class Experiment(NDI_Object):
@@ -18,9 +19,9 @@ class Experiment(NDI_Object):
     Inherits from the :class:`NDI_Object` abstract class.
     """
 
-    DOCUMENT_TYPE = 'ndi_experiment'
+    DOCUMENT_TYPE = EXPERIMENT_DOCUMENT_TYPE
 
-    def __init__(self, name: str, directory: str, daq_systems: T.List[T.DaqSystem] = [], id_: T.NdiId = None):
+    def __init__(self, name: str, daq_system_ids: T.List[T.DaqSystem] = [], id_: T.NdiId = None):
         """Experiment constructor: initializes with fields defined in `ndi_schema <https://>`_'s Experiment table. For use when creating a new Experiment instance from scratch.
         ::
             new_experiment = Experiment(**fields)
@@ -29,8 +30,8 @@ class Experiment(NDI_Object):
 
         :param name: [description]
         :type name: str
-        :param daq_systems: a list of daq_system instances, defaults to []
-        :type daq_systems: List[:class:`DaqSystem`], optional
+        :param daq_system_ids: a list of daq_system instances, defaults to []
+        :type daq_system_ids: List[:class:`DaqSystem`], optional
         :param id_: = defaults to None
         :type id_: str, optional
         """
@@ -38,9 +39,8 @@ class Experiment(NDI_Object):
         self.metadata['name'] = name
         self.metadata['type'] = self.DOCUMENT_TYPE
         self.metadata['experiment_id'] = self.id
-        self.add_data_property('daq_systems', [])
-        self.directory = directory
-        for daq_system in daq_systems:
+        self.add_data_property('daq_system_ids', [])
+        for daq_system in daq_system_ids:
             self.add_daq_system(daq_system)
     
     def __overwrite_with_document(self, document):
@@ -103,7 +103,7 @@ class Experiment(NDI_Object):
             id_=document.id,
             directory=directory,
             name=document.metadata['name'],
-            daq_systems=document.data['daq_systems']
+            daq_system_ids=document.data['daq_system_ids']
         )
 
     # Experiment Methods
@@ -122,12 +122,14 @@ class Experiment(NDI_Object):
         if isinstance(daq_system, str): 
             # if daq_system is an id
             # this will occur when an experiment is being rebuilt from a document
-            if not self.ctx.find_by_id(daq_system):
+            daq_system = self.ctx.find_by_id(daq_system)
+            if not daq_system:
                 raise ValueError(f'A DAQ system with id {daq_system} does not exist in the database.')
-            self.daq_systems.append(daq_system)
+            daq_system.metadata['experiment_id'] = self.id
+            self.daq_system_ids.append(daq_system)
         else:
-            daq_system.experiment_id = self.id
-            self.daq_systems.append(daq_system.id)
+            daq_system.metadata['experiment_id'] = self.id
+            self.daq_system_ids.append(daq_system.id)
             if self.ctx:
                 self.ctx.add(daq_system.document)
 
@@ -141,46 +143,44 @@ class Experiment(NDI_Object):
     def add_epoch(self, epoch: T.Epoch):
         if not isinstance(epoch, Epoch):
             raise TypeError(f'Object {epoch} is not an instance of ndi.Epoch.')
-        self.__check_foreign_key_requirements(epoch, ['daq_system'])
+        self.__check_foreign_key_requirements(epoch, ['channel_ids', 'daq_system_id'])
 
         self.add_related_obj_to_db(epoch)
 
     def add_probe(self, probe: T.Probe):
         if not isinstance(probe, Probe):
             raise TypeError(f'Object {probe} is not an instance of ndi.Probe.')
-        self.__check_foreign_key_requirements(probe, ['daq_system'])
+        self.__check_foreign_key_requirements(probe, ['daq_system_id'])
         
         self.add_related_obj_to_db(probe)
 
     def add_channel(self, channel: T.Channel):
         if not isinstance(channel, Channel):
             raise TypeError(f'Object {channel} is not an instance of ndi.Channel.')
-        self.__check_foreign_key_requirements(channel, ['epoch', 'probe', 'daq_system'])
+        self.__check_foreign_key_requirements(channel, ['epoch_ids', 'probe_id', 'daq_system_id'])
         
         self.add_related_obj_to_db(channel)
 
-    def __check_foreign_key_requirements(self, ndi_object, relations):
-        for relation in relations:
-            id_key = f'{relation}_id'
-            related_id = getattr(ndi_object, id_key)
-            if not related_id:
-                raise RuntimeError(f'Object {ndi_object} is missing its required {id_key}.')
-            missing_relation_error = RuntimeError(f'Object {ndi_object} appears to be a dependency of {relation}:{related_id}, which does not yet exist in this experiment. Please add {relation}:{related_id} to the experiment before trying again.')
-            if relation == 'daq_system':
-                if related_id not in self.daq_systems:
-                    raise missing_relation_error
-            else:    
-                relation_exists = self.check_id_in_database(related_id)
-                if not relation_exists:
-                    raise missing_relation_error
-    
-    def delete_ndi_dependency(self, ndi_object, force=False):
-        if force:
-            pass
-        else:
-            raise RuntimeWarning('Are you sure you want to delete this? This will permanently remove it and its dependencies. To delete anyway, set the force argument to True. To clear the version history of this document and related dependencies, set the remove_history argument to True.')
+    def __check_foreign_key_requirements(self, ndi_object, foreign_keys):
+        for key in foreign_keys:
+            if key.endswith('_ids'):
+                related_ids = getattr(ndi_object, key)
+                for id_ in related_ids:
+                    self.__verify_relation_exists_in_experiment(ndi_object, id_)
+            else:
+                related_id = getattr(ndi_object, key)
+                if not related_id:
+                    raise RuntimeError(f'Object {ndi_object} is missing its required {key}.')
+                self.__verify_relation_exists_in_experiment(ndi_object, related_id)
 
-
+    def __verify_relation_exists_in_experiment(self, ndi_object, related_id):
+        relation = self.ctx.find_by_id(related_id)
+        relation_experiment_id = relation.metadata['experiment_id']
+        relation_type = relation.metadata['type']
+        if not relation:
+            raise RuntimeError(f'Object {ndi_object} appears to have a foreign key to {relation_type}:{related_id}, which does not yet exist. Please add {relation_type}:{related_id} to the experiment before trying again.')
+        elif relation_experiment_id != self.metadata['experiment_id']:
+            raise RuntimeError(f'Object {ndi_object} appears to have a foreign key to {relation_type}:{related_id}, which belongs to another experiment({relation_experiment_id}).')
 
     def get_epochs(self):
         return self.get_ndi_dependencies(Epoch)

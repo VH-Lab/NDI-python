@@ -1,6 +1,8 @@
 from __future__ import annotations
 import ndi.types as T
 from .ndi_object import NDI_Object
+from .constants import CHANNEL_DOCUMENT_TYPE, EPOCH_DOCUMENT_TYPE, PROBE_DOCUMENT_TYPE
+from .query import Query as Q
 
 
 class Channel(NDI_Object):
@@ -11,7 +13,7 @@ class Channel(NDI_Object):
     Inherits from the :class:`NDI_Object` abstract class.
     """
 
-    DOCUMENT_TYPE = 'ndi_channel'
+    DOCUMENT_TYPE = CHANNEL_DOCUMENT_TYPE
 
     # TODO: require daq_system_id after implementing DaqReaders
     def __init__(
@@ -21,9 +23,9 @@ class Channel(NDI_Object):
         source_file: str,
         # NOTE: channels and epochs will almost definitely be a many-to-many relationship
         #       would need a list of epoch_ids
-        epoch_id: T.NdiId,
-        probe_id: T.NdiId,
         daq_reader,
+        probe_id: T.NdiId = None,
+        epoch_ids: T.List[T.NdiId] = [],
         daq_system_id: T.NdiId = None,
         experiment_id: T.NdiId = None,
         id_: T.NdiId = None,
@@ -41,8 +43,8 @@ class Channel(NDI_Object):
         :type type_: str
         :param source_file: [description]
         :type source_file: str
-        :param epoch_id: [description]
-        :type epoch_id: str
+        :param epoch_ids: [description]
+        :type epoch_ids: str
         :param probe_id: [description]
         :type probe_id: str
         :param daq_system_id: defaults to '<empty_string>'
@@ -62,8 +64,8 @@ class Channel(NDI_Object):
         self.add_data_property('type', type_)
         self.add_data_property('clock_type', clock_type)
         self.add_data_property('source_file', source_file)
-        self.add_data_property('epoch_id', epoch_id)
         self.add_data_property('probe_id', probe_id)
+        self.add_data_property('epoch_ids', epoch_ids)
         self.add_data_property('daq_system_id', daq_system_id)
         self.daq_reader = daq_reader(source_file)
 
@@ -85,9 +87,9 @@ class Channel(NDI_Object):
             type_=document.data['type'],
             clock_type=document.data['clock_type'],
             source_file=document.data['source_file'],
-            epoch_id=document.data['epoch_id'],
-            probe_id=document.data['probe_id'],
             daq_reader=daq_reader,
+            probe_id=document.data['probe_id'],
+            epoch_ids=document.data['epoch_ids'],
             daq_system_id=document.data['daq_system_id'],
             experiment_id=document.metadata['experiment_id'],
         )
@@ -97,8 +99,8 @@ class Channel(NDI_Object):
         number: int,
         type_: str,
         source_file: str,
-        epoch_id: T.NdiId,
         probe_id: T.NdiId,
+        epoch_ids: T.List[T.NdiId],
         daq_system_id: T.NdiId = None,
         experiment_id: T.NdiId = None,
         clock_type: str = 'no_time'
@@ -106,8 +108,8 @@ class Channel(NDI_Object):
         if number: self.number = number
         if type_: self.type = type_
         if source_file: self.source_file = source_file
-        if epoch_id: self.epoch_id = epoch_id
         if probe_id: self.probe_id = probe_id
+        if epoch_ids: self.epoch_ids = epoch_ids
         if daq_system_id: self.daq_system_id = daq_system_id
         if experiment_id: self.experiment_id = experiment_id
         if clock_type: self.clock_type = clock_type
@@ -122,3 +124,18 @@ class Channel(NDI_Object):
 
     def samplerate(self):
         return self.daq_reader.samplerate(self.number)
+
+    def get_epochs(self):
+        is_ndi_epoch_type = Q('_metadata.type') == EPOCH_DOCUMENT_TYPE
+        is_related = Q('channel_ids').contains(self.id)
+        query = is_ndi_epoch_type & is_related
+        return self.ctx.find(query)
+
+    def get_probe(self):
+        self.ctx.find_by_id(self.probe_id)
+
+    def get_daq_system(self):
+        self.ctx.find_by_id(self.daq_system_id)
+
+    def get_experiment(self):
+        self.ctx.find_by_id(self.experiment_id)

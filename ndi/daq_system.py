@@ -4,6 +4,7 @@ from .ndi_object import NDI_Object
 from .channel import Channel
 from .epoch import Epoch
 from .probe import Probe
+from .constants import DAQ_SYSTEM_DOCUMENT_TYPE
 
 
 class DaqSystem(NDI_Object):
@@ -15,7 +16,7 @@ class DaqSystem(NDI_Object):
     Inherits from the :class:`NDI_Object` abstract class.
     """
 
-    DOCUMENT_TYPE = 'daq-system'
+    DOCUMENT_TYPE = DAQ_SYSTEM_DOCUMENT_TYPE
 
     def __init__(
         self,
