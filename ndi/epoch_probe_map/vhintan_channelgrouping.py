@@ -1,8 +1,6 @@
 import re
 from .epoch_probe_map import EpochProbeMap
-from ..epoch import Epoch
-from ..probe import Probe
-from ..channel import Channel
+from ..core import Epoch, Probe, Channel
 from ..database import Query as Q
 
 
@@ -67,6 +65,7 @@ class VHIntanChannelGrouping(EpochProbeMap):
                 for channel_number in probe_map['devicestring']['channel_list']:
                     channels.append(
                         Channel(
+                            name='',
                             number=channel_number,
                             type_=probe_map['devicestring']['channel_type'],
                             source_file=source_file,

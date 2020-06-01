@@ -153,13 +153,15 @@ class DaqSystem(NDI_Object):
         self.add_data_property('epoch_ids', epoch_ids)
 
         self.epoch_probe_map_class = epoch_probe_map_class
-        self.add_data_property('epoch_probe_map_class', epoch_probe_map_class.__name__)
+        if epoch_probe_map_class:
+            self.add_data_property('epoch_probe_map_class', epoch_probe_map_class.__name__)
         self.daq_reader = daq_reader
-        self.add_data_property('daq_reader_class', daq_reader.__name__)
-
-        file_navigator.daq_system_id = self.id
-        self.file_navigator = file_navigator
-        # file_navigator is added to db in Experiment.add_daq_system()
+        if daq_reader:
+            self.add_data_property('daq_reader_class', daq_reader.__name__)
+        if file_navigator:
+            file_navigator.daq_system_id = self.id
+            self.file_navigator = file_navigator
+            # file_navigator is added to db in Experiment.add_daq_system()
 
     @classmethod
     def from_document(cls, document) -> DaqSystem:

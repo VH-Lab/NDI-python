@@ -1,8 +1,8 @@
 import pytest
 from alchemy_mock.mocking import UnifiedAlchemyMagicMock
 from types import MethodType
-from ndi.database import SQL, Query as Q
-from ndi import Document
+from ndi.database import SQL
+from ndi import Document, Query as Q
 
 
 def fix_get(Session):
@@ -189,7 +189,7 @@ class TestNdiDocument_SQL:
 
         assert db.find_by_id(doc.id)
 
-        doc.delete(force=True)
+        doc.delete_self(force=True)
 
         get_deleted(db)
 
