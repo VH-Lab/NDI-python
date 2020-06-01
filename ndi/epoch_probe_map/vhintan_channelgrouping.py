@@ -71,6 +71,7 @@ class VHIntanChannelGrouping(EpochProbeMap):
                             type_=probe_map['devicestring']['channel_type'],
                             source_file=source_file,
                             daq_reader=self.daq_reader,
+                            daq_reader_class_name=self.daq_reader.__name__,
                             epoch_id=epoch.id,
                             probe_id=current_probe.id,
                         )
