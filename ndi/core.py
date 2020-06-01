@@ -421,7 +421,6 @@ class Experiment(NDI_Object):
         if daq_systems:
             for daq_sys in daq_systems:
                 if daq_sys.id not in [ds.id for ds in self.daq_systems]:
-                    self.daq_systems.append(daq_sys)
                     self.add_daq_system(daq_sys)
                 reader_name = daq_sys.daq_reader.__name__
                 if reader_name not in self.daq_readers_map:
@@ -478,6 +477,7 @@ class Experiment(NDI_Object):
             daq_system.metadata['experiment_id'] = self.id
         else:
             daq_system.metadata['experiment_id'] = self.id
+            self.daq_systems.append(daq_system)
             if self.ctx:
                 self.ctx.add(daq_system.document)
                 if not self.ctx.find_by_id(daq_system.file_navigator.id):

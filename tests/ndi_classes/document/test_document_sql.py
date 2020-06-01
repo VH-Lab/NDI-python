@@ -1,9 +1,8 @@
 import pytest
-from alchemy_mock.mocking import UnifiedAlchemyMagicMock
 from types import MethodType
-from ndi.database import SQL
 from ndi import Document, Query as Q
-
+from alchemy_mock.mocking import UnifiedAlchemyMagicMock
+from ndi.database import SQL
 
 def fix_get(Session):
     mock_get = Session.boundary['get']
