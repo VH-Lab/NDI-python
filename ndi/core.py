@@ -444,7 +444,7 @@ class Experiment(NDI_Object):
     def add_channel(self, channel: T.Channel):
         if not isinstance(channel, Channel):
             raise TypeError(f'Object {channel} is not an instance of ndi.Channel.')
-        self.__check_foreign_key_requirements(channel, ['epoch_ids', 'probe_id', 'daq_system_id'])
+        self.__check_foreign_key_requirements(channel, ['epoch_id', 'probe_id', 'daq_system_id'])
         
         self.add_related_obj_to_db(channel)
 
@@ -534,7 +534,6 @@ class Epoch(NDI_Object):
 
     def __init__(
         self, 
-        channel_ids=[],
         daq_system_id: T.NdiId = None, 
         experiment_id: T.NdiId = None, 
         id_: T.NdiId = None
@@ -550,7 +549,6 @@ class Epoch(NDI_Object):
         """
         super().__init__(id_)
         self.metadata['type'] = self.DOCUMENT_TYPE
-        self.add_data_property('channel_ids', channel_ids)
         self.metadata['experiment_id'] = experiment_id
         self.add_data_property('daq_system_id', daq_system_id)
 
@@ -577,6 +575,12 @@ class Epoch(NDI_Object):
 
     def get_experiment(self):
         self.ctx.find_by_id(self.experiment_id)
+
+    def get_channels(self):
+        is_ndi_channel_type = Q('_metadata.type') == Channel.DOCUMENT_TYPE
+        is_related = Q('epoch_id') == self.id
+        query = is_ndi_channel_type & is_related
+        return self.ctx.find(query)
 
 
 
@@ -709,11 +713,9 @@ class Channel(NDI_Object):
         number: int,
         type_: str,
         source_file: str,
-        # NOTE: channels and epochs will almost definitely be a many-to-many relationship
-        #       would need a list of epoch_ids
         daq_reader = None,
         probe_id: T.NdiId = None,
-        epoch_ids: T.List[T.NdiId] = [],
+        epoch_id: T.NdiId = None,
         daq_system_id: T.NdiId = None,
         experiment_id: T.NdiId = None,
         id_: T.NdiId = None,
@@ -731,8 +733,8 @@ class Channel(NDI_Object):
         :type type_: str
         :param source_file: [description]
         :type source_file: str
-        :param epoch_ids: [description]
-        :type epoch_ids: str
+        :param epoch_id: [description]
+        :type epoch_id: str
         :param probe_id: [description]
         :type probe_id: str
         :param daq_system_id: defaults to '<empty_string>'
@@ -754,7 +756,7 @@ class Channel(NDI_Object):
         self.add_data_property('clock_type', clock_type)
         self.add_data_property('source_file', source_file)
         self.add_data_property('probe_id', probe_id)
-        self.add_data_property('epoch_ids', epoch_ids)
+        self.add_data_property('epoch_id', epoch_id)
         self.add_data_property('daq_system_id', daq_system_id)
         self.daq_reader = daq_reader(source_file) if daq_reader else None
 
@@ -778,7 +780,7 @@ class Channel(NDI_Object):
             clock_type=document.data['clock_type'],
             source_file=document.data['source_file'],
             probe_id=document.data['probe_id'],
-            epoch_ids=document.data['epoch_ids'],
+            epoch_id=document.data['epoch_id'],
             daq_system_id=document.data['daq_system_id'],
             experiment_id=document.metadata['experiment_id'],
         )
@@ -790,7 +792,7 @@ class Channel(NDI_Object):
         type_: str,
         source_file: str,
         probe_id: T.NdiId,
-        epoch_ids: T.List[T.NdiId],
+        epoch_id: T.NdiId,
         daq_system_id: T.NdiId = None,
         experiment_id: T.NdiId = None,
         clock_type: str = 'no_time'
@@ -800,7 +802,7 @@ class Channel(NDI_Object):
         if type_: self.type = type_
         if source_file: self.source_file = source_file
         if probe_id: self.probe_id = probe_id
-        if epoch_ids: self.epoch_ids = epoch_ids
+        if epoch_id: self.epoch_id = epoch_id
         if daq_system_id: self.daq_system_id = daq_system_id
         if experiment_id: self.experiment_id = experiment_id
         if clock_type: self.clock_type = clock_type
@@ -819,11 +821,8 @@ class Channel(NDI_Object):
     def samplerate(self):
         return self.daq_reader.samplerate(self.number)
 
-    def get_epochs(self):
-        is_ndi_epoch_type = Q('_metadata.type') == Epoch.DOCUMENT_TYPE
-        is_related = Q('channel_ids').contains(self.id)
-        query = is_ndi_epoch_type & is_related
-        return self.ctx.find(query)
+    def get_epoch(self):
+        return self.ctx.find_by_id(self.epoch_id)
 
     def get_probe(self):
         self.ctx.find_by_id(self.probe_id)
