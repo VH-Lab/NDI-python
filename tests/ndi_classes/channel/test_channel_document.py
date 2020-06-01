@@ -1,6 +1,10 @@
 import pytest
 from ndi import Channel, Document
 
+class MockDaqReader:
+    def __init__(self, file):
+        pass
+
 @pytest.fixture
 def new_channel():
     name = 'abc'
@@ -11,17 +15,16 @@ def new_channel():
     probe_id = 'poiuytrewq'
     daq_system_id = '0987654321'
     experiment_id = '1234567890'
-    clock_type = 'no_time'  
-    c = Channel(name, number, type_, source_file, epoch_id, probe_id, daq_system_id, experiment_id, clock_type)
-    yield c, name, number, type_, source_file, epoch_id, probe_id, daq_system_id, experiment_id, clock_type
+    clock_type = 'no_time'
+    c = Channel(number, type_, source_file, epoch_id, probe_id, MockDaqReader, daq_system_id, experiment_id, clock_type)
+    yield c, number, type_, source_file, epoch_id, probe_id, daq_system_id, experiment_id, clock_type
 
 class TestChannelDocument:
     def test_new_channel(self, new_channel):
         """ndi.Channel.__init__"""
-        c, name, number, type_, source_file, epoch_id, probe_id, daq_system_id, experiment_id, clock_type = new_channel
+        c, number, type_, source_file, epoch_id, probe_id, daq_system_id, experiment_id, clock_type = new_channel
 
         # metadata is properly set in document
-        assert c.document.data['_metadata']['name'] == name
         assert c.document.data['_metadata']['type'] == Channel.DOCUMENT_TYPE
         assert c.document.data['_metadata']['experiment_id'] == experiment_id
 
@@ -35,8 +38,8 @@ class TestChannelDocument:
 
     def test_document_to_channel(self, new_channel):
         """ndi.Channel.from_document"""
-        c, name, number, type_, source_file, epoch_id, probe_id, daq_system_id, experiment_id, clock_type = new_channel
+        c, number, type_, source_file, epoch_id, probe_id, daq_system_id, experiment_id, clock_type = new_channel
 
         d = c.document
-        rebuilt_channel = Channel.from_document(d)
+        rebuilt_channel = Channel.from_document(d, MockDaqReader)
         assert rebuilt_channel == c

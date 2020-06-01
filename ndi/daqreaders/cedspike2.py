@@ -3,6 +3,8 @@ from neo.io import Spike2IO
 
 
 class CEDSpike2(DaqReader):
+    extensions = ('.smr',)
+
     def __init__(self, filename):
         self.filename = filename
         self.__reader = Spike2IO(filename)

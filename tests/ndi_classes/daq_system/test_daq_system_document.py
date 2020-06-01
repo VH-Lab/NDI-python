@@ -8,13 +8,16 @@ class MockFileNavigator:
     def __init__(self, id_):
         self.id = id_ or 'mock-file-nav-id'
 
+class MockEpochProbeMap:
+    pass
+
 @pytest.fixture
 def new_daq_system():
     name = 'abc'
     experiment_id = '1234567890'
     fn_id = '0987654321'
     fn = MockFileNavigator(fn_id)
-    ds = DaqSystem(name, file_navigator=fn, daq_reader=MockDaqReader, experiment_id=experiment_id)
+    ds = DaqSystem(name, file_navigator=fn, daq_reader=MockDaqReader, experiment_id=experiment_id, epoch_probe_map_class=MockEpochProbeMap)
     yield ds, name, experiment_id, fn_id
 
 class TestDaqSystemDocument:

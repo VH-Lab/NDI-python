@@ -63,7 +63,7 @@ coverage.xml
 example/.ipynb_checkpoints/
 
 # MacOS
-.DS_Store/
+*.DS_Store
 
 # symlinked schema
 ndi/schema
