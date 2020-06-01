@@ -152,10 +152,14 @@ class DaqSystem(NDI_Object):
         self.metadata['experiment_id'] = experiment_id
         self.add_data_property('epoch_ids', epoch_ids)
 
-        # TODO: figure out how to handle these as documents (pending daq sys)
-        self.file_navigator = file_navigator
         self.epoch_probe_map_class = epoch_probe_map_class
+        self.add_data_property('epoch_probe_map_class', epoch_probe_map_class.__name__)
         self.daq_reader = daq_reader
+        self.add_data_property('daq_reader_class', daq_reader.__name__)
+
+        file_navigator.daq_system_id = self.id
+        self.file_navigator = file_navigator
+        # file_navigator is added to db in Experiment.add_daq_system()
 
     @classmethod
     def from_document(cls, document) -> DaqSystem:
@@ -209,8 +213,19 @@ class DaqSystem(NDI_Object):
 
         return epochs, probes, channels
     
-    def set_reader_to_channels(self):
-        for c in self.channels:
+    def link_epoch(self, epoch):
+        """For linking an epoch and daq system that are both already in the same database.
+
+        :param epoch: [description]
+        :type epoch: [type]
+        """
+        e.daq_system_ids.append(self.id)
+        self.epoch_ids.append(e.id)
+        self.ctx.update(epoch.document, force=True)
+        self.ctx.update(self.document, force=True)
+    
+    def get_channels_with_reader(self):
+        for c in self.get_channels():
             c.set_reader(self.daq_reader)
 
     def get_epochs(self):
@@ -441,6 +456,8 @@ class Experiment(NDI_Object):
             self.daq_system_ids.append(daq_system.id)
             if self.ctx:
                 self.ctx.add(daq_system.document)
+                if not self.ctx.find_by_id(daq_system.file_navigator.id):
+                    self.ctx.add(daq_system.file_navigator.document)
 
 
     def add_related_obj_to_db(self, ndi_object: T.NdiObjectWithExperimentId) -> None:
