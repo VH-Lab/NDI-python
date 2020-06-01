@@ -40,7 +40,7 @@ class FileSystem(NDI_Database):
         else:
             raise FileExistsError(f'File \'{file_path}\' already exists')
 
-    def update(self, ndi_document, force=False):        
+    def update(self, ndi_document, force=False):
         file_path = self.db_dir / f'{ndi_document.id}.dat'
         if file_path.exists():
             self.upsert(ndi_document)
@@ -50,7 +50,7 @@ class FileSystem(NDI_Database):
     @with_update_warning
     def upsert(self, ndi_document, force=False):
         (self.db_dir /
-        f'{ndi_document.id}.dat').write_bytes(ndi_document.serialize())
+         f'{ndi_document.id}.dat').write_bytes(ndi_document.serialize())
 
     def delete(self, ndi_document, force=False):
         self.delete_by_id(ndi_document.id, force=force)
@@ -81,7 +81,8 @@ class FileSystem(NDI_Database):
             self.delete(ndi_document, force=force)
 
     def find_by_id(self, id_):
-        doc = Document.from_flatbuffer((self.db_dir / f'{id_}.dat').read_bytes())
+        doc = Document.from_flatbuffer(
+            (self.db_dir / f'{id_}.dat').read_bytes())
         return doc.with_ctx(self)
 
     def update_by_id(self, id_, payload={}, force=False):
@@ -162,10 +163,11 @@ class FileSystem(NDI_Database):
         return self.binary_dir.read_slice(ndi_document.id, start, end)
 
     def binary_write_stream(self, ndi_document):
-        return self.binary_dir.write_stream(ndi_document.id)
+        return self.binary_dir.open_write_stream(ndi_document.id)
 
     def binary_read_stream(self, ndi_document):
-        return self.binary_dir.read_stream(ndi_document.id)
+        return self.binary_dir.open_read_stream(ndi_document.id)
+
 
 class LookupCollection:
     """Collection class for File System lookups
@@ -241,49 +243,8 @@ class BinaryCollection:
         # Initializing Collection
         self.collection_dir.mkdir(parents=True, exist_ok=True)
 
-    def write(self, document_id, data):
-        (self.collection_dir / f'{document_id}.bin').write_bytes(data.astype(float).tobytes())
+    def open_write_stream(self, document_id):
+        return open(self.collection_dir / f'{document_id}.bin', 'wb')
 
-    def write_stream(self, document_id):
-        return self.FileStream(self.collection_dir / f'{document_id}.bin', 'wb')
-
-    def read_slice(self, document_id, start=0, end=-1):
-        with self.read_stream(document_id) as stream:
-            stream.seek(start)
-            return stream.read(end - start)
-
-    def read_stream(self, document_id):
-        return self.FileStream(self.collection_dir / f'{document_id}.bin', 'rb')
-
-    class FileStream:
-        def __init__(self, filepath, mode):
-            self.filepath = filepath
-            self.mode = mode
-
-        def write(self, item):
-            self.file.write(np.array([item]).astype(float).tobytes())
-            return self
-
-        def open(self):
-            self.file = open(self.filepath, self.mode)
-            return self
-
-        def close(self):
-            self.file.close()
-
-        def seek(self, position):
-            self.file.seek(position * 8)
-            return self
-
-        def read(self, size=-1):
-            read_size = -1 if size < 0 else size * 8
-            return np.frombuffer(self.file.read(read_size), dtype=float)
-
-        def tell(self):
-            return int(self.file.tell() / 8)
-
-        def __enter__(self):
-            return self.open()
-
-        def __exit__(self, type, value, traceback):
-            self.close()
+    def open_read_stream(self, document_id):
+        return open(self.collection_dir / f'{document_id}.bin', 'rb')
