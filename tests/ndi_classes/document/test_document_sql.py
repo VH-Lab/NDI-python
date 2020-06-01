@@ -189,7 +189,7 @@ class TestNdiDocument_SQL:
 
         assert db.find_by_id(doc.id)
 
-        doc.delete_self(force=True)
+        doc.delete(force=True)
 
         get_deleted(db)
 

@@ -186,13 +186,13 @@ class Document(Flatbuffer_Object):
         return output
 
 
-    def delete_self(self, force=False, remove_history=False,):
+    def delete(self, force=False, remove_history=False,):
         if force:
             deletees = list(self.get_dependencies().values())
             if remove_history:
                 deletees.extend(self.get_history())
             for ndi_document in deletees:
-                ndi_document.delete_self(force=force, remove_history=remove_history)
+                ndi_document.delete(force=force, remove_history=remove_history)
             self._remove_self_from_dependencies()
             self.ctx.delete(self, force=force)
             self.id = None

@@ -83,6 +83,10 @@ class NDI_Object:
     def add_data_property(self, key, value):
         self.document.data[key] = value
 
+    def delete(self, force=False, remove_history=False):
+        self.document.delete(force=force, remove_history=remove_history)
+    
+
     def __getattribute__(self, key):
         """Allows user to access properties in ndi_object.document.data off of the ndi_object instance."""
         try:
