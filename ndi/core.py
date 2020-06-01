@@ -195,6 +195,10 @@ class DaqSystem(NDI_Object):
         self.channels = channels
         for ndi_object in epochs + probes + channels:
             self.ctx.add(ndi_object.document)
+    
+    def set_reader_to_channels(self):
+        for c in self.channels:
+            c.set_reader(self.daq_reader)
 
     def get_epochs(self):
         return self.epochs
@@ -802,6 +806,9 @@ class Channel(NDI_Object):
         if clock_type: self.clock_type = clock_type
 
         self.ctx.update(self.document, force=True)
+
+    def set_reader(self, daq_reader):
+        self.daq_reader = daq_reader
 
     def read(self, **kwargs):
         if self.type == 'event':
