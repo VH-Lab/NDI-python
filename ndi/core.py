@@ -208,14 +208,14 @@ class DaqSystem(NDI_Object):
         for e in epochs:
             e.daq_system_ids.append(self.id)
             self.epoch_ids.append(e.id)
-            experiment.add_epoch(e)
+            experiment.upsert(e)
         self.ctx.update(self.document, force=True)
         for p in probes:
             p.daq_system_id = self.id
-            experiment.add_probe(p)
+            experiment.upsert(p)
         for c in channels:
             c.daq_system_id = self.id
-            experiment.add_channel(c)
+            experiment.upsert(c)
 
         return epochs, probes, channels
     
@@ -483,11 +483,17 @@ class Experiment(NDI_Object):
                 if not self.ctx.find_by_id(daq_system.file_navigator.id):
                     self.ctx.add(daq_system.file_navigator.document)
 
-
-    def add_related_obj_to_db(self, ndi_object: T.NdiObjectWithExperimentId) -> None:
+    def _connect_ndi_object(self, ndi_object):
         ndi_object.metadata['experiment_id'] = self.id
         ndi_object.ctx = self.ctx
         ndi_object.binary_collection = self.binary_collection
+
+    def upsert(self, ndi_object: T.NdiObjectWithExperimentId) -> None:
+        self._connect_ndi_object(ndi_object)
+        self.ctx.upsert(ndi_object.document)
+
+    def add_related_obj_to_db(self, ndi_object: T.NdiObjectWithExperimentId) -> None:
+        self._connect_ndi_object(ndi_object)
         self.ctx.add(ndi_object.document)
 
     def add_epoch(self, epoch: T.Epoch):
