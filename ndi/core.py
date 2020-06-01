@@ -246,6 +246,13 @@ class DaqSystem(NDI_Object):
         query = is_ndi_epoch_type & is_related
         return self.ctx.find(query)
 
+    def get_file_navigator(self):
+        is_ndi_epoch_type = Q('_metadata.type') == Channel.DOCUMENT_TYPE
+        is_related = Q('daq_system_id') == self.id
+        query = is_ndi_epoch_type & is_related
+        return self.ctx.find(query)
+
+
 
 class EpochSet:
     """ TODO
