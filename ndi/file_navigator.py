@@ -3,7 +3,7 @@ import ndi.types as T
 import os
 import re
 from .ndi_object import NDI_Object
-
+from pathlib import Path
 
 class EpochSet:
     """ TODO
@@ -82,6 +82,7 @@ class FileNavigator(NDI_Object):
                     file for file in epochfiles
                     if re.match(self.metadata_file_pattern, file)
                 )
-                self.epochs.append(EpochSet(root, epochfiles, metadatafile))
+                root_name = Path(root).name
+                self.epochs.append(EpochSet(root_name, epochfiles, metadatafile))
                 self.epochs.sort(key=lambda epoch: epoch.root)
         return self.epochs

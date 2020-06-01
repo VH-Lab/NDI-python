@@ -23,6 +23,7 @@ class DaqSystem(NDI_Object):
         file_navigator: T.FileNavigator,
         daq_reader: T.DaqReader,
         epoch_probe_map_class,
+        epoch_ids = [],
         experiment_id: T.NdiId = None,
         id_: T.NdiId = None
     ) -> None:
@@ -47,7 +48,7 @@ class DaqSystem(NDI_Object):
         self.metadata['name'] = name
         self.metadata['type'] = self.DOCUMENT_TYPE
         self.metadata['experiment_id'] = experiment_id
-
+        self.add_data_property('epoch_ids', epoch_ids)
         # TODO: figure out how to handle these as documents (pending daq sys)
         self.file_navigator = file_navigator
         self.epoch_probe_map_class = epoch_probe_map_class
@@ -70,6 +71,7 @@ class DaqSystem(NDI_Object):
             id_=document.id,
             name=document.metadata['name'],
             experiment_id=document.metadata['experiment_id'],
+            epoch_ids=document.data['epoch_ids'],
             file_navigator=None,
             epoch_probe_map_class=None,
             daq_reader=lambda id: None,
@@ -84,15 +86,18 @@ class DaqSystem(NDI_Object):
             daq_reader=self.daq_reader,
             epoch_sets=epoch_sets,
             daq_system_id=self.id,
-            experiment_id=experiment.id
+            experiment_id=experiment.id,
+            ctx=self.ctx
         )
 
         epochs, probes, channels = epochprobemap.get_epochs_probes_channels()
+        for epoch in epochs:
+            self.epoch_ids.append(epoch.id)
         self.epochs = epochs
         self.probes = probes
         self.channels = channels
         for ndi_object in epochs + probes + channels:
-            self.ctx.add(ndi_object.document)
+            self.ctx.upsert(ndi_object.document, force=True)
 
     def get_epochs(self):
         return self.epochs
