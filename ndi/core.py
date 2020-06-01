@@ -126,6 +126,7 @@ class DaqSystem(NDI_Object):
         daq_reader: T.DaqReader,
         epoch_probe_map_class,
         experiment_id: T.NdiId = None,
+        epoch_ids: T.List[T.NdiId] = [],
         id_: T.NdiId = None
     ) -> None:
         """DaqSystem constructor: initializes with fields defined in `ndi_schema <https://>`_'s DaqSystem table. For use when creating a new DaqSystem instance from scratch.
@@ -149,6 +150,7 @@ class DaqSystem(NDI_Object):
         self.metadata['name'] = name
         self.metadata['type'] = self.DOCUMENT_TYPE
         self.metadata['experiment_id'] = experiment_id
+        self.add_data_property('epoch_ids', epoch_ids)
 
         # TODO: figure out how to handle these as documents (pending daq sys)
         self.file_navigator = file_navigator
@@ -172,6 +174,7 @@ class DaqSystem(NDI_Object):
             id_=document.id,
             name=document.metadata['name'],
             experiment_id=document.metadata['experiment_id'],
+            epoch_ids=document.data['epoch_ids'],
             file_navigator=None,
             epoch_probe_map_class=None,
             daq_reader=lambda id: None,
@@ -190,6 +193,8 @@ class DaqSystem(NDI_Object):
         )
 
         epochs, probes, channels = epochprobemap.get_epochs_probes_channels()
+        for e in epochs:
+            experiment
         self.epochs = epochs
         self.probes = probes
         self.channels = channels
@@ -199,6 +204,15 @@ class DaqSystem(NDI_Object):
     def set_reader_to_channels(self):
         for c in self.channels:
             c.set_reader(self.daq_reader)
+    
+    def link_epoch(self, epoch):
+        pass
+
+    def get_epochs_db(self):
+        is_ndi_epoch_type = Q('_metadata.type') == Epoch.DOCUMENT_TYPE
+        is_related = Q('daq_system_ids').contains(self.id)
+        query = is_ndi_epoch_type & is_related
+        return self.ctx.find(query)
 
     def get_epochs(self):
         return self.epochs
@@ -430,7 +444,7 @@ class Experiment(NDI_Object):
     def add_epoch(self, epoch: T.Epoch):
         if not isinstance(epoch, Epoch):
             raise TypeError(f'Object {epoch} is not an instance of ndi.Epoch.')
-        self.__check_foreign_key_requirements(epoch, ['channel_ids', 'daq_system_id'])
+        self.__check_foreign_key_requirements(epoch, ['daq_system_ids'])
 
         self.add_related_obj_to_db(epoch)
 
@@ -470,18 +484,21 @@ class Experiment(NDI_Object):
             raise RuntimeError(f'Object {ndi_object} appears to have a foreign key to {relation_type}:{related_id}, which belongs to another experiment({relation_experiment_id}).')
 
     def get_epochs(self):
-        return self.get_ndi_dependencies(Epoch)
+        return self.get_ndi_object_dependencies(Epoch)
     def get_probes(self):
-        return self.get_ndi_dependencies(Probe)
+        return self.get_ndi_object_dependencies(Probe)
     def get_channels(self):
-        return self.get_ndi_dependencies(Channel)
+        return self.get_ndi_object_dependencies(Channel)
 
-    def get_ndi_dependencies(self, NdiClass):
+    def get_ndi_object_dependencies(self, NdiClass):
         has_this_experiment_id = Q('_metadata.experiment_id') == self.id
         is_desired_class = Q('_metadata.type') == NdiClass.DOCUMENT_TYPE
         documents = self.ctx.find(has_this_experiment_id & is_desired_class)
         ndi_objects = [NdiClass.from_document(d) for d in documents]
         return ndi_objects
+
+    def get_document_dependencies(self):
+        return self.document.get_dependencies()
 
     def find_epochs(self, ndi_query):
         return self._find_by_class(Epoch, ndi_query)
@@ -491,8 +508,9 @@ class Experiment(NDI_Object):
         return self._find_by_class(Channel, ndi_query)
 
     def _find_by_class(self, NdiClass, ndi_query):
+        has_this_experiment_id = Q('_metadata.experiment_id') == self.id
         class_filter = Q('_metadata.type') == NdiClass.DOCUMENT_TYPE
-        docs = self.ctx.find(class_filter & ndi_query)
+        docs = self.ctx.find(has_this_experiment_id & class_filter & ndi_query)
         return [NdiClass.from_document(d) for d in docs]
 
     def check_id_in_database(self, id_):
@@ -534,7 +552,7 @@ class Epoch(NDI_Object):
 
     def __init__(
         self, 
-        daq_system_id: T.NdiId = None, 
+        daq_system_ids: T.List[T.NdiId] = [], 
         experiment_id: T.NdiId = None, 
         id_: T.NdiId = None
     ) -> None:
@@ -550,7 +568,7 @@ class Epoch(NDI_Object):
         super().__init__(id_)
         self.metadata['type'] = self.DOCUMENT_TYPE
         self.metadata['experiment_id'] = experiment_id
-        self.add_data_property('daq_system_id', daq_system_id)
+        self.add_data_property('daq_system_ids', daq_system_ids)
 
     @classmethod
     def from_document(cls, document) -> Epoch:
@@ -567,6 +585,7 @@ class Epoch(NDI_Object):
         return cls(
             id_=document.id,
             experiment_id=document.metadata['experiment_id'],
+            daq_system_ids=document.data['daq_system_ids'],
         )
 
     def update(self, experiment_id: T.NdiId = None) -> None:
@@ -575,6 +594,12 @@ class Epoch(NDI_Object):
 
     def get_experiment(self):
         self.ctx.find_by_id(self.experiment_id)
+
+    def get_daq_systems(self):
+        is_ndi_epoch_type = Q('_metadata.type') == DaqSystem.DOCUMENT_TYPE
+        is_related = Q('epoch_ids').contains(self.id)
+        query = is_ndi_epoch_type & is_related
+        return self.ctx.find(query)
 
     def get_channels(self):
         is_ndi_channel_type = Q('_metadata.type') == Channel.DOCUMENT_TYPE
