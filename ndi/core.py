@@ -1,12 +1,12 @@
 from __future__ import annotations
 import ndi.types as T
+from .document import Document
+from .query import Query as Q
+import os
+import re
 from abc import ABC, abstractmethod
 import flatbuffers
 from uuid import uuid4
-import os
-import re
-import ndi.daqreaders as DaqReaders
-from .document import Document
 
 class NDI_Object:
     """
@@ -108,6 +108,187 @@ class NDI_Object:
                 super().__setattr__(key, value)
 
 
+class DaqSystem(NDI_Object):
+    """
+    A flatbuffer interface for DAQ systems.
+
+    .. currentmodule:: ndi.ndi_object
+
+    Inherits from the :class:`NDI_Object` abstract class.
+    """
+
+    DOCUMENT_TYPE = 'ndi_daq_system'
+
+    def __init__(
+        self,
+        name: str,
+        file_navigator: T.FileNavigator,
+        daq_reader: T.DaqReader,
+        epoch_probe_map_class,
+        experiment_id: T.NdiId = None,
+        id_: T.NdiId = None
+    ) -> None:
+        """DaqSystem constructor: initializes with fields defined in `ndi_schema <https://>`_'s DaqSystem table. For use when creating a new DaqSystem instance from scratch.
+        ::
+            new_daq_system = DaqSystem(**fields)
+
+        .. currentmodule:: ndi.file_navigator
+
+        :param name: [description]
+        :type name: str
+        :param file_navigator: [description]
+        :type file_navigator: :class:`FileNavigator`
+        :param daq_reader: Name of DaqReader class used to read files from FileNavigator.
+        :type daq_reader: str
+        :param experiment_id: defaults to None
+        :type experiment_id: str, optional
+        :param id_: defaults to None
+        :type id_: str, optional
+        """
+        super().__init__(id_)
+        self.metadata['name'] = name
+        self.metadata['type'] = self.DOCUMENT_TYPE
+        self.metadata['experiment_id'] = experiment_id
+
+        # TODO: figure out how to handle these as documents (pending daq sys)
+        self.file_navigator = file_navigator
+        self.epoch_probe_map_class = epoch_probe_map_class
+        self.daq_reader = daq_reader
+
+    @classmethod
+    def from_document(cls, document) -> DaqSystem:
+        """Alternate DaqSystem constructor. For use whan initializing from a document.
+        ::
+            reconstructed_daq_system = DaqSystem.from_document(fb)
+
+        :type document: ndi.Document
+
+        .. currentmodule:: ndi.daq_system
+
+        :rtype: :class:`DaqSystem`
+        """
+
+        return cls(
+            id_=document.id,
+            name=document.metadata['name'],
+            experiment_id=document.metadata['experiment_id'],
+            file_navigator=None,
+            epoch_probe_map_class=None,
+            daq_reader=lambda id: None,
+        )
+
+    def provision(self, experiment: T.Experiment):
+        if self.id not in experiment.daq_systems:
+            experiment.add_daq_system(self)
+
+        epoch_sets = self.file_navigator.get_epoch_set(experiment.directory)
+        epochprobemap = self.epoch_probe_map_class(
+            daq_reader=self.daq_reader,
+            epoch_sets=epoch_sets,
+            daq_system_id=self.id,
+            experiment_id=experiment.id
+        )
+
+        epochs, probes, channels = epochprobemap.get_epochs_probes_channels()
+        self.epochs = epochs
+        self.probes = probes
+        self.channels = channels
+        for ndi_object in epochs + probes + channels:
+            self.ctx.add(ndi_object.document)
+
+    def get_epochs(self):
+        return self.epochs
+
+    def get_probes(self):
+        return self.probes
+
+    def get_channels(self):
+        return self.channels
+
+
+class EpochSet:
+    """ TODO
+    """
+
+    def __init__(self, root, epochfiles, metadatafile):
+        self.root = root
+        self.epochfiles = epochfiles
+        self.metadatafile = metadatafile
+
+
+class FileNavigator(NDI_Object):
+    """
+    A flatbuffer interface for file_navigators.
+
+    .. currentmodule:: ndi.ndi_object
+
+    Inherits from the :class:`NDI_Object` abstract class.
+    """
+
+    def __init__(
+        self,
+        epoch_file_patterns: T.List[T.RegexStr],
+        metadata_file_pattern: T.RegexStr,
+        id_: T.NdiId = None
+    ) -> None:
+        """FileNavigator constructor: initializes with fields defined in `ndi_schema <https://>`_'s FileNavigator table. For use when creating a new FileNavigator instance from scratch.
+        ::
+            new_file_navigator = FileNavigator(**fields)
+
+        :param epoch_file_patterns: A regex string identifying file names with epoch data.
+        :type epoch_file_patterns: str
+        :param metadata_file_pattern: A regex string identifying file names containing metadata.
+        :type metadata_file_pattern: str
+        """
+        super().__init__(id_)
+        self.add_data_property('epoch_file_patterns', epoch_file_patterns)
+        self.add_data_property('metadata_file_pattern', metadata_file_pattern)
+
+    @classmethod
+    def from_document(cls, document) -> FileNavigator:
+        return cls(
+            id_=document.id,
+            epoch_file_patterns=document.data['epoch_file_patterns'],
+            metadata_file_pattern=document.data['metadata_file_pattern']
+        )
+
+    def update(
+        self,
+        epoch_file_patterns=None,
+        metadata_file_pattern=None,
+    ) -> None:
+        if epoch_file_patterns:
+            self.epoch_file_patterns = epoch_file_patterns
+        if metadata_file_pattern:
+            self.metadata_file_pattern = metadata_file_pattern
+        self.ctx.update(self.document, force=True)
+
+
+    def get_epoch_set(self, directory: T.FilePath):
+        """Given a directory, extracts, separates, and stores all files containing epoch or metadata. Files are identified using instance's epoch_file_patterns and metadata_file_pattern.
+
+        :param directory: A path to the data directory.
+        :type directory: str
+        """
+        file_parameters = re.compile('|'.join(self.epoch_file_patterns))
+        self.epochs = []
+        for root, _, files in os.walk(directory):
+            epochfiles = [
+                os.path.abspath(os.path.join(root, file))
+                for file in files
+                if file_parameters.match(file)
+            ]
+            if epochfiles:
+                metadatafile = next(
+                    file for file in epochfiles
+                    if re.match(self.metadata_file_pattern, file)
+                )
+                self.epochs.append(EpochSet(root, epochfiles, metadatafile))
+                self.epochs.sort(key=lambda epoch: epoch.root)
+        return self.epochs
+
+
+
 class Experiment(NDI_Object):
     """
     A flatbuffer interface for experiments.
@@ -117,7 +298,7 @@ class Experiment(NDI_Object):
     Inherits from the :class:`NDI_Object` abstract class.
     """
 
-    DOCUMENT_TYPE = EXPERIMENT_DOCUMENT_TYPE
+    DOCUMENT_TYPE = 'ndi_experiment'
 
     def __init__(self, name: str, daq_system_ids: T.List[T.DaqSystem] = [], id_: T.NdiId = None):
         """Experiment constructor: initializes with fields defined in `ndi_schema <https://>`_'s Experiment table. For use when creating a new Experiment instance from scratch.
@@ -181,16 +362,16 @@ class Experiment(NDI_Object):
 
     # Document Methods
     @classmethod
-    def from_database(cls, db, ndi_query: T.Query):
+    def from_database(cls, db, directory, ndi_query: T.Query):
         documents = db.find(ndi_query=ndi_query)
         return [
-            cls.from_document(d) 
+            cls.from_document(d, directory) 
             for d in documents 
             if d.metadata['type'] == cls.DOCUMENT_TYPE
         ]
         
     @classmethod
-    def from_document(cls, document) -> Experiment:
+    def from_document(cls, document, directory) -> Experiment:
         """Alternate Experiment constructor. For use whan initializing from a document bytearray.
         ::
             reconstructed_experiment = Experiment.from_document(fb)
@@ -203,6 +384,7 @@ class Experiment(NDI_Object):
         """
         return cls(
             id_=document.id,
+            directory=directory,
             name=document.metadata['name'],
             daq_system_ids=document.data['daq_system_ids']
         )
@@ -334,199 +516,313 @@ class Experiment(NDI_Object):
 
 
 
-class DaqSystem(NDI_Object):
+class Epoch(NDI_Object):
     """
-    A flatbuffer interface for DAQ systems.
+    A flatbuffer interface for epochs.
+
+    .. currentmodule:: ndi.ndi_object
+
+    Inherits from the :class:`NDI_Object` abstract class.
+    """
+    # TODO: require daq_system_id after implementing DaqReaders
+
+    DOCUMENT_TYPE = 'ndi_epoch'
+
+    def __init__(
+        self, 
+        channel_ids=[],
+        daq_system_id: T.NdiId = None, 
+        experiment_id: T.NdiId = None, 
+        id_: T.NdiId = None
+    ) -> None:
+        """Epoch constructor: initializes with fields defined in `ndi_schema <https://>`_'s Epoch table. For use when creating a new Epoch instance from scratch.
+        ::
+            new_epoch = Epoch(**fields)
+
+        :param daq_system_id: defaults to ''
+        :type daq_system_id: str, optional
+        :param id_: defaults to None
+        :type id_: str, optional
+        """
+        super().__init__(id_)
+        self.metadata['type'] = self.DOCUMENT_TYPE
+        self.add_data_property('channel_ids', channel_ids)
+        self.metadata['experiment_id'] = experiment_id
+        self.add_data_property('daq_system_id', daq_system_id)
+
+    @classmethod
+    def from_document(cls, document) -> Epoch:
+        """Alternate Epoch constructor. For use whan initializing from a document.
+        ::
+            reconstructed_epoch = Epoch.from_document(fb)
+
+        :type document: ndi.Document
+
+        .. currentmodule:: ndi.epoch
+
+        :rtype: :class:`Epoch`
+        """
+        return cls(
+            id_=document.id,
+            experiment_id=document.metadata['experiment_id'],
+        )
+
+    def update(self, experiment_id: T.NdiId = None) -> None:
+        if experiment_id: self.experiment_id = experiment_id
+        self.ctx.update(self.document, force=True)
+
+    def get_experiment(self):
+        self.ctx.find_by_id(self.experiment_id)
+
+
+
+class Probe(NDI_Object):
+    """
+    A flatbuffer interface for probes.
 
     .. currentmodule:: ndi.ndi_object
 
     Inherits from the :class:`NDI_Object` abstract class.
     """
 
-    DOCUMENT_TYPE = DAQ_SYSTEM_DOCUMENT_TYPE
+    DOCUMENT_TYPE = 'ndi_probe'
 
     def __init__(
         self,
         name: str,
-        file_navigator: T.FileNavigator,
-        daq_reader: T.DaqReader,
+        reference: int,
+        type_: str,
+        id_: T.NdiId = None,
+        daq_system_id: T.NdiId = None,
         experiment_id: T.NdiId = None,
-        id_: T.NdiId = None
     ) -> None:
-        """DaqSystem constructor: initializes with fields defined in `ndi_schema <https://>`_'s DaqSystem table. For use when creating a new DaqSystem instance from scratch.
+        """Probe constructor: initializes with fields defined in `ndi_schema <https://>`_'s Probe table. For use when creating a new Probe instance from scratch.
         ::
-            new_daq_system = DaqSystem(**fields)
+            new_probe = Probe(**fields)
 
-        .. currentmodule:: ndi.file_navigator
-
-        :param name: [description]
+        :param name:
         :type name: str
-        :param file_navigator: [description]
-        :type file_navigator: :class:`FileNavigator`
-        :param daq_reader: Name of DaqReader class used to read files from FileNavigator.
-        :type daq_reader: str
-        :param experiment_id: defaults to None
-        :type experiment_id: str, optional
+        :param reference:
+        :type reference: int
+        :param type_:
+        :type type_: str
         :param id_: defaults to None
         :type id_: str, optional
+        :param daq_system_id: defaults to ''
+        :type daq_system_id: str, optional
+        :raises TypeError: When *type_* is not from the list of :mod:`ndi.probe_type`.
         """
         super().__init__(id_)
         self.metadata['name'] = name
         self.metadata['type'] = self.DOCUMENT_TYPE
         self.metadata['experiment_id'] = experiment_id
+        self.add_data_property('reference', reference)
+        self.add_data_property('daq_system_id', daq_system_id)
+        self.add_data_property('type', type_)
 
-        # TODO: figure out how to handle these as documents (pending daq sys)
-        self.file_navigator = file_navigator
-        self.add_daq_reader(daq_reader)
-        
-
+    # Document Methods
     @classmethod
-    def from_document(cls, document) -> DaqSystem:
-        """Alternate DaqSystem constructor. For use whan initializing from a document.
+    def from_document(cls, document) -> Probe:
+        """Alternate Probe constructor. For use whan initializing from a document.
         ::
-            reconstructed_daq_system = DaqSystem.from_document(fb)
+            reconstructed_probe = Probe.from_document(fb)
 
         :type document: ndi.Document
 
-        .. currentmodule:: ndi.daq_system
+        .. currentmodule:: ndi.probe
 
-        :rtype: :class:`DaqSystem`
+        :rtype: :class:`Probe`
         """
-
         return cls(
             id_=document.id,
             name=document.metadata['name'],
+            reference=document.data['reference'],
+            type_=document.data['type'],
+            daq_system_id=document.data['daq_system_id'],
             experiment_id=document.metadata['experiment_id'],
-            file_navigator=None,
-            daq_reader=lambda id: None,
         )
 
-    def add_daq_reader(self, daq_reader: T.DaqReader) -> None:
-        self.daq_reader = daq_reader(self.id)
+    def update(
+        self,
+        name: str,
+        reference: int,
+        type_: str,
+        daq_system_id: T.NdiId = None,
+        experiment_id: T.NdiId = None,
+    ) -> None:
+        if name:
+            self.name = name
+        if reference:
+            self.reference = reference
+        if type_:
+            self.type_ = type_
+        if daq_system_id:
+            self.daq_system_id = daq_system_id
+        if experiment_id:
+            self.experiment_id = experiment_id
+        self.ctx.update(self.document, force=True)
 
-    def provision(self, experiment: T.Experiment) -> None:
-        if self not in experiment.daq_systems:
-            experiment.add_daq_system(self)
+    def add_channel(self, channel):
+        if channel.metadata['type'] != Channel.DOCUMENT_TYPE:
+            raise TypeError(f'Object {channel} is not an instance of ndi.Channel.')
+        
+        channel.metadata['experiment_id'] = self.metadata['experiment_id']
+        channel.probe_id = self.id
+        channel.daq_system_id = self.daq_system_id
 
-        # NOTE: This is where the channels, probes, and epochs would all be added 
-        # to the database as a part of the given experiment.
+        channel.ctx = self.ctx
+        channel.binary_collection = self.binary_collection
+        self.ctx.add(channel.document)
 
-        # NOTE: I think this is also where the daq system will add itself to the database 
-        #   (if it's not already in it)
+    def get_channels(self):
+        is_ndi_channel_type = Q('_metadata.type') == Channel.DOCUMENT_TYPE
+        is_related = Q('probe_id') == self.id
+        query = is_ndi_channel_type & is_related
+        return self.ctx.find(query)
+
+    def get_daq_system(self):
+        self.ctx.find_by_id(self.daq_system_id)
+
+    def get_experiment(self):
+        self.ctx.find_by_id(self.experiment_id)
 
 
 
-class EpochFiles:
-    """ TODO
-    """
-
-    def __init__(self, epochfiles, metadatafile):
-        self.epochfiles = epochfiles
-        self.metadatafile = metadatafile
-
-
-class FileNavigator(NDI_Object):
-    """
-    A flatbuffer interface for file_navigators.
+class Channel(NDI_Object):
+    """A flatbuffer interface for channels.
 
     .. currentmodule:: ndi.ndi_object
 
     Inherits from the :class:`NDI_Object` abstract class.
     """
 
+    DOCUMENT_TYPE = 'ndi_channel'
+
+    # TODO: require daq_system_id after implementing DaqReaders
     def __init__(
         self,
-        epoch_file_patterns: T.List[T.RegexStr],
-        metadata_file_pattern: T.RegexStr
+        name: str,
+        number: int,
+        type_: str,
+        source_file: str,
+        # NOTE: channels and epochs will almost definitely be a many-to-many relationship
+        #       would need a list of epoch_ids
+        daq_reader = None,
+        probe_id: T.NdiId = None,
+        epoch_ids: T.List[T.NdiId] = [],
+        daq_system_id: T.NdiId = None,
+        experiment_id: T.NdiId = None,
+        id_: T.NdiId = None,
+        clock_type: str = 'no_time'
     ) -> None:
-        """FileNavigator constructor: initializes with fields defined in `ndi_schema <https://>`_'s FileNavigator table. For use when creating a new FileNavigator instance from scratch.
+        """Channel constructor: initializes with fields defined in `ndi_schema <https://>`_'s Channel table. For use when creating a new Channel instance from scratch.
         ::
-            new_file_navigator = FileNavigator(**fields)
+            new_channel = Channel(**fields)
 
-        :param epoch_file_patterns: A regex string identifying file names with epoch data.
-        :type epoch_file_patterns: str
-        :param metadata_file_pattern: A regex string identifying file names containing metadata.
-        :type metadata_file_pattern: str
+        :param name: Abbreviated type with number (e.g. ai21, do3, aux13).
+        :type name: str
+        :param number: [description]
+        :type number: int
+        :param type_: One of the types defined in :mod:`ndi.channel_type`.
+        :type type_: str
+        :param source_file: [description]
+        :type source_file: str
+        :param epoch_ids: [description]
+        :type epoch_ids: str
+        :param probe_id: [description]
+        :type probe_id: str
+        :param daq_system_id: defaults to '<empty_string>'
+        :type daq_system_id: str, optional
+        :type id_: str, optional
+        :param clock_type: defaults to 'no_time'
+        :type clock_type: str, optional
+
+        .. currentmodule:: ndi.channel
+
+        :rtype: :class:`Channel`
         """
-        self.epoch_file_patterns = epoch_file_patterns
-        self.metadata_file_pattern = metadata_file_pattern
+        super().__init__(id_)
+        self.metadata['name'] = name
+        self.metadata['type'] = self.DOCUMENT_TYPE
+        self.metadata['experiment_id'] = experiment_id
+        self.add_data_property('number', number)
+        self.add_data_property('type', type_)
+        self.add_data_property('clock_type', clock_type)
+        self.add_data_property('source_file', source_file)
+        self.add_data_property('probe_id', probe_id)
+        self.add_data_property('epoch_ids', epoch_ids)
+        self.add_data_property('daq_system_id', daq_system_id)
+        self.daq_reader = daq_reader(source_file) if daq_reader else None
 
     @classmethod
-    def from_flatbuffer(cls, flatbuffer: bytes) -> FileNavigator:
-        """Alternate FileNavigator constructor. For use whan initializing from a flatbuffer bytearray.
+    def from_document(cls, document) -> Channel:
+        """Alternate Channel constructor. For use whan initializing from a document.
         ::
-            reconstructed_file_navigator = FileNavigator.from_flatbuffer(fb)
+            reconstructed_channel = Channel.from_document(fb)
 
-        :param flatbuffer:
-        :type flatbuffer: bytearray
+        :type document: ndi.Document
 
-        .. currentmodule:: ndi.file_navigator
+        .. currentmodule:: ndi.channel
 
-        :rtype: :class:`FileNavigator`
+        :rtype: :class:`Channel`
         """
-        file_navigator = build_file_navigator.FileNavigator.GetRootAsFileNavigator(
-            flatbuffer, 0)
-        return cls._reconstruct(file_navigator)
-
-    @classmethod
-    def _reconstruct(cls, file_navigator: T.FileNavigator_schema) -> FileNavigator:
-        """Alternate FileNavigator constructor. For use whan initializing from a flatbuffer generated class instance.
-
-        :param file_navigator: FileNavigator object created from class generated by `ndi_schema<https://>`_
-        :type file_navigator: ndi.schema.FileNavigator.FileNavigator
-
-        .. currentmodule:: ndi.file_navigator
-
-        :rtype: :class:`FileNavigator`
-        """
-        epoch_file_patterns = [
-            file_navigator.EpochFilePatterns(i).decode('utf8')
-            for i in range(file_navigator.EpochFilePatternsLength())
-        ]
-
         return cls(
-            epoch_file_patterns=epoch_file_patterns,
-            metadata_file_pattern=file_navigator.MetadataFilePattern().decode('utf8')
+            id_=document.id,
+            name=document.metadata['name'],
+            number=document.data['number'],
+            type_=document.data['type'],
+            clock_type=document.data['clock_type'],
+            source_file=document.data['source_file'],
+            probe_id=document.data['probe_id'],
+            epoch_ids=document.data['epoch_ids'],
+            daq_system_id=document.data['daq_system_id'],
+            experiment_id=document.metadata['experiment_id'],
         )
 
-    def _build(self, builder: T.Builder) -> T.BuildOffset:
-        """.. currentmodule:: ndi.ndi_object
+    def update(
+        self,
+        name: str,
+        number: int,
+        type_: str,
+        source_file: str,
+        probe_id: T.NdiId,
+        epoch_ids: T.List[T.NdiId],
+        daq_system_id: T.NdiId = None,
+        experiment_id: T.NdiId = None,
+        clock_type: str = 'no_time'
+    ) -> None:
+        if name: self.name = name
+        if number: self.number = number
+        if type_: self.type = type_
+        if source_file: self.source_file = source_file
+        if probe_id: self.probe_id = probe_id
+        if epoch_ids: self.epoch_ids = epoch_ids
+        if daq_system_id: self.daq_system_id = daq_system_id
+        if experiment_id: self.experiment_id = experiment_id
+        if clock_type: self.clock_type = clock_type
 
-        Called in NDI_Object.serialize() as part of flatbuffer bytearray generation from FileNavigator instance.
+        self.ctx.update(self.document, force=True)
 
-        :param builder: Builder class in flatbuffers module.
-        :type builder: flatbuffers.Builder
-        """
-        epoch_file_patterns = self._buildStringVector(
-            builder, self.epoch_file_patterns)
-        metadata_file_pattern = builder.CreateString(
-            self.metadata_file_pattern)
+    def read(self, **kwargs):
+        if self.type == 'event':
+            return self.daq_reader.readevents(self.number, **kwargs)
+        else:
+            return self.daq_reader.readchannel(self.number, **kwargs)
 
-        build_file_navigator.FileNavigatorStart(builder)
-        build_file_navigator.FileNavigatorAddEpochFilePatterns(
-            builder, epoch_file_patterns)
-        build_file_navigator.FileNavigatorAddMetadataFilePattern(
-            builder, metadata_file_pattern)
-        return build_file_navigator.FileNavigatorEnd(builder)
+    def samplerate(self):
+        return self.daq_reader.samplerate(self.number)
 
-    def get_epochs(self, directory: T.FilePath) -> None:
-        """Given a directory, extracts, separates, and stores all files containing epoch or metadata. Files are identified using instance's epoch_file_patterns and metadata_file_pattern.
+    def get_epochs(self):
+        is_ndi_epoch_type = Q('_metadata.type') == Epoch.DOCUMENT_TYPE
+        is_related = Q('channel_ids').contains(self.id)
+        query = is_ndi_epoch_type & is_related
+        return self.ctx.find(query)
 
-        :param directory: A path to the data directory.
-        :type directory: str
-        """
-        file_parameters = re.compile('|'.join(self.epoch_file_patterns))
-        self.epochs = []
-        for root, _, files in os.walk(directory):
-            epochfiles = [
-                os.path.abspath(os.path.join(root, file))
-                for file in files
-                if file_parameters.match(file)
-            ]
-            if epochfiles:
-                # TODO: fix? metadata file pattern might not also match epoch file pattern.
-                metadatafile = [
-                    file for file in epochfiles
-                    if re.match(self.metadata_file_pattern, file)
-                ][0]
-                self.epochs.append(EpochFiles(epochfiles, metadatafile))
+    def get_probe(self):
+        self.ctx.find_by_id(self.probe_id)
+
+    def get_daq_system(self):
+        self.ctx.find_by_id(self.daq_system_id)
+
+    def get_experiment(self):
+        self.ctx.find_by_id(self.experiment_id)

@@ -1,8 +1,3 @@
-from .channel import Channel
-from .file_navigator import FileNavigator, EpochSet
-from .daq_system import DaqSystem
-from .epoch import Epoch
-from .experiment import Experiment
-from .probe import Probe
-from .ndi_object import NDI_Object
+from .core import NDI_Object, DaqSystem, FileNavigator, EpochSet, Experiment, Epoch, Probe, Channel
 from .document import Document
+from .query import Query

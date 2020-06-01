@@ -4,7 +4,7 @@ Database Utils Module
 """
 from __future__ import annotations
 import ndi.types as T
-from ..ndi_object import NDI_Object
+from ..core import NDI_Object
 from functools import wraps
 from contextlib import contextmanager
 from ..query import Query

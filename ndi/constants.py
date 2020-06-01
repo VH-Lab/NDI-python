@@ -1,5 +1,0 @@
-EXPERIMENT_DOCUMENT_TYPE = 'ndi_experiment'
-DAQ_SYSTEM_DOCUMENT_TYPE = 'ndi_daq_system'
-PROBE_DOCUMENT_TYPE = 'ndi_probe'
-CHANNEL_DOCUMENT_TYPE = 'ndi_channel'
-EPOCH_DOCUMENT_TYPE = 'ndi_epoch'
