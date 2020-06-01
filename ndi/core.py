@@ -208,14 +208,14 @@ class DaqSystem(NDI_Object):
         for e in epochs:
             e.daq_system_ids.append(self.id)
             self.epoch_ids.append(e.id)
-            experiment.upsert(e)
+            experiment.upsert(e, force=True)
         self.ctx.update(self.document, force=True)
         for p in probes:
             p.daq_system_id = self.id
-            experiment.upsert(p)
+            experiment.upsert(p, force=True)
         for c in channels:
             c.daq_system_id = self.id
-            experiment.upsert(c)
+            experiment.upsert(c, force=True)
 
         return epochs, probes, channels
     
