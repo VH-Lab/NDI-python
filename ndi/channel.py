@@ -18,12 +18,13 @@ class Channel(NDI_Object):
     # TODO: require daq_system_id after implementing DaqReaders
     def __init__(
         self,
+        name: str,
         number: int,
         type_: str,
         source_file: str,
         # NOTE: channels and epochs will almost definitely be a many-to-many relationship
         #       would need a list of epoch_ids
-        daq_reader,
+        daq_reader = None,
         probe_id: T.NdiId = None,
         epoch_ids: T.List[T.NdiId] = [],
         daq_system_id: T.NdiId = None,
@@ -58,6 +59,7 @@ class Channel(NDI_Object):
         :rtype: :class:`Channel`
         """
         super().__init__(id_)
+        self.metadata['name'] = name
         self.metadata['type'] = self.DOCUMENT_TYPE
         self.metadata['experiment_id'] = experiment_id
         self.add_data_property('number', number)
@@ -67,10 +69,10 @@ class Channel(NDI_Object):
         self.add_data_property('probe_id', probe_id)
         self.add_data_property('epoch_ids', epoch_ids)
         self.add_data_property('daq_system_id', daq_system_id)
-        self.daq_reader = daq_reader(source_file)
+        self.daq_reader = daq_reader(source_file) if daq_reader else None
 
     @classmethod
-    def from_document(cls, document, daq_reader) -> Channel:
+    def from_document(cls, document) -> Channel:
         """Alternate Channel constructor. For use whan initializing from a document.
         ::
             reconstructed_channel = Channel.from_document(fb)
@@ -83,11 +85,11 @@ class Channel(NDI_Object):
         """
         return cls(
             id_=document.id,
+            name=document.metadata['name'],
             number=document.data['number'],
             type_=document.data['type'],
             clock_type=document.data['clock_type'],
             source_file=document.data['source_file'],
-            daq_reader=daq_reader,
             probe_id=document.data['probe_id'],
             epoch_ids=document.data['epoch_ids'],
             daq_system_id=document.data['daq_system_id'],
@@ -96,6 +98,7 @@ class Channel(NDI_Object):
 
     def update(
         self,
+        name: str,
         number: int,
         type_: str,
         source_file: str,
@@ -105,6 +108,7 @@ class Channel(NDI_Object):
         experiment_id: T.NdiId = None,
         clock_type: str = 'no_time'
     ) -> None:
+        if name: self.name = name
         if number: self.number = number
         if type_: self.type = type_
         if source_file: self.source_file = source_file
