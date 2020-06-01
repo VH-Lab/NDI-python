@@ -193,35 +193,43 @@ class DaqSystem(NDI_Object):
         )
 
         epochs, probes, channels = epochprobemap.get_epochs_probes_channels()
+
+        # set relationships, verify types, and add to database.
         for e in epochs:
-            experiment
-        self.epochs = epochs
-        self.probes = probes
-        self.channels = channels
-        for ndi_object in epochs + probes + channels:
-            self.ctx.add(ndi_object.document)
+            e.daq_system_ids.append(self.id)
+            self.epoch_ids.append(e.id)
+            experiment.add_epoch(e)
+        self.ctx.update(self.document, force=True)
+        for p in probes:
+            p.daq_system_id = self.id
+            experiment.add_probe(p)
+        for c in channels:
+            c.daq_system_id = self.id
+            experiment.add_channel(c)
+
+        return epochs, probes, channels
     
     def set_reader_to_channels(self):
         for c in self.channels:
             c.set_reader(self.daq_reader)
-    
-    def link_epoch(self, epoch):
-        pass
 
-    def get_epochs_db(self):
+    def get_epochs(self):
         is_ndi_epoch_type = Q('_metadata.type') == Epoch.DOCUMENT_TYPE
         is_related = Q('daq_system_ids').contains(self.id)
         query = is_ndi_epoch_type & is_related
         return self.ctx.find(query)
 
-    def get_epochs(self):
-        return self.epochs
-
     def get_probes(self):
-        return self.probes
+        is_ndi_epoch_type = Q('_metadata.type') == Probe.DOCUMENT_TYPE
+        is_related = Q('daq_system_id') == self.id
+        query = is_ndi_epoch_type & is_related
+        return self.ctx.find(query)
 
     def get_channels(self):
-        return self.channels
+        is_ndi_epoch_type = Q('_metadata.type') == Channel.DOCUMENT_TYPE
+        is_related = Q('daq_system_id') == self.id
+        query = is_ndi_epoch_type & is_related
+        return self.ctx.find(query)
 
 
 class EpochSet:

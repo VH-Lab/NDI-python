@@ -7,11 +7,9 @@ from ..database import Query as Q
 
 
 class VHIntanChannelGrouping(EpochProbeMap):
-    def __init__(self, daq_reader, epoch_sets, daq_system_id, experiment_id, ctx=None):
+    def __init__(self, daq_reader, epoch_sets, ctx=None):
         self.daq_reader = daq_reader
         self.epoch_sets = epoch_sets
-        self.daq_system_id = daq_system_id
-        self.experiment_id = experiment_id
         self.ctx = ctx
 
     def read_epoch_metadata_file(self, metadata_file_path):
@@ -51,8 +49,6 @@ class VHIntanChannelGrouping(EpochProbeMap):
                             name=probe_map['name'],
                             reference=probe_map['reference'],
                             type_=probe_map['type'],
-                            daq_system_id=self.daq_system_id,
-                            experiment_id=self.experiment_id
                         )
                     )
 
@@ -77,8 +73,6 @@ class VHIntanChannelGrouping(EpochProbeMap):
                             daq_reader=self.daq_reader,
                             epoch_id=epoch.id,
                             probe_id=current_probe.id,
-                            daq_system_id=self.daq_system_id,
-                            experiment_id=self.experiment_id
                         )
                     )
 
@@ -98,7 +92,6 @@ class VHIntanChannelGrouping(EpochProbeMap):
             if epoch_set.root not in [epoch.reference_dir for epoch in epochs]:
                 epochs.append(
                     Epoch(
-                        experiment_id=self.experiment_id,
                         reference_dir=epoch_set.root
                     )
                 )
