@@ -276,6 +276,8 @@ class FileNavigator(NDI_Object):
     Inherits from the :class:`NDI_Object` abstract class.
     """
 
+    DOCUMENT_TYPE = 'ndi_file_navigator'
+
     def __init__(
         self,
         epoch_file_patterns: T.List[T.RegexStr],
@@ -292,6 +294,7 @@ class FileNavigator(NDI_Object):
         :type metadata_file_pattern: str
         """
         super().__init__(id_)
+        self.metadata['type'] = self.DOCUMENT_TYPE
         self.add_data_property('epoch_file_patterns', epoch_file_patterns)
         self.add_data_property('metadata_file_pattern', metadata_file_pattern)
 
@@ -415,6 +418,7 @@ class Experiment(NDI_Object):
             for daq_sys in daq_systems:
                 if daq_sys.id not in [ds.id for ds in self.daq_systems]:
                     self.daq_systems.append(daq_sys)
+                    self.add_daq_system(daq_sys)
                 reader_name = daq_sys.daq_reader.__name__
                 if reader_name not in self.daq_readers_map:
                     self.daq_readers_map[reader_name] = daq_sys.daq_reader
@@ -535,7 +539,13 @@ class Experiment(NDI_Object):
             if c.daq_reader_class_name in self.daq_readers_map:
                 c.set_reader(self.daq_readers_map[c.daq_reader_class_name])
             else:
-                print(f'DAQ reader {c.daq_reader_class_name} not set to {c}. If necessary, connect this experiment to the appropriate DAQ system.')
+                if c.daq_reader_class_name:
+                    whats_missing = f'DAQ reader {c.daq_reader_class_name} not'
+                    how_to_fix = ' If necessary, connect this experiment to the appropriate DAQ system.'
+                else:
+                    whats_missing = 'No DAQ reader'
+                    how_to_fix = ''
+                print(f'{whats_missing} set to {c}.{how_to_fix}')
         return channels
 
     def get_epochs(self):

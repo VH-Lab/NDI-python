@@ -119,7 +119,8 @@ class Document(Flatbuffer_Object):
     def get_history(self):
         """oldest to newest"""
         ids = self.metadata['asc_path'].split(',')[1:]
-        return [self.ctx.find_by_id(id) for id in reversed(ids)]
+        results = [self.ctx.find_by_id(id) for id in reversed(ids)]
+        return [x for x in results if x]
 
     def __check_dependency_key_exists(self, key: str):
         dependencies = self.dependencies
