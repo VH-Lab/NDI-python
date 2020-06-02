@@ -182,7 +182,7 @@ class SQL(NDI_Database):
             id_,
             result_format=Datatype.NDI    
         )
-        return item.with_ctx(self) if item else item
+        return item and item.with_ctx(self)
 
     @with_update_warning
     def update_by_id(self, id_: T.NdiId, payload: T.SqlCollectionDocument = {}, force: bool = False) -> None:
