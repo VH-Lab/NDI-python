@@ -1,16 +1,13 @@
 import re
 from .epoch_probe_map import EpochProbeMap
-from ..epoch import Epoch
-from ..probe import Probe
-from ..channel import Channel
-from ..database import Query as Q
+from ..core import Epoch, Probe, Channel
+from ..query import Query as Q
 
 
 class VHIntanChannelGrouping(EpochProbeMap):
-    def __init__(self, daq_reader, epoch_sets, daq_system_id, experiment_id, ctx=None):
+    def __init__(self, daq_reader, epoch_sets, experiment_id, ctx=None):
         self.daq_reader = daq_reader
         self.epoch_sets = epoch_sets
-        self.daq_system_id = daq_system_id
         self.experiment_id = experiment_id
         self.ctx = ctx
 
@@ -51,8 +48,6 @@ class VHIntanChannelGrouping(EpochProbeMap):
                             name=probe_map['name'],
                             reference=probe_map['reference'],
                             type_=probe_map['type'],
-                            daq_system_id=self.daq_system_id,
-                            experiment_id=self.experiment_id
                         )
                     )
 
@@ -71,14 +66,14 @@ class VHIntanChannelGrouping(EpochProbeMap):
                 for channel_number in probe_map['devicestring']['channel_list']:
                     channels.append(
                         Channel(
+                            name='',
                             number=channel_number,
                             type_=probe_map['devicestring']['channel_type'],
                             source_file=source_file,
                             daq_reader=self.daq_reader,
+                            daq_reader_class_name=self.daq_reader.__name__,
                             epoch_id=epoch.id,
                             probe_id=current_probe.id,
-                            daq_system_id=self.daq_system_id,
-                            experiment_id=self.experiment_id
                         )
                     )
 
@@ -98,14 +93,11 @@ class VHIntanChannelGrouping(EpochProbeMap):
             if epoch_set.root not in [epoch.reference_dir for epoch in epochs]:
                 epochs.append(
                     Epoch(
-                        experiment_id=self.experiment_id,
                         reference_dir=epoch_set.root
                     )
                 )
         
         epochs.sort(key=lambda epoch: epoch.reference_dir)
-        for epoch in epochs:
-            epoch.add_daq_system(self.daq_system_id)
 
         return epochs
 

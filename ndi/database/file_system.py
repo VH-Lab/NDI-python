@@ -2,7 +2,7 @@ from __future__ import annotations
 from .ndi_database import NDI_Database
 from pathlib import Path
 from ..document import Document
-from .query import CompositeQuery, AndQuery, OrQuery
+from ..query import CompositeQuery, AndQuery, OrQuery
 from .utils import with_update_warning, with_delete_warning
 import ndi.types as T
 import re
@@ -31,6 +31,8 @@ class FileSystem(NDI_Database):
                 f'No such file or directory: \'{self.exp_dir}\'')
 
     def add(self, ndi_document):
+        if not isinstance(ndi_document, Document):
+            raise TypeError(f'Unexpected type {type(ndi_document)}. Expected type {Document}.')
         file_path = self.collection_dir / f'{ndi_document.id}.dat'
         ndi_document.set_ctx(self)
         if not file_path.exists():
@@ -81,8 +83,11 @@ class FileSystem(NDI_Database):
             self.delete(ndi_document, force=force)
 
     def find_by_id(self, id_):
-        doc = Document.from_flatbuffer((self.collection_dir / f'{id_}.dat').read_bytes())
-        return doc.with_ctx(self)
+        try:
+            doc = Document.from_flatbuffer((self.collection_dir / f'{id_}.dat').read_bytes())
+            return doc.with_ctx(self)
+        except FileNotFoundError:
+            return None
 
     def update_by_id(self, id_, payload={}, force=False):
         ndi_document = self.find_by_id(id_)

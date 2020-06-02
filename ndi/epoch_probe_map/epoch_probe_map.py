@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 class EpochProbeMap(ABC):
     @abstractmethod
-    def __init__(self, daq_reader, epoch_sets, daq_system_id, experiment_id):
+    def __init__(self, daq_reader, epoch_sets, experiment_id, ctx):
         pass
 
     @abstractmethod

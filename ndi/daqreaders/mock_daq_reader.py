@@ -1,6 +1,4 @@
-from ..channel import Channel
-from ..probe import Probe
-from ..epoch import Epoch
+from ..core import Channel, Probe, Epoch
 
 class MockReader:
     """A temporary class for mocking DAQ_Reader output."""

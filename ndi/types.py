@@ -54,7 +54,7 @@ if TYPE_CHECKING:
     from ndi.database import SQL, FileSystem, Query
     from ndi.database.sql import Collection as SqlCollection, Relationship as SqlRelationship, Datatype as DatatypeEnum
     from ndi.database.file_system import Collection as FS_Collection
-    from ndi.database.query import Query, CompositeQuery, AndQuery, OrQuery
+    from ndi.query import Query, CompositeQuery, AndQuery, OrQuery
 
     from sqlalchemy import Column, Query as SqlaQuery
     from sqlalchemy.orm import relationship, Session
