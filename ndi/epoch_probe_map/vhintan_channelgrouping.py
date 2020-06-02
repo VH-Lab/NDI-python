@@ -1,7 +1,7 @@
 import re
 from .epoch_probe_map import EpochProbeMap
 from ..core import Epoch, Probe, Channel
-from ..database import Query as Q
+from ..query import Query as Q
 
 
 class VHIntanChannelGrouping(EpochProbeMap):
@@ -97,8 +97,6 @@ class VHIntanChannelGrouping(EpochProbeMap):
                 )
         
         epochs.sort(key=lambda epoch: epoch.reference_dir)
-        for epoch in epochs:
-            epoch.add_daq_system(self.daq_system_id)
 
         return epochs
 

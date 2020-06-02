@@ -160,7 +160,6 @@ class Document(Flatbuffer_Object):
             }
             self.ctx.add(ndi_document)
             self.ctx.update(self, force=True)
-            raise RuntimeError(f'Document {dependency_name} is already a dependency of document {own_name}.')
 
     def __link_dependency(self, ndi_document, key):
         ndi_document.depends_on.append(self.id)

@@ -20,7 +20,7 @@ def new_daq_system():
     fn = MockFileNavigator(fn_id)
 
     # Instantiating DaqSystem object
-    ds = DaqSystem(name, file_navigator=fn, daq_reader=MockDaqReader, experiment_id=experiment_id, epoch_probe_map_class=MockEpochProbeMap, epoch_ids=epoch_ids)
+    ds = DaqSystem(name, file_navigator=fn, daq_reader=MockDaqReader, experiment_id=experiment_id, epoch_probe_map=MockEpochProbeMap, epoch_ids=epoch_ids)
     yield ds, name, experiment_id, fn_id, epoch_ids
 
 class TestDaqSystemDocument:

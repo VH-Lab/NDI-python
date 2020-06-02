@@ -1,6 +1,5 @@
 from ndi.database import FileSystem
-from ndi.database import Query as Q
-from ndi import Document
+from ndi import Document, Query as Q
 from pathlib import Path
 import pytest
 from tests.utils import rmrf

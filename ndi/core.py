@@ -186,7 +186,7 @@ class DaqSystem(NDI_Object):
             experiment_id=document.metadata['experiment_id'],
             epoch_ids=document.data['epoch_ids'],
             file_navigator=None,
-            epoch_probe_map_class=None,
+            epoch_probe_map=None,
             daq_reader=lambda id: None,
         )
 
