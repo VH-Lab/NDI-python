@@ -18,6 +18,8 @@ def new_daq_system():
     fn_id = '0987654321'
     epoch_ids = ['123', '456']
     fn = MockFileNavigator(fn_id)
+
+    # Instantiating DaqSystem object
     ds = DaqSystem(name, file_navigator=fn, daq_reader=MockDaqReader, experiment_id=experiment_id, epoch_probe_map_class=MockEpochProbeMap, epoch_ids=epoch_ids)
     yield ds, name, experiment_id, fn_id, epoch_ids
 
@@ -38,6 +40,7 @@ class TestDaqSystemDocument:
 
         d = ds.document
         rebuilt_daq_system = DaqSystem.from_document(d)
+        # Test that rebuilt DaqSystem properties match the original's
         assert rebuilt_daq_system.id == ds.id
         assert rebuilt_daq_system.metadata['name'] == ds.metadata['name']
         assert rebuilt_daq_system.metadata['experiment_id'] == ds.metadata['experiment_id']
