@@ -35,27 +35,38 @@ class TestEpochProbeMap:
         ]
     )
     def test_read_device_string(self, device_string, expected_output):
+        # Test that function gives expected output
         assert read_device_string(device_string) == expected_output
 
     def test_vh_intan_channel_grouping(self):
+        # Instantiate FileNavigator
         fn = FileNavigator(['.*\.smr$', '.*\.epochmetadata$'], '.*\.epochmetadata$')
+        # Acquire epoch_sets from FileNavigator
         epoch_sets = fn.get_epoch_set('./tests/data/intracell_example')
+        # Instantiate epochprobemap_reader object
         epochprobemap_reader = VHIntanChannelGrouping(CEDSpike2, epoch_sets, 'daq_id', 'exp_id')
+
         epochs, probes, channels = epochprobemap_reader.get_epochs_probes_channels()
 
+        # Test that there are 3 epochs in intracell_example
         assert len(epochs) == 3
         for epoch in epochs:
+            # Test that each item in list is Epoch object
             assert type(epoch) == Epoch
             assert epoch.document.data['_metadata']['experiment_id'] == 'exp_id'
 
+        # Test that there are 2 probes in intracell_example
         assert len(probes) == 2
         for probe in probes:
+            # Test that each item in list is Probe object
             assert type(probe) == Probe
             assert probe.document.data['_metadata']['experiment_id'] == 'exp_id'
             assert probe.document.data['daq_system_id'] == 'daq_id'
         
+        # Test that there are 3 channels in intracell_example
         assert len(channels) == 3
         for channel in channels:
+            # Test that each item in list is Channel object
             assert type(channel) == Channel
             assert channel.document.data['_metadata']['experiment_id'] == 'exp_id'
             assert channel.document.data['daq_system_id'] == 'daq_id'

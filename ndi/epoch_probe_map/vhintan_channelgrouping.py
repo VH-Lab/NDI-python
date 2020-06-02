@@ -3,19 +3,22 @@ from .epoch_probe_map import EpochProbeMap
 from ..epoch import Epoch
 from ..probe import Probe
 from ..channel import Channel
+from ..database import Query as Q
 
 
 class VHIntanChannelGrouping(EpochProbeMap):
-    def __init__(self, daq_reader, epoch_sets, daq_system_id, experiment_id):
+    def __init__(self, daq_reader, epoch_sets, daq_system_id, experiment_id, ctx=None):
         self.daq_reader = daq_reader
         self.epoch_sets = epoch_sets
         self.daq_system_id = daq_system_id
         self.experiment_id = experiment_id
+        self.ctx = ctx
 
     def read_epoch_metadata_file(self, metadata_file_path):
         probes = []
         with open(metadata_file_path) as metadata_file:
-            keys = [key.strip() for key in metadata_file.readline().split('\t')]
+            keys = [key.strip()
+                    for key in metadata_file.readline().split('\t')]
             for probe_mapping in metadata_file.readlines():
                 values = [value.strip() for value in probe_mapping.split('\t')]
                 probes.append({
@@ -29,10 +32,8 @@ class VHIntanChannelGrouping(EpochProbeMap):
         return probes
 
     def get_epochs_probes_channels(self):
-        epochs = [
-            Epoch(experiment_id=self.experiment_id)
-            for _ in range(len(self.epoch_sets))
-        ]
+
+        epochs = self.__get_epochs()
 
         probes = []
         channels = []
@@ -80,8 +81,33 @@ class VHIntanChannelGrouping(EpochProbeMap):
                             experiment_id=self.experiment_id
                         )
                     )
-        
+
         return epochs, probes, channels
+
+    def __get_epochs(self):
+        epochs = []
+        if self.ctx:
+            query = (Q('_metadata.experiment_id') == self.experiment_id) \
+                & (Q('_metadata.type') == Epoch.DOCUMENT_TYPE) \
+                & (Q('reference_dir') >> [epoch_set.root for epoch_set in self.epoch_sets])
+
+            for doc in self.ctx.find(query):
+                epochs.append(Epoch.from_document(doc))
+
+        for epoch_set in self.epoch_sets:
+            if epoch_set.root not in [epoch.reference_dir for epoch in epochs]:
+                epochs.append(
+                    Epoch(
+                        experiment_id=self.experiment_id,
+                        reference_dir=epoch_set.root
+                    )
+                )
+        
+        epochs.sort(key=lambda epoch: epoch.reference_dir)
+        for epoch in epochs:
+            epoch.add_daq_system(self.daq_system_id)
+
+        return epochs
 
 
 def read_device_string(device_string):
