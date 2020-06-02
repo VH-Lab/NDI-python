@@ -11,10 +11,12 @@ def randarray(): return np.random.random(200000)
 
 @pytest.fixture
 def binary_collection():
+    # Create collection
     collection = BinaryCollection('./test_db', 'document')
     test_array = randarray()
-    (collection.collection_dir /
-     'test_id.bin').write_bytes(b'hello test' + test_array.tobytes())
+
+    # Add a file to the collection to use for testing
+    (collection.collection_dir / 'test_id.bin').write_bytes(b'hello test' + test_array.tobytes())
     yield collection, collection.collection_dir, test_array
     rmrf(collection.collection_dir)
 
