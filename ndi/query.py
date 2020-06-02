@@ -349,7 +349,7 @@ class AndQuery(CompositeQuery):
         :rtype: :class:`AndQuery`
         """
         if isinstance(ndi_query, AndQuery):
-            self.queries = [*self.queries, *ndi_query()]
+            self.queries = [*self.queries, *ndi_query]
         else:
             self.queries.append(ndi_query)
         return self
@@ -370,7 +370,7 @@ class AndQuery(CompositeQuery):
         :rtype: :class:`OrQuery`
         """
         if isinstance(ndi_query, OrQuery):
-            return OrQuery([self, *ndi_query()])
+            return OrQuery([self, *ndi_query])
         else:
             return OrQuery([self, ndi_query])
 

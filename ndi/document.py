@@ -132,10 +132,11 @@ class Document(Flatbuffer_Object):
     def add_dependency(self, ndi_document: T.Document, key: str = None):
         key = key or ndi_document.metadata['name']
         self.__verify_dependency(ndi_document, key)
-
         self.__link_dependency(ndi_document, key)
         self.ctx.add(ndi_document)
         self.ctx.update(self, force=True)
+        ndi_document.with_ctx(self.ctx)
+        ndi_document.set_binary_collection(self.binary_collection)
     
     def link_dependency(self, ndi_document: T.Document, key: str = None):
         key = key or ndi_document.metadata['name']
@@ -152,14 +153,6 @@ class Document(Flatbuffer_Object):
             own_name = self.metadata['name']
             raise RuntimeError(
                 f'Document {dependency_name} is already a dependency of document {own_name}.')
-        else:
-            new_dependency = {key: ndi_document.id}
-            self.dependencies = {
-                **self.dependencies,
-                **new_dependency
-            }
-            self.ctx.add(ndi_document)
-            self.ctx.update(self, force=True)
 
     def __link_dependency(self, ndi_document, key):
         ndi_document.depends_on.append(self.id)

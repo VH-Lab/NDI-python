@@ -29,7 +29,7 @@ class NDI_Object:
         return self.document.ctx
     @ctx.setter
     def ctx(self, new_ctx):
-        self.document.ctx = new_ctx
+        self.document.with_ctx(new_ctx)
     
     @property
     def binary(self):
@@ -479,7 +479,9 @@ class Experiment(NDI_Object):
                 self.ctx.upsert(daq_system.document, force=True)
                 self.ctx.upsert(daq_system.file_navigator.document, force=True)
                 daq_system.ctx = self.ctx
+                daq_system.binary_collection = self.binary_collection
                 daq_system.file_navigator.ctx = self.ctx
+                daq_system.file_navigator.binary_collection = self.binary_collection
 
     def _connect_ndi_object(self, ndi_object):
         ndi_object.metadata['experiment_id'] = self.id
