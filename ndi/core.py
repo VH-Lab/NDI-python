@@ -180,7 +180,7 @@ class DaqSystem(NDI_Object):
         :rtype: :class:`DaqSystem`
         """
 
-        return cls(
+        ds = cls(
             id_=document.id,
             name=document.metadata['name'],
             experiment_id=document.metadata['experiment_id'],
@@ -189,6 +189,8 @@ class DaqSystem(NDI_Object):
             epoch_probe_map=None,
             daq_reader=lambda id: None,
         )
+        ds.document = document
+        return ds
 
     def provision(self, experiment: T.Experiment):
         experiment.connect(daq_systems=[self])
@@ -299,11 +301,13 @@ class FileNavigator(NDI_Object):
 
     @classmethod
     def from_document(cls, document) -> FileNavigator:
-        return cls(
+        fn = cls(
             id_=document.id,
             epoch_file_patterns=document.data['epoch_file_patterns'],
             metadata_file_pattern=document.data['metadata_file_pattern']
         )
+        fn.document = document
+        return fn
 
     def update(
         self,
@@ -362,8 +366,6 @@ class Experiment(NDI_Object):
 
         :param name: [description]
         :type name: str
-        :param daq_system_ids: a list of daq_system instances, defaults to []
-        :type daq_system_ids: List[:class:`DaqSystem`], optional
         :param id_: = defaults to None
         :type id_: str, optional
         """
@@ -447,10 +449,12 @@ class Experiment(NDI_Object):
         :rtype: :class:`Experiment`
         """
         print(f'Warning: Experiment.connect() has not been run on this experiment ({document.id}). It will be minimally functional until connected.')
-        return cls(
+        exp = cls(
             id_=document.id,
             name=document.metadata['name'],
         )
+        exp.document = document
+        return exp
 
     # Experiment Methods
     def update(self, name: str) -> None:
@@ -661,11 +665,13 @@ class Epoch(NDI_Object):
 
         :rtype: :class:`Epoch`
         """
-        return cls(
+        epoch = cls(
             id_=document.id,
             experiment_id=document.metadata['experiment_id'],
             daq_system_ids=document.data['daq_system_ids'],
         )
+        epoch.document = document
+        return epoch
 
     def add_daq_system(self, daq_system):
         if not self.ctx.find_by_id(daq_system.id):
@@ -695,7 +701,8 @@ class Epoch(NDI_Object):
         is_ndi_channel_type = Q('_metadata.type') == Channel.DOCUMENT_TYPE
         is_related = Q('epoch_id') == self.id
         query = is_ndi_channel_type & is_related
-        return self.ctx.find(query)
+        channels = self.ctx.find(query)
+        return channels
 
 
 
@@ -756,7 +763,7 @@ class Probe(NDI_Object):
 
         :rtype: :class:`Probe`
         """
-        return cls(
+        probe = cls(
             id_=document.id,
             name=document.metadata['name'],
             reference=document.data['reference'],
@@ -764,6 +771,8 @@ class Probe(NDI_Object):
             daq_system_id=document.data['daq_system_id'],
             experiment_id=document.metadata['experiment_id'],
         )
+        probe.document = document
+        return probe
 
     def update(
         self,
@@ -888,7 +897,7 @@ class Channel(NDI_Object):
 
         :rtype: :class:`Channel`
         """
-        return cls(
+        channel = cls(
             id_=document.id,
             name=document.metadata['name'],
             number=document.data['number'],
@@ -901,6 +910,8 @@ class Channel(NDI_Object):
             daq_system_id=document.data['daq_system_id'],
             experiment_id=document.metadata['experiment_id'],
         )
+        channel.document = document
+        return channel
 
     def update(
         self,
