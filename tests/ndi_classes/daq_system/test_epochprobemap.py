@@ -44,7 +44,7 @@ class TestEpochProbeMap:
         # Acquire epoch_sets from FileNavigator
         epoch_sets = fn.get_epoch_set('./tests/data/intracell_example')
         # Instantiate epochprobemap_reader object
-        epochprobemap_reader = VHIntanChannelGrouping(CEDSpike2, epoch_sets)
+        epochprobemap_reader = VHIntanChannelGrouping(CEDSpike2, epoch_sets, 'test_exp_id')
 
         epochs, probes, channels = epochprobemap_reader.get_epochs_probes_channels()
 

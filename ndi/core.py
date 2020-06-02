@@ -197,6 +197,7 @@ class DaqSystem(NDI_Object):
         epochprobemap = self.epoch_probe_map(
             daq_reader=self.daq_reader,
             epoch_sets=epoch_sets,
+            experiment_id=self.metadata['experiment_id'],
             ctx=self.ctx,
         )
 

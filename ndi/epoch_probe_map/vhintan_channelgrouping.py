@@ -5,9 +5,10 @@ from ..query import Query as Q
 
 
 class VHIntanChannelGrouping(EpochProbeMap):
-    def __init__(self, daq_reader, epoch_sets, ctx=None):
+    def __init__(self, daq_reader, epoch_sets, experiment_id, ctx=None):
         self.daq_reader = daq_reader
         self.epoch_sets = epoch_sets
+        self.experiment_id = experiment_id
         self.ctx = ctx
 
     def read_epoch_metadata_file(self, metadata_file_path):
