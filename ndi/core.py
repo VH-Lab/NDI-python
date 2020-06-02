@@ -128,7 +128,7 @@ class DaqSystem(NDI_Object):
         name: str,
         file_navigator: T.FileNavigator,
         daq_reader: T.DaqReader,
-        epoch_probe_map_class,
+        epoch_probe_map,
         experiment_id: T.NdiId = None,
         epoch_ids: T.List[T.NdiId] = [],
         id_: T.NdiId = None
@@ -156,9 +156,9 @@ class DaqSystem(NDI_Object):
         self.metadata['experiment_id'] = experiment_id
         self.add_data_property('epoch_ids', epoch_ids)
 
-        self.epoch_probe_map_class = epoch_probe_map_class
-        if epoch_probe_map_class:
-            self.add_data_property('epoch_probe_map_class', epoch_probe_map_class.__name__)
+        self.epoch_probe_map = epoch_probe_map
+        if epoch_probe_map:
+            self.add_data_property('epoch_probe_map_class', epoch_probe_map.__name__)
         self.daq_reader = daq_reader
         if daq_reader:
             self.add_data_property('daq_reader_class', daq_reader.__name__)
@@ -194,9 +194,7 @@ class DaqSystem(NDI_Object):
         experiment.connect(daq_systems=[self])
 
         epoch_sets = self.file_navigator.get_epoch_set(experiment.directory)
-        print(self.epoch_probe_map_class)
-        print(type(self.epoch_probe_map_class))
-        epochprobemap = self.epoch_probe_map_class(
+        epochprobemap = self.epoch_probe_map(
             daq_reader=self.daq_reader,
             epoch_sets=epoch_sets,
             ctx=self.ctx,
@@ -479,6 +477,8 @@ class Experiment(NDI_Object):
             if self.ctx:
                 self.ctx.upsert(daq_system.document, force=True)
                 self.ctx.upsert(daq_system.file_navigator.document, force=True)
+                daq_system.ctx = self.ctx
+                daq_system.file_navigator.ctx = self.ctx
 
     def _connect_ndi_object(self, ndi_object):
         ndi_object.metadata['experiment_id'] = self.id
