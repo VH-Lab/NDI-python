@@ -3,7 +3,7 @@ import ndi.types as T
 from .document import Document
 from .database.ndi_database import NDI_Database
 from .query import Query as Q
-import os
+from pathlib import Path
 import re
 from abc import ABC, abstractmethod
 import flatbuffers
@@ -416,7 +416,7 @@ class Experiment(NDI_Object):
         :rtype: [type]
         """
         if directory:
-            if not os.path.isdir(directory):
+            if not Path(directory).is_dir():
                 raise RuntimeError(f'Experiment\'s raw data directory ({directory}) is not a directory. Please check that the path is correct or create a new experiment directory and try again.')
             self.ctx.raw_data_directory = directory
         if database: 
@@ -713,7 +713,7 @@ class Epoch(NDI_Object):
 
     def get_experiment(self):
         doc = self.ctx.db.find_by_id(self.experiment_id)
-        return doc & Experiment.from_document(doc).with_ctx(self.ctx)
+        return doc and Experiment.from_document(doc).with_ctx(self.ctx)
 
     def get_daq_systems(self):
         is_ndi_epoch_type = Q('_metadata.type') == DaqSystem.DOCUMENT_TYPE
@@ -832,8 +832,7 @@ class Probe(NDI_Object):
         channel.probe_id = self.id
         channel.daq_system_id = self.daq_system_id
 
-        channel.ctx = self.ctx
-        channel.ctx.binary_collection = self.ctx.binary_collection
+        channel.set_ctx(self.ctx)
         self.ctx.db.add(channel.document)
 
     def get_channels(self):

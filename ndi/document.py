@@ -13,7 +13,7 @@ class BinaryWrapper:
         self.binary_collection = binary_collection
     
     def connect(self, binary_collection: T.BinaryCollection = None):
-        self.binary_collection = binary_collection and binary_collection
+        self.binary_collection = binary_collection
 
     def open_write_stream(self):
         return self.binary_collection.open_write_stream(self.id)
