@@ -62,8 +62,11 @@ coverage.xml
 # Example notebook checkpoint
 example/.ipynb_checkpoints/
 
+# Example binary files
+example/test_db/document_binary/*
+
 # MacOS
-.DS_Store/
+*.DS_Store
 
 # symlinked schema
 ndi/schema

@@ -2,7 +2,7 @@ from __future__ import annotations
 from .ndi_database import NDI_Database
 from pathlib import Path
 from ..document import Document
-from .query import CompositeQuery, AndQuery, OrQuery
+from ..query import CompositeQuery, AndQuery, OrQuery
 from .utils import with_update_warning, with_delete_warning
 import ndi.types as T
 import re
@@ -19,20 +19,22 @@ class FileSystem(NDI_Database):
 
     def __init__(self, exp_dir, db_name='.ndi'):
         self.exp_dir = Path(exp_dir)
-        self.db_dir = self.exp_dir / db_name / 'documents'
+        self.db_dir = self.exp_dir / db_name
+        self.collection_dir = self.db_dir / 'documents'
 
         # Initializing FS Database
         if self.exp_dir.exists() and self.exp_dir.is_dir():
             self.lookup_dir = LookupCollection(self.db_dir, 'document')
-            self.binary_dir = BinaryCollection(self.db_dir, 'document')
-            self.db_dir.mkdir(parents=True, exist_ok=True)
+            self.collection_dir.mkdir(parents=True, exist_ok=True)
         else:
             raise FileNotFoundError(
                 f'No such file or directory: \'{self.exp_dir}\'')
 
     def add(self, ndi_document):
-        file_path = self.db_dir / f'{ndi_document.id}.dat'
-        ndi_document.set_ctx(self)
+        if not isinstance(ndi_document, Document):
+            raise TypeError(f'Unexpected type {type(ndi_document)}. Expected type {Document}.')
+        file_path = self.collection_dir / f'{ndi_document.id}.dat'
+        ndi_document.set_ctx_database(self)
         if not file_path.exists():
             self.__verify_dependencies(ndi_document)
             self.upsert(ndi_document, force=True)
@@ -41,15 +43,15 @@ class FileSystem(NDI_Database):
             raise FileExistsError(f'File \'{file_path}\' already exists')
 
     def update(self, ndi_document, force=False):        
-        file_path = self.db_dir / f'{ndi_document.id}.dat'
+        file_path = self.collection_dir / f'{ndi_document.id}.dat'
         if file_path.exists():
-            self.upsert(ndi_document)
+            self.upsert(ndi_document, force=force)
         else:
             raise FileNotFoundError(f'File \'{file_path}\' does not exist')
 
     @with_update_warning
     def upsert(self, ndi_document, force=False):
-        (self.db_dir /
+        (self.collection_dir /
         f'{ndi_document.id}.dat').write_bytes(ndi_document.serialize())
 
     def delete(self, ndi_document, force=False):
@@ -58,16 +60,16 @@ class FileSystem(NDI_Database):
     def find(self, ndi_query=None):
         ndi_documents = [
             Document.from_flatbuffer(file.read_bytes())
-            for file in self.db_dir.glob('*.dat')
+            for file in self.collection_dir.glob('*.dat')
         ]
 
         if ndi_query is None:
-            return [doc.with_ctx(self) for doc in ndi_documents]
+            return [doc.with_ctx_database(self) for doc in ndi_documents]
 
         return [
-            doc.with_ctx(self)
+            doc.with_ctx_database(self)
             for doc in ndi_documents
-            if self.__parse_query(ndi_document.data, ndi_query)
+            if self.__parse_query(doc.data, ndi_query)
         ]
 
     def update_many(self, ndi_query=None, payload={}, force=False):
@@ -81,8 +83,11 @@ class FileSystem(NDI_Database):
             self.delete(ndi_document, force=force)
 
     def find_by_id(self, id_):
-        doc = Document.from_flatbuffer((self.db_dir / f'{id_}.dat').read_bytes())
-        return doc.with_ctx(self)
+        try:
+            doc = Document.from_flatbuffer((self.collection_dir / f'{id_}.dat').read_bytes())
+            return doc.with_ctx_database(self)
+        except FileNotFoundError:
+            return None
 
     def update_by_id(self, id_, payload={}, force=False):
         ndi_document = self.find_by_id(id_)
@@ -97,7 +102,7 @@ class FileSystem(NDI_Database):
     @with_delete_warning
     def delete_by_id(self, id_, force=False):
         self.__delete_dependents(id_)
-        (self.db_dir / f'{id_}.dat').unlink()
+        (self.collection_dir / f'{id_}.dat').unlink()
 
     # Query Parsing Methods
     def __parse_query(self, data, ndi_query):
@@ -152,20 +157,8 @@ class FileSystem(NDI_Database):
     def __delete_dependents(self, id_):
         for dependent in self.lookup_dir.find_dependents(id_):
             self.__delete_dependents(dependent)
-            (self.db_dir / f'{dependent}.dat').unlink()
+            (self.collection_dir / f'{dependent}.dat').unlink()
             self.lookup_dir.remove(dependent, id_)
-
-    def binary_write(self, ndi_document, data):
-        self.binary_dir.write(ndi_document.id, data)
-
-    def binary_read(self, ndi_document, start=0, end=-1):
-        return self.binary_dir.read_slice(ndi_document.id, start, end)
-
-    def binary_write_stream(self, ndi_document):
-        return self.binary_dir.write_stream(ndi_document.id)
-
-    def binary_read_stream(self, ndi_document):
-        return self.binary_dir.read_stream(ndi_document.id)
 
 class LookupCollection:
     """Collection class for File System lookups
@@ -241,49 +234,8 @@ class BinaryCollection:
         # Initializing Collection
         self.collection_dir.mkdir(parents=True, exist_ok=True)
 
-    def write(self, document_id, data):
-        (self.collection_dir / f'{document_id}.bin').write_bytes(data.astype(float).tobytes())
+    def open_write_stream(self, document_id):
+        return open(self.collection_dir / f'{document_id}.bin', 'wb')
 
-    def write_stream(self, document_id):
-        return self.FileStream(self.collection_dir / f'{document_id}.bin', 'wb')
-
-    def read_slice(self, document_id, start=0, end=-1):
-        with self.read_stream(document_id) as stream:
-            stream.seek(start)
-            return stream.read(end - start)
-
-    def read_stream(self, document_id):
-        return self.FileStream(self.collection_dir / f'{document_id}.bin', 'rb')
-
-    class FileStream:
-        def __init__(self, filepath, mode):
-            self.filepath = filepath
-            self.mode = mode
-
-        def write(self, item):
-            self.file.write(np.array([item]).astype(float).tobytes())
-            return self
-
-        def open(self):
-            self.file = open(self.filepath, self.mode)
-            return self
-
-        def close(self):
-            self.file.close()
-
-        def seek(self, position):
-            self.file.seek(position * 8)
-            return self
-
-        def read(self, size=-1):
-            read_size = -1 if size < 0 else size * 8
-            return np.frombuffer(self.file.read(read_size), dtype=float)
-
-        def tell(self):
-            return int(self.file.tell() / 8)
-
-        def __enter__(self):
-            return self.open()
-
-        def __exit__(self, type, value, traceback):
-            self.close()
+    def open_read_stream(self, document_id):
+        return open(self.collection_dir / f'{document_id}.bin', 'rb')

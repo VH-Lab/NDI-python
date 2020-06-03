@@ -1,6 +1,10 @@
 import pytest
 from ndi import Channel, Document
 
+class MockDaqReader:
+    def __init__(self, file):
+        pass
+
 @pytest.fixture
 def new_channel():
     name = 'abc'
@@ -11,8 +15,19 @@ def new_channel():
     probe_id = 'poiuytrewq'
     daq_system_id = '0987654321'
     experiment_id = '1234567890'
-    clock_type = 'no_time'  
-    c = Channel(name, number, type_, source_file, epoch_id, probe_id, daq_system_id, experiment_id, clock_type)
+    clock_type = 'no_time'
+    c = Channel(
+        name=name,
+        number=number,
+        type_=type_,
+        source_file=source_file,
+        epoch_id=epoch_id,
+        probe_id=probe_id,
+        daq_reader=MockDaqReader,
+        daq_system_id=daq_system_id,
+        experiment_id=experiment_id,
+        clock_type=clock_type
+    )
     yield c, name, number, type_, source_file, epoch_id, probe_id, daq_system_id, experiment_id, clock_type
 
 class TestChannelDocument:

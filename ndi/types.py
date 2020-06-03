@@ -45,16 +45,14 @@ if TYPE_CHECKING:
     from .schema.ClockType import ClockType as ClockType_schema
     from .schema.ProbeType import ProbeType as ProbeType_schema
 
-    from ndi import NDI_Object
-    from ndi import Channel, DaqSystem, Epoch, Experiment, Probe, Document, DocumentExtension
-    from ndi import ChannelType, ClockType, ProbeType
+    from ndi.core import NDI_Object
+    from ndi.core import Channel, DaqSystem, Epoch, Experiment, Probe, Document, FileNavigator
 
-    from ndi.file_navigator import FileNavigator, EpochFiles
-
-    from ndi.database import SQL, FileSystem, Query
-    from ndi.database.sql import Collection as SqlCollection, Relationship as SqlRelationship, Datatype as DatatypeEnum
-    from ndi.database.file_system import Collection as FS_Collection
-    from ndi.database.query import Query, CompositeQuery, AndQuery, OrQuery
+    from ndi.context import Context
+    from ndi.database import SQL, FileSystem
+    from ndi.database.sql import Collection as SqlCollection, Datatype as DatatypeEnum
+    from ndi.database.file_system import LookupCollection as FS_Lookup_Collection, BinaryCollection
+    from ndi.query import Query, CompositeQuery, AndQuery, OrQuery
 
     from sqlalchemy import Column, Query as SqlaQuery
     from sqlalchemy.orm import relationship, Session

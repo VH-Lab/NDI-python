@@ -2,11 +2,6 @@ from __future__ import annotations
 import ndi.types as T
 from abc import ABC, abstractmethod
 
-from ..experiment import Experiment
-from ..daq_system import DaqSystem
-from ..probe import Probe
-from ..epoch import Epoch
-from ..channel import Channel
 from ..document import Document
 
 class NDI_Database(ABC):
