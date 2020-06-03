@@ -3,6 +3,24 @@ import ndi.types as T
 from .schema import Document as build_document
 import json
 from .flatbuffer_object import Flatbuffer_Object
+from .context import Context
+
+
+
+class BinaryWrapper:
+    def __init__(self, binary_collection: T.BinaryCollection = None, id_: str =''):
+        self.id = id_
+        self.binary_collection = binary_collection
+    
+    def connect(self, binary_collection: T.BinaryCollection = None):
+        self.binary_collection = binary_collection and binary_collection
+
+    def open_write_stream(self):
+        return self.binary_collection.open_write_stream(self.id)
+
+    def open_read_stream(self):
+        return self.binary_collection.open_read_stream(self.id)
+
 
 
 class Document(Flatbuffer_Object):
@@ -13,9 +31,6 @@ class Document(Flatbuffer_Object):
 
     Inherits from the :class:`NDI_Object` abstract class.
     """
-    ctx = None
-    binary_collection = None
-    binary = None
 
     def __init__(self, data: dict = {}, name: str = '', type_: str = '', experiment_id: str = '', id_=None):
         """Creates new ndi_document
@@ -26,6 +41,9 @@ class Document(Flatbuffer_Object):
         :type data: dict, optional
         """
         super().__init__(id_)
+        self.ctx = Context()
+        self.binary = BinaryWrapper()
+        self.binary.id = self.id
         self.data = {
             '_metadata': {
                 'name': name,
@@ -40,6 +58,10 @@ class Document(Flatbuffer_Object):
             '_depends_on': [],
             **data
         }
+
+    @property
+    def current(self):
+        return self.refresh()
 
     @property
     def metadata(self):
@@ -72,15 +94,23 @@ class Document(Flatbuffer_Object):
     def depends_on(self, depends_on):
         self.data['_depends_on'] = depends_on
     
-    def set_ctx(self, ctx: T.NdiDatabase) -> None:
-        self.ctx = ctx
+    def set_ctx_database(self, database: T.NdiDatabase) -> None:
+        self.ctx.database = database
 
-    def with_ctx(self, ctx: T.NdiDatabase) -> T.Document:
-        self.ctx = ctx
+    def with_ctx_database(self, database: T.NdiDatabase) -> T.Document:
+        self.ctx.database = database
         return self
 
-    def set_binary_collection(self, binary_collection):
-        self.binary_collection = binary_collection
+    def set_ctx(self, ctx: T.Context) -> None:
+        self.ctx = ctx
+        self.binary.connect(self.ctx.binary_collection)
+
+    def with_ctx(self, ctx: T.Context) -> T.Document:
+        self.set_ctx(ctx)
+        return self
+
+    def _connect_binary_fork(self, binary_collection):
+        self.ctx.binary_collection = binary_collection
         self.binary = BinaryWrapper(binary_collection, self.id)
 
     def save_updates(self):
@@ -93,7 +123,7 @@ class Document(Flatbuffer_Object):
         """
         parent_id = self.id
         self.metadata['latest_version'] = False
-        self.ctx.update(self, force=True)
+        self.ctx.db.update(self, force=True)
         super().__init__(None)
         metadata = self.metadata
         metadata['parent_id'] = parent_id
@@ -109,17 +139,17 @@ class Document(Flatbuffer_Object):
             # TODO: make this error message more helpful when ctx is well defined
             raise RuntimeError('This document is not attached to a database.')
         else:
-            self.ctx.add(self)
+            self.ctx.db.add(self)
 
     def refresh(self):
-        self_in_db = self.ctx.find_by_id(self.id)
+        self_in_db = self.ctx.db.find_by_id(self.id)
         self.data = self_in_db.data
         return self
 
     def get_history(self):
         """oldest to newest"""
         ids = self.metadata['asc_path'].split(',')[1:]
-        results = [self.ctx.find_by_id(id) for id in reversed(ids)]
+        results = [self.ctx.db.find_by_id(id) for id in reversed(ids)]
         return [x for x in results if x]
 
     def __check_dependency_key_exists(self, key: str):
@@ -133,10 +163,9 @@ class Document(Flatbuffer_Object):
         key = key or ndi_document.metadata['name']
         self.__verify_dependency(ndi_document, key)
         self.__link_dependency(ndi_document, key)
-        self.ctx.add(ndi_document)
-        self.ctx.update(self, force=True)
+        self.ctx.db.add(ndi_document)
+        self.ctx.db.update(self, force=True)
         ndi_document.with_ctx(self.ctx)
-        ndi_document.set_binary_collection(self.binary_collection)
     
     def link_dependency(self, ndi_document: T.Document, key: str = None):
         key = key or ndi_document.metadata['name']
@@ -166,13 +195,13 @@ class Document(Flatbuffer_Object):
     def get_dependencies(self):
         for key, value in self.dependencies.items():
             if isinstance(value, str):
-                self.dependencies[key] = self.ctx.find_by_id(value)
+                self.dependencies[key] = self.ctx.db.find_by_id(value)
         return self.dependencies
 
     def _get_depends_on_objects(self):
         output = []
         for id in self.depends_on:
-            doc = self.ctx.find_by_id(id)
+            doc = self.ctx.db.find_by_id(id)
             if doc:
                 output.append(doc)
         return output
@@ -186,7 +215,7 @@ class Document(Flatbuffer_Object):
             for ndi_document in deletees:
                 ndi_document.delete(force=force, remove_history=remove_history)
             self._remove_self_from_dependencies()
-            self.ctx.delete(self, force=force)
+            self.ctx.db.delete(self, force=force)
             self.id = None
             self.data = 'This object has been deleted.'
         else:
@@ -205,7 +234,7 @@ class Document(Flatbuffer_Object):
                 for key, value in d.dependencies.items()
                 if value != self.id
             }
-            self.ctx.update(d, force=True)
+            self.ctx.db.update(d, force=True)
 
     @classmethod
     def from_flatbuffer(cls, flatbuffer):
@@ -254,14 +283,3 @@ class Document(Flatbuffer_Object):
         build_document.DocumentAddData(builder, data)
         return build_document.DocumentEnd(builder)
 
-
-class BinaryWrapper:
-    def __init__(self, binary_collection, id_):
-        self.id = id_
-        self.binary_collection = binary_collection
-
-    def open_write_stream(self):
-        return self.binary_collection.open_write_stream(self.id)
-
-    def open_read_stream(self):
-        return self.binary_collection.open_read_stream(self.id)

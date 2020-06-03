@@ -46,33 +46,33 @@ class TestNdiDocument_SQL:
         """ndi.database.sql.SQL.add"""
         db = new_sql_db
 
-        # newly instantiated documents do not have a ctx
+        # newly instantiated documents do not have a database in context
         doc = Document({ "data": "yeah" })
-        assert doc.ctx is None
+        assert doc.ctx.db is None
 
-        # documents get assigned a ctx on add,
-        #   and the ctx is the database instance it was added to
+        # documents get assigned a ctx.db on add,
+        #   and the ctx has the database instance it was added to
         db.add(doc)
-        assert hasattr(doc, 'ctx')
-        assert doc.ctx == db
+        assert hasattr(doc.ctx, 'db')
+        assert doc.ctx.db == db
 
-    def test_doc_gets_ctx_on_find(self, new_sql_db):
+    def test_doc_gets_ctx_db_on_find(self, new_sql_db):
         """ndi.database.sql.SQL.find"""
         db, doc = with_doc_in_db(new_sql_db)
 
-        # documents retrieved from the database on find get assigned the ctx
+        # documents retrieved from the database on find get assigned the ctx.database
         found_doc = db.find(Q('id') == doc.id)[0]
         assert isinstance(found_doc, Document)
-        assert found_doc.ctx == db
+        assert found_doc.ctx.db == db
         
-    def test_doc_gets_ctx_on_find_by_id(self, new_sql_db):
+    def test_doc_gets_ctx_db_on_find_by_id(self, new_sql_db):
         """ndi.database.sql.SQL.find_by_id"""
         db, doc = with_doc_in_db(new_sql_db)
 
-        # documents retrieved from the database on find_by_id get assigned the ctx
+        # documents retrieved from the database on find_by_id get assigned the ctx.database
         found_doc = db.find_by_id(doc.id)
         assert isinstance(found_doc, Document)
-        assert found_doc.ctx == db
+        assert found_doc.ctx.db == db
 
     def test_initial_version(self, new_sql_db):
         """ndi.Document.__init__"""

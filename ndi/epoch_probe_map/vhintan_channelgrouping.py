@@ -86,7 +86,7 @@ class VHIntanChannelGrouping(EpochProbeMap):
                 & (Q('_metadata.type') == Epoch.DOCUMENT_TYPE) \
                 & (Q('reference_dir') >> [epoch_set.root for epoch_set in self.epoch_sets])
 
-            for doc in self.ctx.find(query):
+            for doc in self.ctx.db.find(query):
                 epochs.append(Epoch.from_document(doc))
 
         for epoch_set in self.epoch_sets:

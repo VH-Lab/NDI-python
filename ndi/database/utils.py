@@ -4,55 +4,10 @@ Database Utils Module
 """
 from __future__ import annotations
 import ndi.types as T
-from ..core import NDI_Object
 from functools import wraps
 from contextlib import contextmanager
 from ..query import Query
 
-
-def check_ndi_object(func):
-    """.. currentmodule:: ndi.ndi_object
-
-    Decorator: meant to prevent :class:`NDI_Object` database :term:`CRUD` methods from being called with non-standard input. Throws an error if the first argument passed to wrapped function is not an :term:`NDI object`.
-    
-    :param func: The wrapped function.
-    :type func: function
-
-    :param ndi_object: The first argument passed to the wrapped function.
-    :type ndi_object: :term:`NDI object`
-
-    :raises TypeError: '{ndi_object}' is not an instance of an \'NDI_Object\' child class.
-    :return: func(ndi_object)
-    """
-    @wraps(func)
-    def decorator(self, ndi_object):
-        if isinstance(ndi_object, NDI_Object):
-            return func(self, ndi_object)
-        else:
-            raise TypeError(f'\'{ndi_object}\' is not an instance of an \'NDI_Object\' child class.')
-    return decorator
-
-def check_ndi_class(func):
-    """.. currentmodule:: ndi.ndi_object
-    
-    Decorator: meant to prevent :class:`NDI_Object` collection :term:`CRUD` methods from being called with non-standard input. Throws an error if the first argument passed to wrapped function is not the correct :term:`NDI class`.
-
-    :param func: The wrapped function.
-    :type func: function
-
-    :param ndi_object: The first argument passed to the wrapped function.
-    :type ndi_object: :term:`NDI object`
-
-    :raises TypeError: \'{ndi_object}\' is not an instance of \'{self.ndi_class}\'.
-    :return: func(ndi_object)
-    """
-    @wraps(func)
-    def decorator(self, ndi_object):
-        if isinstance(ndi_object, self.ndi_class):
-            return func(self, ndi_object)
-        else:
-            raise TypeError(f'\'{ndi_object}\' is not an instance of \'{self.ndi_class}\'')
-    return decorator
 
 def listify(func: T.Callable) -> T.Callable:
     """.. currentmodule:: ndi.database.sql
@@ -69,22 +24,6 @@ def listify(func: T.Callable) -> T.Callable:
             func(self, [arg], *args, **kwargs)
         else:
             func(self, arg, *args, **kwargs)
-    return decorator
-
-def check_ndi_objects(func):
-    """Decorator: meant to work with :class:`SQL` methods. Ensures that every item in the first argument is a valid :term:`NDI object`.
-    
-    :param func:
-    :type func: function
-    :return: Returns return value of decorated function.
-    """
-    @wraps(func)
-    def decorator(self, ndi_objects, *args, **kwargs):
-        if len(ndi_objects):
-            for item in ndi_objects:
-                if not isinstance(item, NDI_Object):
-                    raise TypeError(f'\'{item}\' is not an instance of an \'NDI_Object\' child class.')
-            func(self, ndi_objects, *args, **kwargs)
     return decorator
 
 def with_update_warning(func):

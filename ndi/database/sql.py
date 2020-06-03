@@ -10,11 +10,11 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import and_, or_
 from .ndi_database import NDI_Database
 from functools import wraps
-from ndi import NDI_Object, Document
+from ..document import Document
 from ..utils import class_to_collection_name, flatten
 from ..decorators import handle_iter, handle_list
 from ..query import Query, AndQuery, OrQuery, CompositeQuery
-from .utils import check_ndi_object, listify, check_ndi_objects, with_update_warning, with_delete_warning, update_flatbuffer, recast_ndi_object_to_document, translate_query, with_session, with_open_session, reduce_ndi_objects_to_ids
+from .utils import listify, with_update_warning, with_delete_warning, update_flatbuffer, recast_ndi_object_to_document, translate_query, with_session, with_open_session, reduce_ndi_objects_to_ids
 
 
 # ============== #
@@ -147,7 +147,7 @@ class SQL(NDI_Database):
 
     def add(self, ndi_document: T.Document) -> None:
         self._collections[DOCUMENTS_TABLENAME].add(ndi_document)
-        ndi_document.set_ctx(self)
+        ndi_document.set_ctx_database(self)
 
     @with_update_warning
     def update(self, ndi_document: T.Document, force: bool = False) -> None:
@@ -166,7 +166,7 @@ class SQL(NDI_Database):
             query=ndi_query,
             result_format=Datatype.NDI
         )
-        return [item.with_ctx(self) for item in items]
+        return [item.with_ctx_database(self) for item in items]
 
     @with_update_warning
     def update_many(self, ndi_query: T.Query = None, payload: T.SqlCollectionDocument = {}, force: bool = False) -> None:
@@ -182,7 +182,7 @@ class SQL(NDI_Database):
             id_,
             result_format=Datatype.NDI    
         )
-        return item and item.with_ctx(self)
+        return item and item.with_ctx_database(self)
 
     @with_update_warning
     def update_by_id(self, id_: T.NdiId, payload: T.SqlCollectionDocument = {}, force: bool = False) -> None:
