@@ -34,7 +34,7 @@ class FileSystem(NDI_Database):
         if not isinstance(ndi_document, Document):
             raise TypeError(f'Unexpected type {type(ndi_document)}. Expected type {Document}.')
         file_path = self.collection_dir / f'{ndi_document.id}.dat'
-        ndi_document.set_ctx(self)
+        ndi_document.set_ctx_database(self)
         if not file_path.exists():
             self.__verify_dependencies(ndi_document)
             self.upsert(ndi_document, force=True)
@@ -64,10 +64,10 @@ class FileSystem(NDI_Database):
         ]
 
         if ndi_query is None:
-            return [doc.with_ctx(self) for doc in ndi_documents]
+            return [doc.with_ctx_database(self) for doc in ndi_documents]
 
         return [
-            doc.with_ctx(self)
+            doc.with_ctx_database(self)
             for doc in ndi_documents
             if self.__parse_query(doc.data, ndi_query)
         ]
@@ -85,7 +85,7 @@ class FileSystem(NDI_Database):
     def find_by_id(self, id_):
         try:
             doc = Document.from_flatbuffer((self.collection_dir / f'{id_}.dat').read_bytes())
-            return doc.with_ctx(self)
+            return doc.with_ctx_database(self)
         except FileNotFoundError:
             return None
 

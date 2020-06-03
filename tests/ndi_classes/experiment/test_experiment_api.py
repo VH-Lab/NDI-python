@@ -31,10 +31,18 @@ class MockDaqReader: pass
 class MockDaqSystem:
     def __init__(self, id_):
         self.id = id_
-        self.document = Document({}, 'daqsys')
+        self.document = Document({}, 'daqsys', id_=id_)
         self.metadata = {}
         self.daq_reader = MockDaqReader
         self.file_navigator = FileNavigator('*', '*')
+        self.set_ctx = lambda ctx: None
+    
+    @property
+    def metadata(self):
+        return self.document.metadata
+    @metadata.setter
+    def metadata(self, metadata):
+        self.document.metadata = metadata
 
 @pytest.fixture
 def new_experiment():
@@ -55,7 +63,7 @@ class TestExperimentDocument:
     def test_connect(self, new_experiment, new_sql_db):
         """ndi.core.Experiment.connect()"""
         e = new_experiment
-        directory = 'test_dir'
+        directory = './tests/data/intracell_example'
         db = new_sql_db
         ds = MockDaqSystem('daqsysid')
         e.connect(
@@ -66,26 +74,26 @@ class TestExperimentDocument:
         )
         # all auxillary systems are set in experiment
         assert e.directory == directory
-        assert e.ctx == db
-        assert e.binary_collection == MockBinaryCollection
-        assert e.daq_systems[0] == ds
-        assert e.daq_readers_map[MockDaqReader.__name__] == MockDaqReader
+        assert e.ctx.db == db
+        assert e.ctx.binary_collection == MockBinaryCollection
+        assert e.ctx.daq_systems[0] == ds
+        assert e.ctx.daq_readers_map[MockDaqReader.__name__] == MockDaqReader
     
     def test_add_daq_system(self, new_experiment, new_sql_db):
         """ndi.core.Experiment.add_daq_system()"""
         e = new_experiment.connect(database=new_sql_db)
         dss = [
-            MockDaqSystem('0'),
-            MockDaqSystem('1'),
+            MockDaqSystem('1234567890'),
+            MockDaqSystem('0987654321'),
         ]
         for ds in dss:
-            e.add_daq_system(ds)
+            e._add_daq_system(ds)
 
-        # live daq systems are added to experiment and set with experiment_id
-        assert dss[0] in e.daq_systems
-        assert dss[0].metadata['experiment_id'] == e.id
-        assert dss[1] in e.daq_systems
-        assert dss[1].metadata['experiment_id'] == e.id
+        # live daq systems are added to added to database and set with experiment_id
+        for ds in dss:
+            ds_doc = e.ctx.db.find_by_id(ds.id)
+            print(ds_doc.data)
+            assert ds_doc.data['_metadata']['experiment_id'] == e.id
 
     def test_add_related_obj_to_db(self, new_experiment, new_sql_db):
         """ndi.core.Experiment.add_related_obj_to_db()"""
@@ -100,8 +108,8 @@ class TestExperimentDocument:
         # ndi.NDI_Object is set with experiment_id
         assert fn.metadata['experiment_id'] == e.id
         #   and with db and binary collection
-        assert fn.ctx == db
-        assert fn.binary_collection == e.binary_collection
+        assert fn.ctx.db == db
+        assert fn.ctx.binary_collection == e.ctx.binary_collection
 
     def test_set_readers(self, new_experiment, new_sql_db):
         """ndi.core.Experiment.set_readers()"""
@@ -133,5 +141,5 @@ class TestExperimentDocument:
         # ndi.Document is set with experiment_id
         assert d.metadata['experiment_id'] == e.id
         #   and with db and binary collection
-        assert d.ctx == db
-        assert d.binary_collection == e.binary_collection
+        assert d.ctx.db == db
+        assert d.ctx.binary_collection == e.ctx.binary_collection
