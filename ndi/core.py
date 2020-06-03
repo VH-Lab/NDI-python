@@ -8,6 +8,7 @@ import re
 from abc import ABC, abstractmethod
 import flatbuffers
 from uuid import uuid4
+import os
 
 class NDI_Object:
     """
