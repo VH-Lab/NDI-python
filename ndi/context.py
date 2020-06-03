@@ -26,7 +26,7 @@ class Context:
 
     @property
     def bin(self):
-        return self.ctx.binary_collection
+        return self.binary_collection
 
     def load_daq_system(self, daq_system):
         if daq_system.id not in [ds.id for ds in self.daq_systems]:

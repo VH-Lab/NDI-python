@@ -31,6 +31,9 @@ class NDI_Object:
 
     def set_ctx(self, new_ctx):
         self.document.set_ctx(new_ctx)
+    def with_ctx(self, new_ctx):
+        self.document.set_ctx(new_ctx)
+        return self
     
     @property
     def binary(self):
@@ -231,25 +234,37 @@ class DaqSystem(NDI_Object):
         is_ndi_epoch_type = Q('_metadata.type') == Epoch.DOCUMENT_TYPE
         is_related = Q('daq_system_ids').contains(self.id)
         query = is_ndi_epoch_type & is_related
-        return self.ctx.db.find(query)
+        return [
+            Epoch.from_document(doc).with_ctx(self.ctx)
+            for doc in self.ctx.db.find(query)
+        ]
 
     def get_probes(self):
         is_ndi_epoch_type = Q('_metadata.type') == Probe.DOCUMENT_TYPE
         is_related = Q('daq_system_id') == self.id
         query = is_ndi_epoch_type & is_related
-        return self.ctx.db.find(query)
+        return [
+            Probe.from_document(doc).with_ctx(self.ctx)
+            for doc in self.ctx.db.find(query)
+        ]
 
     def get_channels(self):
         is_ndi_epoch_type = Q('_metadata.type') == Channel.DOCUMENT_TYPE
         is_related = Q('daq_system_id') == self.id
         query = is_ndi_epoch_type & is_related
-        return self.ctx.db.find(query)
+        return [
+            Channel.from_document(doc).with_ctx(self.ctx)
+            for doc in self.ctx.db.find(query)
+        ]
 
     def get_file_navigator(self):
         is_ndi_epoch_type = Q('_metadata.type') == Channel.DOCUMENT_TYPE
         is_related = Q('daq_system_id') == self.id
         query = is_ndi_epoch_type & is_related
-        results = self.ctx.db.find(query)
+        results = [
+            FileNavigator.from_document(doc).with_ctx(self.ctx)
+            for doc in self.ctx.db.find(query)
+        ]
         return results[0] if results else None
 
 
@@ -495,8 +510,7 @@ class Experiment(NDI_Object):
 
     def _connect_ndi_object(self, ndi_object):
         ndi_object.metadata['experiment_id'] = self.id
-        ndi_object.ctx = self.ctx
-        ndi_object.ctx.binary_collection = self.ctx.binary_collection
+        ndi_object.set_ctx(self.ctx)
 
     def upsert(self, ndi_object: T.NdiObjectWithExperimentId, force=False) -> None:
         self._connect_ndi_object(ndi_object)
@@ -510,21 +524,21 @@ class Experiment(NDI_Object):
         if not isinstance(epoch, Epoch):
             raise TypeError(f'Object {epoch} is not an instance of ndi.Epoch.')
         self.__check_foreign_key_requirements(epoch, ['daq_system_ids'])
-
+        epoch.set_ctx(self.ctx)
         self.add_related_obj_to_db(epoch)
 
     def add_probe(self, probe: T.Probe):
         if not isinstance(probe, Probe):
             raise TypeError(f'Object {probe} is not an instance of ndi.Probe.')
         self.__check_foreign_key_requirements(probe, ['daq_system_id'])
-        
+        probe.set_ctx(self.ctx)
         self.add_related_obj_to_db(probe)
 
     def add_channel(self, channel: T.Channel):
         if not isinstance(channel, Channel):
             raise TypeError(f'Object {channel} is not an instance of ndi.Channel.')
         self.__check_foreign_key_requirements(channel, ['epoch_id', 'probe_id', 'daq_system_id'])
-        
+        channel.set_ctx(self.ctx)
         self.add_related_obj_to_db(channel)
 
     def __check_foreign_key_requirements(self, ndi_object, foreign_keys):
@@ -552,7 +566,10 @@ class Experiment(NDI_Object):
         is_ndi_epoch_type = Q('_metadata.type') == DaqSystem.DOCUMENT_TYPE
         is_related = Q('experiment_id') == self.id
         query = is_ndi_epoch_type & is_related
-        return self.ctx.db.find(query)
+        return [
+            DaqSystem.from_document(doc).with_ctx(self.ctx)
+            for doc in self.ctx.db.find(query)
+        ]
     
     def set_readers(self, channels):
         for c in channels:
@@ -580,11 +597,17 @@ class Experiment(NDI_Object):
         has_this_experiment_id = Q('_metadata.experiment_id') == self.id
         is_desired_class = Q('_metadata.type') == NdiClass.DOCUMENT_TYPE
         documents = self.ctx.db.find(has_this_experiment_id & is_desired_class)
-        ndi_objects = [NdiClass.from_document(d) for d in documents]
+        ndi_objects = [
+            NdiClass.from_document(d).with_ctx(self.ctx) 
+            for d in documents
+        ]
         return ndi_objects
 
     def get_document_dependencies(self):
-        return self.document.get_dependencies()
+        return {
+            key: doc.with_ctx(self.ctx)
+            for key, doc in self.document.get_dependencies().items()
+        }
 
     def find_epochs(self, ndi_query):
         return self._find_by_class(Epoch, ndi_query)
@@ -598,7 +621,7 @@ class Experiment(NDI_Object):
         has_this_experiment_id = Q('_metadata.experiment_id') == self.id
         class_filter = Q('_metadata.type') == NdiClass.DOCUMENT_TYPE
         docs = self.ctx.db.find(has_this_experiment_id & class_filter & ndi_query)
-        return [NdiClass.from_document(d) for d in docs]
+        return [NdiClass.from_document(d).with_ctx(self.ctx) for d in docs]
 
     def check_id_in_database(self, id_):
         return bool(self.ctx.db.find_by_id(id_))
@@ -616,11 +639,6 @@ class Experiment(NDI_Object):
         doc.metadata['experiment_id'] = self.id
         doc.set_ctx(self.ctx)
         self.add_dependency(doc, key=key)
-
-    def get_documents(self):
-        ndi_object_prefixes = [f'{o.DOCUMENT_TYPE}:' for o in [Epoch, Probe, Channel]]
-        # filter out ndi_objects
-        documents = {}
 
 
 
@@ -694,20 +712,27 @@ class Epoch(NDI_Object):
         self.ctx.db.update(self.document, force=True)
 
     def get_experiment(self):
-        self.ctx.db.find_by_id(self.experiment_id)
+        doc = self.ctx.db.find_by_id(self.experiment_id)
+        return doc & Experiment.from_document(doc).with_ctx(self.ctx)
 
     def get_daq_systems(self):
         is_ndi_epoch_type = Q('_metadata.type') == DaqSystem.DOCUMENT_TYPE
         is_related = Q('epoch_ids').contains(self.id)
         query = is_ndi_epoch_type & is_related
-        return self.ctx.db.find(query)
+        return [
+            DaqSystem.from_document(doc).with_ctx(self.ctx)
+            for doc in self.ctx.db.find(query)
+        ]
 
     def get_channels(self):
         is_ndi_channel_type = Q('_metadata.type') == Channel.DOCUMENT_TYPE
         is_related = Q('epoch_id') == self.id
         query = is_ndi_channel_type & is_related
         channels = self.ctx.db.find(query)
-        return channels
+        return [
+            Channel.from_document(c).with_ctx(self.ctx)
+            for c in channels
+        ]
 
 
 
@@ -815,13 +840,20 @@ class Probe(NDI_Object):
         is_ndi_channel_type = Q('_metadata.type') == Channel.DOCUMENT_TYPE
         is_related = Q('probe_id') == self.id
         query = is_ndi_channel_type & is_related
-        return self.ctx.db.find(query)
+        return [
+            Channel.from_document(doc).with_ctx(self.ctx)
+            for doc in self.ctx.db.find(query)
+        ]
 
     def get_daq_system(self):
-        self.ctx.db.find_by_id(self.daq_system_id)
+        return [
+            DaqSystem.from_document(doc).with_ctx(self.ctx)
+            for doc in self.ctx.db.find_by_id(self.daq_system_id)
+        ]
 
     def get_experiment(self):
-        self.ctx.db.find_by_id(self.experiment_id)
+        doc = self.ctx.db.find_by_id(self.experiment_id)
+        return Experiment.from_document(doc).with_ctx(self.ctx)
 
 
 
@@ -963,13 +995,17 @@ class Channel(NDI_Object):
         return self.daq_reader.samplerate(self.number)
 
     def get_epoch(self):
-        return self.ctx.db.find_by_id(self.epoch_id)
+        doc = self.ctx.db.find_by_id(self.epoch_id)
+        return Epoch.from_document(doc).with_ctx(self.ctx)
 
     def get_probe(self):
-        return self.ctx.db.find_by_id(self.probe_id)
+        doc = self.ctx.db.find_by_id(self.probe_id)
+        return Probe.from_document(doc).with_ctx(self.ctx)
 
     def get_daq_system(self):
-        return self.ctx.db.find_by_id(self.daq_system_id)
+        doc = self.ctx.db.find_by_id(self.daq_system_id)
+        return DaqSystem.from_document(doc).with_ctx(self.ctx)
 
     def get_experiment(self):
-        return self.ctx.db.find_by_id(self.experiment_id)
+        doc = self.ctx.db.find_by_id(self.experiment_id)
+        return Experiment.from_document(doc).with_ctx(self.ctx)

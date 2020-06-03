@@ -110,7 +110,6 @@ class Document(Flatbuffer_Object):
         return self
 
     def _connect_binary_fork(self, binary_collection):
-        self.ctx.binary_collection = binary_collection
         self.binary = BinaryWrapper(binary_collection, self.id)
 
     def save_updates(self):
