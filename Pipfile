@@ -21,6 +21,7 @@ psycopg2-binary = "*"
 pytest = "*"
 neo = "*"
 alchemy-mock = "*"
+did = {editable = true,path = "./../did-python"}
 
 [requires]
 python_version = "3.8"
