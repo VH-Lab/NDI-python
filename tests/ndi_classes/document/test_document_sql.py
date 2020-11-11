@@ -1,6 +1,7 @@
 import pytest
 from types import MethodType
-from ndi import Document, Query as Q
+from ndi import Document,
+from did import Query as Q
 from alchemy_mock.mocking import UnifiedAlchemyMagicMock
 from ndi.database import SQL
 
@@ -60,7 +61,7 @@ class TestNdiDocument_SQL:
         """ndi.database.sql.SQL.find"""
         db, doc = with_doc_in_db(new_sql_db)
 
-        # documents retrieved from the database on find get assigned the ctx.database
+        # documents retrieved from the database on find get assigned the ctx.data_interface_database
         found_doc = db.find(Q('id') == doc.id)[0]
         assert isinstance(found_doc, Document)
         assert found_doc.ctx.db == db
@@ -69,7 +70,7 @@ class TestNdiDocument_SQL:
         """ndi.database.sql.SQL.find_by_id"""
         db, doc = with_doc_in_db(new_sql_db)
 
-        # documents retrieved from the database on find_by_id get assigned the ctx.database
+        # documents retrieved from the database on find_by_id get assigned the ctx.data_interface_database
         found_doc = db.find_by_id(doc.id)
         assert isinstance(found_doc, Document)
         assert found_doc.ctx.db == db

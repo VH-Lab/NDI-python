@@ -82,6 +82,7 @@ class VHIntanChannelGrouping(EpochProbeMap):
     def __get_epochs(self):
         epochs = []
         if self.ctx:
+            # TODO: figure out a new way to do this, as Query lives in DID now
             query = (Q('_metadata.experiment_id') == self.experiment_id) \
                 & (Q('_metadata.type') == Epoch.DOCUMENT_TYPE) \
                 & (Q('reference_dir') >> [epoch_set.root for epoch_set in self.epoch_sets])

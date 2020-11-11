@@ -1,8 +1,6 @@
 from __future__ import annotations
 import ndi.types as T
 from .document import Document
-from .database.ndi_database import NDI_Database
-from .query import Query as Q
 from pathlib import Path
 import re
 from abc import ABC, abstractmethod
@@ -395,8 +393,7 @@ class Experiment(NDI_Object):
     def connect(
         self,
         directory='',
-        database=None,
-        binary_collection=None,
+        data_interface_database=None,
         daq_systems=[],
         load_existing=False
     ):
@@ -405,8 +402,8 @@ class Experiment(NDI_Object):
         then this experiment is loaded with its contents in database.
         Otherwise, this experiment is added to the database a new experiment.
 
-        :param database: [description], defaults to None
-        :type database: [type], optional
+        :param data_interface_database: [description], defaults to None
+        :type data_interface_database: [type], optional
         :param binary_collection: [description], defaults to None
         :type binary_collection: [type], optional
         :param load_existing: [description], defaults to False
@@ -420,24 +417,24 @@ class Experiment(NDI_Object):
             if not Path(directory).is_dir():
                 raise RuntimeError(f'Experiment\'s raw data directory ({directory}) is not a directory. Please check that the path is correct or create a new experiment directory and try again.')
             self.ctx.raw_data_directory = directory
-        if database: 
-            if not isinstance(database, NDI_Database):
-                raise RuntimeError(f'{database} is not an ndi.database.NDI_Database.')
-            self.ctx.database = database
-            isExperiment = Q('_metadata.type') == self.DOCUMENT_TYPE
-            ownName = self.metadata['name']
-            hasOwnName = Q('_metadata.name') == ownName
-            preexisting_experiment = database.find(isExperiment & hasOwnName)
-            if preexisting_experiment:
-                if not load_existing:
-                    raise RuntimeError(f'An experiment with the name {ownName} already exists in this database. To connect to it, set load_existing to True. To make a new experiment, please choose a unique name.')
-                self.__overwrite_with_document(preexisting_experiment[0])
-            else:
-                if load_existing:
-                    raise Warning(f'An experiment with the name {ownName} does not yet exist in this database. To add this experiment to the database, set load_existing to False.')
-                self.ctx.db.add(self.document)
-        if binary_collection:
-            self.ctx.binary_collection = binary_collection
+        if data_interface_database: 
+            if not data_interface_database:
+                raise RuntimeError(f'{data_interface_database} must be a DID instance.')
+            self.ctx.data_interface_database = data_interface_database
+        # TODO: bring back when find and queries are implemented 
+        #       dont forget to tab the line `self.ctx.db.add(self.document)`
+        # isExperiment = Q('_metadata.type') == self.DOCUMENT_TYPE
+        # ownName = self.metadata['name']
+        # hasOwnName = Q('_metadata.name') == ownName
+        # preexisting_experiment = data_interface_database.find(isExperiment & hasOwnName)
+        # if preexisting_experiment:
+        #     if not load_existing:
+        #         raise RuntimeError(f'An experiment with the name {ownName} already exists in this database. To connect to it, set load_existing to True. To make a new experiment, please choose a unique name.')
+        #     self.__overwrite_with_document(preexisting_experiment[0])
+        # else:
+        #     if load_existing:
+        #         raise Warning(f'An experiment with the name {ownName} does not yet exist in this database. To add this experiment to the database, set load_existing to False.')
+            self.ctx.db.add(self.document)
         if daq_systems:
             for daq_sys in daq_systems:
                 self.ctx.load_daq_system(daq_sys)
@@ -450,7 +447,7 @@ class Experiment(NDI_Object):
 
     # Document Methods
     @classmethod
-    def from_database(cls, db, ndi_query: T.Query):
+    def from_database(cls, db, ndi_query):
         is_experiment = Q('_metadata') == Experiment.DOCUMENT_TYPE
         ndi_query = is_experiment & ndi_query
         documents = db.find(ndi_query=ndi_query)
@@ -637,7 +634,7 @@ class Experiment(NDI_Object):
         return False
 
     def add_document(self, doc, key=None):
-        doc.metadata['experiment_id'] = self.id
+        doc.data['base']['session_id'] = self.id
         doc.set_ctx(self.ctx)
         self.add_dependency(doc, key=key)
 

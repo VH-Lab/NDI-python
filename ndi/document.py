@@ -54,10 +54,19 @@ class Document(Flatbuffer_Object):
                 'version_depth': 0,
                 'latest_version': True,
             },
-            '_dependencies': {},
-            '_depends_on': [],
-            **data
+            'dependencies': {},
+
+            **data,
+            'base': {
+                'id': self.id,
+                'session_id': '',
+                **data.get('base', {}),
+            },
+            'depends_on': [
+                *data.get('depends_on', [])
+            ],
         }
+        self.id = self.data['base']['id']
 
     @property
     def current(self):
@@ -81,29 +90,29 @@ class Document(Flatbuffer_Object):
 
     @property
     def dependencies(self):
-        return self.data['_dependencies']
+        return self.data['dependencies']
 
     @dependencies.setter
     def dependencies(self, dependencies):
-        self.data['_dependencies'] = dependencies
+        self.data['dependencies'] = dependencies
 
     @property
     def depends_on(self):
-        return self.data['_depends_on']
+        return self.data['depends_on']
     @depends_on.setter
     def depends_on(self, depends_on):
-        self.data['_depends_on'] = depends_on
+        self.data['depends_on'] = depends_on
     
     def set_ctx_database(self, database: T.NdiDatabase) -> None:
-        self.ctx.database = database
+        self.ctx.data_interface_database = database
 
     def with_ctx_database(self, database: T.NdiDatabase) -> T.Document:
-        self.ctx.database = database
+        self.ctx.data_interface_database = database
         return self
 
     def set_ctx(self, ctx: T.Context) -> None:
         self.ctx = ctx
-        self.binary.connect(self.ctx.binary_collection)
+        self.binary.connect(self.ctx.bin)
 
     def with_ctx(self, ctx: T.Context) -> T.Document:
         self.set_ctx(ctx)
@@ -269,7 +278,7 @@ class Document(Flatbuffer_Object):
         :param builder: Builder class in flatbuffers module.
         :type builder: flatbuffers.Builder
         """
-        self.data['_dependencies'] = {
+        self.data['dependencies'] = {
             key: dep.id if isinstance(dep, Document) else dep
             for key, dep in self.dependencies.items()}
 
