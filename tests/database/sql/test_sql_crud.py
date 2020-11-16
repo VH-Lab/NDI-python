@@ -4,7 +4,6 @@ from did import DID, DIDDocument
 from did.database import SQL
 import pytest
 import json
-import re
 
 mock_document_data = [
     {
