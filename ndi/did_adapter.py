@@ -1,13 +1,15 @@
 from __future__ import annotations
 import ndi.types as T
 from did import DIDDocument
+import ndi
 
 class DIDAdapter: 
     def __init__(self, database):
         self.database = database
 
-    def find(self, ndi_query=None):
-        pass
+    def find(self, did_query=None):
+        did_docs = self.database.find(query=did_query)
+        return [self._did_to_ndi_doc(d) for d in did_docs]
 
     def add(self, ndi_document, save=True) -> None:
         did_document = DIDDocument(ndi_document.data)
@@ -23,7 +25,9 @@ class DIDAdapter:
         pass
 
     def find_by_id(self, id_):
-        pass
+        did_doc = self.database.find_by_id(id_)
+        if did_doc:
+            return self._did_to_ndi_doc(did_doc)
 
     def update_by_id(self, id_, payload={}, save=True, force = False) -> None:
         pass
@@ -31,11 +35,14 @@ class DIDAdapter:
     def delete_by_id(self, id_, save=True, force = False) -> None:
         pass
 
-    def update_many(self, ndi_query=None, payload={}, save=True, force = False) -> None:
+    def update_many(self, did_query=None, payload={}, save=True, force = False) -> None:
         pass
 
-    def delete_many(self, ndi_query=None, save=True, force = False) -> None:
+    def delete_many(self, did_query=None, save=True, force = False) -> None:
         pass
+
+    def _did_to_ndi_doc(self, did_document):
+        return ndi.Document(data=did_document.data)
     
     def __getattr__(self, name):
         """Forward calls that don't need modification to DID database.

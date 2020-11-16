@@ -168,7 +168,7 @@ class Document(Flatbuffer_Object):
         return any([id_ is extant_id for extant_id in self.dependencies.values()])
 
     def add_dependency(self, ndi_document: T.Document, key: str = None):
-        key = key or ndi_document.metadata['name']
+        key = key or ndi_document.metadata['name'] or ndi_document.data['base']['name'] or ndi_document.id
         self.__verify_dependency(ndi_document, key)
         self.__link_dependency(ndi_document, key)
         self.ctx.db.add(ndi_document)
