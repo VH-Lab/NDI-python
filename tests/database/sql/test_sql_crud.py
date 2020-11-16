@@ -102,7 +102,7 @@ def ndi_mocdocs():
     yield [NDIDocument(data) for data in mock_document_data]
 
 def doc_count(db):
-    return list(db.execute('select count(*) from (select * from document) src;'))[0][0]
+    return list(db.execute('select count(*) from document;'))[0][0]
 
 def find_docs(db, where_clause = ''):
     return db.execute(f'select data from document {where_clause};')
