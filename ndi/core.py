@@ -417,9 +417,9 @@ class Experiment(NDI_Object):
             if not Path(directory).is_dir():
                 raise RuntimeError(f'Experiment\'s raw data directory ({directory}) is not a directory. Please check that the path is correct or create a new experiment directory and try again.')
             self.ctx.raw_data_directory = directory
-        if data_interface_database: 
-            if not data_interface_database:
-                raise RuntimeError(f'{data_interface_database} must be a DID instance.')
+        if not data_interface_database:
+            raise RuntimeError(f'{data_interface_database} must be a DID instance.')
+        else: 
             self.ctx.data_interface_database = data_interface_database
         # TODO: bring back when find and queries are implemented 
         #       dont forget to tab the line `self.ctx.db.add(self.document)`
