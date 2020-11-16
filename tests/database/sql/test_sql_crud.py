@@ -92,11 +92,6 @@ def experiment():
     )
 
 @pytest.fixture
-def mocdocs():
-    # names are 'A', 'B', and 'C'
-    yield [DIDDocument(data) for data in mock_document_data]
-
-@pytest.fixture
 def ndi_mocdocs():
     # names are 'A', 'B', and 'C'
     yield [NDIDocument(data) for data in mock_document_data]
