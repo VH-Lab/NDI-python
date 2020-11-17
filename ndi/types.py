@@ -52,7 +52,6 @@ if TYPE_CHECKING:
     from ndi.database import SQL, FileSystem
     from ndi.database.sql import Collection as SqlCollection, Datatype as DatatypeEnum
     from ndi.database.file_system import LookupCollection as FS_Lookup_Collection, BinaryCollection
-    from ndi.query import Query, CompositeQuery, AndQuery, OrQuery
 
     from sqlalchemy import Column, Query as SqlaQuery
     from sqlalchemy.orm import relationship, Session
@@ -133,11 +132,6 @@ if TYPE_CHECKING:
         DaqSystem,
         Epoch,
         Channel,
-    ]
-    NdiQueryClass = Union[
-        Type[Query],
-        Type[AndQuery],
-        Type[OrQuery]
     ]
 
     """Database Types

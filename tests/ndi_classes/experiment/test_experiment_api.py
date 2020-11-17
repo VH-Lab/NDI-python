@@ -75,7 +75,7 @@ class TestExperimentDocument:
         # all auxillary systems are set in experiment
         assert e.directory == directory
         assert e.ctx.db == db
-        assert e.ctx.binary_collection == MockBinaryCollection
+        assert e.ctx.bin == MockBinaryCollection
         assert e.ctx.daq_systems[0] == ds
         assert e.ctx.daq_readers_map[MockDaqReader.__name__] == MockDaqReader
     
@@ -109,7 +109,7 @@ class TestExperimentDocument:
         assert fn.metadata['experiment_id'] == e.id
         #   and with db and binary collection
         assert fn.ctx.db == db
-        assert fn.ctx.binary_collection == e.ctx.binary_collection
+        assert fn.ctx.bin == e.ctx.bin
 
     def test_set_readers(self, new_experiment, new_sql_db):
         """ndi.core.Experiment.set_readers()"""
@@ -142,4 +142,4 @@ class TestExperimentDocument:
         assert d.metadata['experiment_id'] == e.id
         #   and with db and binary collection
         assert d.ctx.db == db
-        assert d.ctx.binary_collection == e.ctx.binary_collection
+        assert d.ctx.bin == e.ctx.bin

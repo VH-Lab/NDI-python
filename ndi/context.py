@@ -1,32 +1,39 @@
 from __future__ import annotations
 import ndi.types as T
+from .did_adapter import DIDAdapter
 
 class Context:
     def __init__(
         self, 
         raw_data_directory: str = '',
-        database: T.NdiDatabase = None, 
-        binary_collection: T.BinaryCollection = None,
+        data_interface_database = None,
         daq_systems: T.List[T.DaqSystem] = [],
         daq_readers_map: T.Dict[str, T.DaqReader] = {}
     ):
         self.raw_data_directory = raw_data_directory
-        self.database = database
-        self.binary_collection = binary_collection
+        self.data_interface_database = data_interface_database
         self.daq_systems = daq_systems
         self.daq_readers_map = daq_readers_map
     
     @property
     def dir(self):
         return self.raw_data_directory
-    
-    @property
-    def db(self):
-        return self.database
 
     @property
     def bin(self):
-        return self.binary_collection
+        # TODO: phase need for this out by moving binary feature implementations from ndi to did 
+        return self.__data_interface_database.database.bin
+    
+    @property
+    def db(self):
+        return self.__data_interface_database
+    @property
+    def data_interface_database(self):
+        return self.__data_interface_database
+
+    @data_interface_database.setter
+    def data_interface_database(self, value):
+        self.__data_interface_database = DIDAdapter(value)
 
     def load_daq_system(self, daq_system):
         if daq_system.id not in [ds.id for ds in self.daq_systems]:
