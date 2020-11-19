@@ -106,7 +106,7 @@ def doc_count(db):
 def find_docs(db, where_clause = ''):
     return db.execute(f'select data from document {where_clause};')
 
-class TestLookupCollection:
+class TestSqlCrud:
     def test_add(self, experiment, ndi_mocdocs):
         experiment.add_document(ndi_mocdocs[0])
         response = list(find_docs(
@@ -157,3 +157,53 @@ class TestLookupCollection:
             and doc.data['base']['name'] == 'A'
         ]
         assert found_ids == expected_ids
+
+    def test_update(self, experiment, ndi_mocdocs):
+        for ndi_doc in ndi_mocdocs:
+            experiment.add_document(ndi_doc)
+
+        docs_from_db = experiment.get_document_dependencies().values()
+
+        ndi_mocdocs[0].data['base']['name'] = 'AAA'
+        ndi_mocdocs[0].save_updates()
+
+        assert not any([d.data['base']['name'] == 'AAA' for d in docs_from_db])
+        assert any([d.current.data['base']['name'] == 'AAA' for d in docs_from_db])
+
+    def test_update_by_id(self, experiment, ndi_mocdocs):
+        for ndi_doc in ndi_mocdocs:
+            experiment.add_document(ndi_doc)
+
+        docs_from_db = experiment.get_document_dependencies().values()
+
+        target_id = ndi_mocdocs[0].data['base']['id']
+        experiment.ctx.db.update_by_id(target_id, { 'base': { 'name': 'AAAA' } })
+
+        assert any([d.current.data['base']['name'] == 'AAAA' for d in docs_from_db])
+
+    def test_update_many(self, experiment, ndi_mocdocs):
+        for ndi_doc in ndi_mocdocs:
+            experiment.add_document(ndi_doc)
+
+        docs_from_db = experiment.get_document_dependencies().values()
+
+        by_session_id = Q('base.session_id') == experiment.id
+        experiment.ctx.db.update_many(by_session_id, { 'base': { 'version': '2' } })
+
+        assert all([d.current.data['base']['version'] == '2' for d in docs_from_db])
+
+    def test_upsert(self, experiment, ndi_mocdocs):
+        doc = ndi_mocdocs[0]
+
+        doc_from_db = experiment.ctx.db.find_by_id(doc.id)
+        assert not doc_from_db
+
+        experiment.ctx.db.upsert(doc)
+
+        doc_from_db = experiment.ctx.db.find_by_id(doc.id)
+        assert doc_from_db.data['base']['name'] == 'A'
+
+        doc.data['base']['name'] = 'AAA'
+        experiment.ctx.db.upsert(doc)
+
+        assert doc_from_db.current.data['base']['name'] == 'AAA'

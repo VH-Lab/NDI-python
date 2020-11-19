@@ -4,7 +4,8 @@ from did import DIDDocument
 import ndi
 
 class DIDAdapter: 
-    def __init__(self, database):
+    def __init__(self, ctx, database):
+        self.ctx = ctx
         self.database = database
 
     def find(self, did_query=None):
@@ -38,13 +39,13 @@ class DIDAdapter:
         pass
 
     def update_many(self, did_query=None, payload={}, save=True, force = False) -> None:
-        self.database.update_by_id(did_query, payload, save=save)
+        self.database.update_many(did_query, payload, save=save)
 
     def delete_many(self, did_query=None, save=True, force = False) -> None:
         pass
 
     def _did_to_ndi_doc(self, did_document):
-        return ndi.Document(data=did_document.data)
+        return ndi.Document(data=did_document.data).with_ctx(self.ctx)
     
     def __getattr__(self, name):
         """Forward calls that don't need modification to DID database.

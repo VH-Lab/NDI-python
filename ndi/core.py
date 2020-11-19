@@ -621,7 +621,7 @@ class Experiment(NDI_Object):
 
     def _find_by_class(self, NdiClass, ndi_query):
         filter_ = ((Q('_metadata.experiment_id') == self.id) \
-            | (Q('base.session_id') == self.id))
+            | (Q('base.session_id') == self.id)) \
             & (Q('_metadata.type') == NdiClass.DOCUMENT_TYPE)
         docs = self.ctx.db.find(filter_ & ndi_query)
         return [NdiClass.from_document(d).with_ctx(self.ctx) for d in docs]

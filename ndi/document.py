@@ -122,32 +122,15 @@ class Document(Flatbuffer_Object):
         self.binary = BinaryWrapper(binary_collection, self.id)
 
     def save_updates(self):
-        """Updates version and creates a new id for this ndi_document and saves changes in database.
-
-        Updates id, version_depth, parent_id with previous id, and document_extension with new ndi_document id.
-        Adds parent_id to asc_path.
-
-        To be used in database implementations only.
         """
-        parent_id = self.id
-        self.metadata['latest_version'] = False
-        self.ctx.db.update(self, force=True)
-        super().__init__(None)
-        metadata = self.metadata
-        metadata['parent_id'] = parent_id
-        metadata['asc_path'] = ',' + \
-            metadata['parent_id'] + metadata['asc_path']
-        metadata['version_depth'] += 1
-        metadata['latest_version'] = True
-        self.dependencies = {}
-        self.depends_on = []
-
+        Updates document data in database
+        """
         if not self.ctx:
             """Will fire if the document is not in the database (ctx is attached any time a document is added or retrieved from the database; only user-initialized Documents should not have a ctx)."""
             # TODO: make this error message more helpful when ctx is well defined
             raise RuntimeError('This document is not attached to a database.')
         else:
-            self.ctx.db.add(self)
+            self.ctx.db.update(self, force=True)
 
     def refresh(self):
         self_in_db = self.ctx.db.find_by_id(self.id)
