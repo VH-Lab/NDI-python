@@ -1,6 +1,6 @@
 from ndi import Experiment, Document
 from ndi import Document as NDIDocument
-from did import DID, DIDDocument
+from did import DID, DIDDocument, Query as Q
 from did.database import SQL
 import pytest
 import json
@@ -24,8 +24,8 @@ mock_document_data = [
             }],
         },
         'app': {
-            'a': 'b',
-            'c': 'd',
+            'a': True,
+            'b': True,
         },
     },
     {
@@ -46,8 +46,8 @@ mock_document_data = [
             }],
         },
         'app': {
-            'a': 'b',
-            'c': 'd',
+            'a': True,
+            'b': False,
         },
     },
     {
@@ -68,8 +68,8 @@ mock_document_data = [
             }],
         },
         'app': {
-            'a': 'b',
-            'c': 'd',
+            'a': False,
+            'b': False,
         },
     },
 ]
@@ -79,10 +79,9 @@ def experiment():
     did = DID(
         database = SQL(
             'postgres://postgres:password@localhost:5432/ndi_did_sql_tests', 
-            {
-                'hard_reset_on_init': True,
-                'debug_mode': False,
-            }
+            hard_reset_on_init = True,
+            debug_mode = False,
+            verbose_feedback = False,
         ),
         binary_directory = './test_sql_crud'
     )
@@ -102,21 +101,20 @@ def find_docs(db, where_clause = ''):
     return db.execute(f'select data from document {where_clause};')
 
 class TestLookupCollection:
-    def test_add_to_sql(self, experiment, ndi_mocdocs):
+    def test_add(self, experiment, ndi_mocdocs):
         experiment.add_document(ndi_mocdocs[0])
         response = list(find_docs(
             experiment.ctx.db.database.database,
             f'where document_id = \'{ndi_mocdocs[0].id}\''
         ))
         assert len(response) is 1
-        data = json.loads(response[0][0])
+        data = response[0][0]
         assert data['base']['session_id'] == experiment.id
 
-    def test_add_duplicate_to_sql(self, experiment, ndi_mocdocs):
+    def test_add_duplicate(self, experiment, ndi_mocdocs):
         db = experiment.ctx.db.database.database
 
         experiment.add_document(ndi_mocdocs[0])
-
         try:
             doc_count_before = doc_count(db)
             experiment.add_document(ndi_mocdocs[0])
@@ -127,4 +125,30 @@ class TestLookupCollection:
             doc_count_after = doc_count(db)
             assert doc_count_before == doc_count_after
 
-    
+    def test_find_by_id(self, experiment, ndi_mocdocs):
+        for ndi_doc in ndi_mocdocs:
+            experiment.add_document(ndi_doc)
+        
+        # get_document_dependencies() makes calls to find_by_id
+        document_dependencies = experiment.get_document_dependencies().items()
+        assert len(ndi_mocdocs) == len(document_dependencies)
+        for name, ndi_doc in document_dependencies:
+            assert any([d.data['base']['name'] == name for d in ndi_mocdocs])
+
+    def test_find(self, experiment, ndi_mocdocs):
+        for ndi_doc in ndi_mocdocs:
+            experiment.add_document(ndi_doc)
+        
+        by_app_a = Q('app.a') == True
+        found_ids = [doc.id for doc in experiment.find_documents(by_app_a)]
+        expected_ids = [doc.id for doc in ndi_mocdocs if doc.data['app']['a'] == True]
+        assert found_ids == expected_ids
+
+        by_app_a_and_name = by_app_a & (Q('base.name') == 'A')
+        found_ids = [doc.id for doc in experiment.find_documents(by_app_a_and_name)]
+        expected_ids = [
+            doc.id for doc in ndi_mocdocs
+            if doc.data['app']['a'] == True
+            and doc.data['base']['name'] == 'A'
+        ]
+        assert found_ids == expected_ids

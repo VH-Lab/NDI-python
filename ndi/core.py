@@ -1,10 +1,8 @@
 from __future__ import annotations
 import ndi.types as T
 from .document import Document
+from did import Query as Q
 from pathlib import Path
-import re
-from abc import ABC, abstractmethod
-import flatbuffers
 from uuid import uuid4
 import os
 
@@ -614,11 +612,15 @@ class Experiment(NDI_Object):
     def find_channels(self, ndi_query):
         channels = self._find_by_class(Channel, ndi_query)
         return self.set_readers(channels)
+    def find_documents(self, ndi_query):
+        filter_ = Q('base.session_id') == self.id
+        return self.ctx.db.find(filter_ & ndi_query)
 
     def _find_by_class(self, NdiClass, ndi_query):
-        has_this_experiment_id = Q('_metadata.experiment_id') == self.id
-        class_filter = Q('_metadata.type') == NdiClass.DOCUMENT_TYPE
-        docs = self.ctx.db.find(has_this_experiment_id & class_filter & ndi_query)
+        filter_ = ((Q('_metadata.experiment_id') == self.id) \
+            | (Q('base.session_id') == self.id)) \
+            & (Q('_metadata.type') == NdiClass.DOCUMENT_TYPE)
+        docs = self.ctx.db.find(filter_ & ndi_query)
         return [NdiClass.from_document(d).with_ctx(self.ctx) for d in docs]
 
     def check_id_in_database(self, id_):
