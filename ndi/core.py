@@ -3,9 +3,6 @@ import ndi.types as T
 from .document import Document
 from did import Query as Q
 from pathlib import Path
-import re
-from abc import ABC, abstractmethod
-import flatbuffers
 from uuid import uuid4
 import os
 
