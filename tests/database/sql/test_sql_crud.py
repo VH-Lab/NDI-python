@@ -135,6 +135,7 @@ class TestLookupCollection:
         for ndi_doc in ndi_mocdocs:
             experiment.add_document(ndi_doc)
         
+        # get_document_dependencies() makes calls to find_by_id
         document_dependencies = experiment.get_document_dependencies().items()
         assert len(ndi_mocdocs) == len(document_dependencies)
         for name, ndi_doc in document_dependencies:
