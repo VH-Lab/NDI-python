@@ -32,8 +32,8 @@ class Context:
         return self.__data_interface_database
 
     @data_interface_database.setter
-    def data_interface_database(self, value):
-        self.__data_interface_database = DIDAdapter(value)
+    def data_interface_database(self, did_instance):
+        self.__data_interface_database = DIDAdapter(self, did_instance)
 
     def load_daq_system(self, daq_system):
         if daq_system.id not in [ds.id for ds in self.daq_systems]:
