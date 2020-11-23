@@ -25,7 +25,9 @@ class DIDAdapter:
         self.database.upsert(did_document, save=save)
 
     def delete(self, ndi_document, save=True, force = False) -> None:
-        pass
+
+        did_document = DIDDocument(ndi_document.data)
+        self.database.delete(did_document, save=save)
 
     def find_by_id(self, id_):
         did_doc = self.database.find_by_id(id_)
@@ -36,13 +38,13 @@ class DIDAdapter:
         self.database.update_by_id(id_, payload, save=save)
 
     def delete_by_id(self, id_, save=True, force = False) -> None:
-        pass
+        self.database.delete_by_id(id_, save=save)
 
     def update_many(self, did_query=None, payload={}, save=True, force = False) -> None:
         self.database.update_many(did_query, payload, save=save)
 
     def delete_many(self, did_query=None, save=True, force = False) -> None:
-        pass
+        self.database.delete_many(did_query, save=save)
 
     def _did_to_ndi_doc(self, did_document):
         return ndi.Document(data=did_document.data).with_ctx(self.ctx)
