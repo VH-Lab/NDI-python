@@ -249,7 +249,7 @@ class TestSqlCrud:
 
         docs_from_db = experiment.get_document_dependencies().values()
         assert all([
-            d.current.deleted and d.current.data is None 
+            d is None or (d.current.deleted and d.current.data is None)
             for d in docs_from_db
         ])
         for doc in ndi_mocdocs:
