@@ -67,6 +67,7 @@ class Document(Flatbuffer_Object):
             ],
         }
         self.id = self.data['base']['id']
+        self.deleted = False
 
     @property
     def current(self):
@@ -134,7 +135,10 @@ class Document(Flatbuffer_Object):
 
     def refresh(self):
         self_in_db = self.ctx.db.find_by_id(self.id)
-        self.data = self_in_db.data
+        try:
+            self.data = self_in_db.data
+        except AttributeError:
+            self._clear_own_data()
         return self
 
     def get_history(self):
@@ -207,10 +211,13 @@ class Document(Flatbuffer_Object):
                 ndi_document.delete(force=force, remove_history=remove_history)
             self._remove_self_from_dependencies()
             self.ctx.db.delete(self, force=force)
-            self.id = None
-            self.data = 'This object has been deleted.'
+            self._clear_own_data()
         else:
             raise RuntimeWarning('Are you sure you want to delete this document? This will permanently remove it and its dependencies. To delete anyway, set the force argument to True. To clear the version history of this document and related dependencies, set the remove_history argument to True.')
+
+    def _clear_own_data(self):
+        self.deleted = True
+        self.data = None
 
     def _remove_self_from_dependencies(self):
         """Removes itself as a dependency from all objects in depends_on list.

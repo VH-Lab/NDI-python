@@ -202,3 +202,50 @@ class TestSqlCrud:
         experiment.ctx.db.upsert(doc)
 
         assert doc_from_db.current.data['base']['name'] == 'AAA'
+
+    def test_delete(self, experiment, ndi_mocdocs):
+        for ndi_doc in ndi_mocdocs:
+            experiment.add_document(ndi_doc)
+
+        experiment_deps = experiment.get_document_dependencies()
+        doc_on_experiment = experiment_deps[ndi_mocdocs[0].data['base']['name']]
+        
+        ndi_mocdocs[0].delete(force=True)
+
+        # show that the original (and directly deleted) document instance is current
+        assert ndi_mocdocs[0].deleted 
+        assert ndi_mocdocs[0].data is None
+
+        # show that the document instance attached to the experiment is current
+        assert doc_on_experiment.current.deleted 
+        assert doc_on_experiment.current.data is None
+
+        # show that the document is no longer present in the db
+        doc_from_db = experiment.ctx.db.find_by_id(ndi_mocdocs[0].id)
+        assert doc_from_db is None
+
+    def test_delete_by_id(self, experiment, ndi_mocdocs):
+        for ndi_doc in ndi_mocdocs:
+            experiment.add_document(ndi_doc)
+
+        target_id = ndi_mocdocs[0].data['base']['id']
+        experiment.ctx.db.delete_by_id(target_id)
+
+        doc_from_db = experiment.ctx.db.find_by_id(ndi_mocdocs[0].id)
+        assert doc_from_db is None
+
+    def test_delete_many(self, experiment, ndi_mocdocs):
+        for ndi_doc in ndi_mocdocs:
+            experiment.add_document(ndi_doc)
+
+        by_session_id = Q('base.session_id') == experiment.id
+        experiment.ctx.db.delete_many(by_session_id)
+
+        docs_from_db = experiment.get_document_dependencies().values()
+        assert all([
+            d is None or (d.current.deleted and d.current.data is None)
+            for d in docs_from_db
+        ])
+        for doc in ndi_mocdocs:
+            doc_from_db = experiment.ctx.db.find_by_id(doc.id)
+            assert doc_from_db is None

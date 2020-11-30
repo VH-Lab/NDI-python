@@ -601,7 +601,7 @@ class Experiment(NDI_Object):
 
     def get_document_dependencies(self):
         return {
-            key: doc.with_ctx(self.ctx)
+            key: doc.with_ctx(self.ctx) if doc else None
             for key, doc in self.document.get_dependencies().items()
         }
 
