@@ -88,6 +88,7 @@ def experiment():
     yield Experiment('test_sql_crud').connect(
         data_interface_database = did,
     )
+    did.database.connection.close()
 
 @pytest.fixture
 def ndi_mocdocs():
