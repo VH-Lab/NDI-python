@@ -13,9 +13,7 @@ sqlalchemy = "*"
 sqlalchemy-utils = "*"
 sqlalchemy-views = "*"
 blake3 = "*"
-astropy = "*"
 jupyter = "*"
-did = {editable = true,path = "./../did-python"}
 
 [packages]
 numpy = "*"
@@ -24,6 +22,8 @@ flatbuffers = "*"
 matplotlib = "*"
 psycopg2-binary = "*"
 neo = "*"
+astropy = "*"
+did = {editable = true,path = "./../did-python"}
 
 [requires]
 python_version = "3.8"

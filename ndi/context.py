@@ -11,7 +11,7 @@ class Context:
         daq_readers_map: T.Dict[str, T.DaqReader] = {}
     ):
         self.raw_data_directory = raw_data_directory
-        self.data_interface_database = data_interface_database
+        self.__data_interface_database = data_interface_database
         self.daq_systems = daq_systems
         self.daq_readers_map = daq_readers_map
     

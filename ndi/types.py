@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from .schema.Channel import Channel as Channel_schema
     from .schema.DaqSystem import DaqSystem as DaqSystem_schema
     from .schema.Epoch import Epoch as Epoch_schema
-    from .schema.Experiment import Experiment as Experiment_schema
+    from .schema.Session import Session as Session_schema
     from .schema.FileNavigator import FileNavigator as FileNavigator_schema
     from .schema.Probe import Probe as Probe_schema
     from .schema.Document import Document as Document_schema
@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from .schema.ProbeType import ProbeType as ProbeType_schema
 
     from ndi.core import NDI_Object
-    from ndi.core import Channel, DaqSystem, Epoch, Experiment, Probe, Document, FileNavigator
+    from ndi.core import Channel, DaqSystem, Epoch, Session, Probe, Document, FileNavigator
 
     from ndi.context import Context
     from ndi.database import SQL, FileSystem
@@ -67,7 +67,7 @@ if TYPE_CHECKING:
         Type[Channel_schema],
         Type[DaqSystem_schema],
         Type[Epoch_schema],
-        Type[Experiment_schema],
+        Type[Session_schema],
         Type[FileNavigator_schema],
         Type[Probe_schema],
         Type[Document_schema]
@@ -77,7 +77,7 @@ if TYPE_CHECKING:
         Channel_schema,
         DaqSystem_schema,
         Epoch_schema,
-        Experiment_schema,
+        Session_schema,
         FileNavigator_schema,
         Probe_schema,
         Document_schema
@@ -88,7 +88,7 @@ if TYPE_CHECKING:
         Channel_schema,
         DaqSystem_schema,
         Epoch_schema,
-        Experiment_schema,
+        Session_schema,
         FileNavigator_schema,
         Probe_schema,
         Document_schema,
@@ -112,7 +112,7 @@ if TYPE_CHECKING:
     NdiDatabase = Union[SQL, FileSystem]
 
     NdiClass = Union[
-        Type[Experiment],
+        Type[Session],
         Type[Probe],
         Type[DaqSystem],
         Type[Epoch],
@@ -120,14 +120,14 @@ if TYPE_CHECKING:
         Type[Document],
     ]
     NdiObject = Union[
-        Experiment,
+        Session,
         Probe,
         DaqSystem,
         Epoch,
         Channel,
         Document,
     ]
-    NdiObjectWithExperimentId = Union[
+    NdiObjectWithSessionId = Union[
         Probe,
         DaqSystem,
         Epoch,
