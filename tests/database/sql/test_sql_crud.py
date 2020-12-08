@@ -99,7 +99,7 @@ def session():
             debug_mode = False,
             verbose_feedback = True,
         ),
-        binary_directory = './tests/database/sql/test_crud'
+        binary_directory = './tests/database/sql/test_sql_crud_binary_collection'
     )
     yield Session('test_sql_crud').connect(
         data_interface_database = did,
