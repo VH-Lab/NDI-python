@@ -46,12 +46,15 @@ class Document(Flatbuffer_Object):
         self.ctx = Context()
         self.binary = BinaryWrapper(document=self)
         if data:
-            self.validate(data) # throws InvalidDocument if invalid
             self.data = data
-            if data['base']['id']:
-                self.id = data['base']['id']
-            else:
-                data['base']['id'] = self.id
+            try:
+                if data['base']['id']:
+                    self.id = data['base']['id']
+                else:
+                    data['base']['id'] = self.id
+            except KeyError:
+                pass # Handle error in self.validate
+            self.validate(data) # throws InvalidDocument if invalid
         else:   
             self.data = {
                 'depends_on': [],

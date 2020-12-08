@@ -24,7 +24,7 @@ mock_document_data = [
             'validation': '$NDISCHEMAPATH\/ndi_document_app_schema.json',
             'name': 'ndi_document_app',
             'property_list_name': 'app',
-            'class_version': 1,
+            'class_version': '1',
             'superclasses': [{
                 'definition': '$NDIDOCUMENTPATH\/base_document.json'
             }],
@@ -51,7 +51,7 @@ mock_document_data = [
             'validation': '$NDISCHEMAPATH\/ndi_document_app_schema.json',
             'name': 'ndi_document_app',
             'property_list_name': 'app',
-            'class_version': 1,
+            'class_version': '1',
             'superclasses': [{
                 'definition': '$NDIDOCUMENTPATH\/base_document.json'
             }],
@@ -78,7 +78,7 @@ mock_document_data = [
             'validation': '$NDISCHEMAPATH\/ndi_document_app_schema.json',
             'name': 'ndi_document_app',
             'property_list_name': 'app',
-            'class_version': 1,
+            'class_version': '1',
             'superclasses': [{
                 'definition': '$NDIDOCUMENTPATH\/base_document.json'
             }],
