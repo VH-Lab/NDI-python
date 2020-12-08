@@ -312,8 +312,6 @@ class Document(Flatbuffer_Object):
 
     def delete(self, save=None):
         deletees = self.get_dependencies()
-        if remove_history:
-            deletees.extend(self.get_history())
         for ndi_document in deletees:
             ndi_document.delete(remove_history=remove_history, save=False)
         self._remove_self_from_dependencies()
@@ -335,10 +333,10 @@ class Document(Flatbuffer_Object):
         :rtype: [type]
         """
         for own_dep in self.depends_on_metadata:
-            doc = self.ctx.did.find_record(own_dep['record'], in_all_history=True)
+            doc = self.ctx.did.find_by_id(own_dep['id'], snapshot=own_dep['dependency_snapshot'])
             doc.dependencies_metadata = [
                 dep for dep in doc.dependencies_metadata
-                if dep['record'] != own_dep['own_record']
+                if dep['id'] != self.id
             ]
             self.ctx.did.update_record_dependencies(doc.version, doc.dependencies_metadata)
 
