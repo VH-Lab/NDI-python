@@ -20,13 +20,13 @@ mock_document_data = [
         'dependencies': [],
         'binary_files': [],
         'document_class': {
-            'definition': '$NDIDOCUMENTPATH\/ndi_document_app.json',
-            'validation': '$NDISCHEMAPATH\/ndi_document_app_schema.json',
+            'definition': '$NDIDOCUMENTPATH/ndi_document_app.json',
+            'validation': '$NDISCHEMAPATH/ndi_document_app_schema.json',
             'name': 'ndi_document_app',
             'property_list_name': 'app',
             'class_version': '1',
             'superclasses': [{
-                'definition': '$NDIDOCUMENTPATH\/base_document.json'
+                'definition': '$NDIDOCUMENTPATH/base_document.json'
             }],
         },
         'app': {
@@ -47,13 +47,13 @@ mock_document_data = [
         'dependencies': [],
         'binary_files': [],
         'document_class': {
-            'definition': '$NDIDOCUMENTPATH\/ndi_document_app.json',
-            'validation': '$NDISCHEMAPATH\/ndi_document_app_schema.json',
+            'definition': '$NDIDOCUMENTPATH/ndi_document_app.json',
+            'validation': '$NDISCHEMAPATH/ndi_document_app_schema.json',
             'name': 'ndi_document_app',
             'property_list_name': 'app',
             'class_version': '1',
             'superclasses': [{
-                'definition': '$NDIDOCUMENTPATH\/base_document.json'
+                'definition': '$NDIDOCUMENTPATH/base_document.json'
             }],
         },
         'app': {
@@ -74,13 +74,13 @@ mock_document_data = [
         'dependencies': [],
         'binary_files': [],
         'document_class': {
-            'definition': '$NDIDOCUMENTPATH\/ndi_document_app.json',
-            'validation': '$NDISCHEMAPATH\/ndi_document_app_schema.json',
+            'definition': '$NDIDOCUMENTPATH/ndi_document_app.json',
+            'validation': '$NDISCHEMAPATH/ndi_document_app_schema.json',
             'name': 'ndi_document_app',
             'property_list_name': 'app',
             'class_version': '1',
             'superclasses': [{
-                'definition': '$NDIDOCUMENTPATH\/base_document.json'
+                'definition': '$NDIDOCUMENTPATH/base_document.json'
             }],
         },
         'app': {
