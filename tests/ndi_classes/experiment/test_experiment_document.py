@@ -1,8 +1,8 @@
 import pytest
-from ndi import Experiment, Document
+from ndi import Session, Document
 
 class MockDaqSystem:
-    experiment_id = ''
+    session_id = ''
     def __init__(self, id_):
         self.id = id_ or 'mock-daq-sys-id'
 
@@ -12,23 +12,23 @@ def new_experiment():
     daq_system_ids = ['1', '2', '3']
     daq_systems = [MockDaqSystem(id_=id_) for id_ in daq_system_ids]
     directory = './tests/data/intracell_example'
-    e = Experiment(name, directory)
+    e = Session(name, directory)
     yield e, name, directory, daq_system_ids
 
-class TestExperimentDocument:
+class TestSessionDocument:
     def test_new_experiment(self, new_experiment):
-        """ndi.Experiment.__init__"""
+        """ndi.Session.__init__"""
         e, name, directory, ds_ids = new_experiment
 
         # metadata is properly set in document
         assert e.document.data['_metadata']['name'] == name
-        assert e.document.data['_metadata']['type'] == Experiment.DOCUMENT_TYPE
-        assert e.document.data['_metadata']['experiment_id'] == e.id
+        assert e.document.data['_metadata']['type'] == Session.DOCUMENT_TYPE
+        assert e.document.data['_metadata']['session_id'] == e.id
 
     def test_document_to_experiment(self, new_experiment):
-        """ndi.Experiment.from_document"""
+        """ndi.Session.from_document"""
         e, name, directory, ds_ids = new_experiment
 
         d = e.document
-        rebuilt_experiment = Experiment.from_document(d)
+        rebuilt_experiment = Session.from_document(d)
         assert rebuilt_experiment == e

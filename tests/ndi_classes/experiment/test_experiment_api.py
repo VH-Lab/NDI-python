@@ -1,5 +1,5 @@
 import pytest
-from ndi import Experiment, Document, FileNavigator, Channel
+from ndi import Session, Document, FileNavigator, Channel
 from alchemy_mock.mocking import UnifiedAlchemyMagicMock
 from ndi.database import SQL
 
@@ -46,22 +46,22 @@ class MockDaqSystem:
 
 @pytest.fixture
 def new_experiment():
-    e = Experiment('test_experiment')
+    e = Session('test_experiment')
     yield e
 
-class TestExperimentDocument:
+class TestSessionDocument:
     def test_overwrite_with_document(self, new_experiment):
-        """ndi.core.Experiment.__overwrite_with_document()"""
+        """ndi.core.Session.__overwrite_with_document()"""
         e = new_experiment
         d = Document({'words': 'lalala'}, 'new doc')
         
         # the method overwrites the document object on experiment
         assert d != e.document
-        e._Experiment__overwrite_with_document(d)
+        e._Session__overwrite_with_document(d)
         assert d == e.document
 
     def test_connect(self, new_experiment, new_sql_db):
-        """ndi.core.Experiment.connect()"""
+        """ndi.core.Session.connect()"""
         e = new_experiment
         directory = './tests/data/intracell_example'
         db = new_sql_db
@@ -80,7 +80,7 @@ class TestExperimentDocument:
         assert e.ctx.daq_readers_map[MockDaqReader.__name__] == MockDaqReader
     
     def test_add_daq_system(self, new_experiment, new_sql_db):
-        """ndi.core.Experiment.add_daq_system()"""
+        """ndi.core.Session.add_daq_system()"""
         e = new_experiment.connect(database=new_sql_db)
         dss = [
             MockDaqSystem('1234567890'),
@@ -89,14 +89,14 @@ class TestExperimentDocument:
         for ds in dss:
             e._add_daq_system(ds)
 
-        # live daq systems are added to added to database and set with experiment_id
+        # live daq systems are added to added to database and set with session_id
         for ds in dss:
             ds_doc = e.ctx.db.find_by_id(ds.id)
             print(ds_doc.data)
-            assert ds_doc.data['_metadata']['experiment_id'] == e.id
+            assert ds_doc.data['_metadata']['session_id'] == e.id
 
     def test_add_related_obj_to_db(self, new_experiment, new_sql_db):
-        """ndi.core.Experiment.add_related_obj_to_db()"""
+        """ndi.core.Session.add_related_obj_to_db()"""
         db = new_sql_db
         e = new_experiment.connect(
             database=db,
@@ -105,14 +105,14 @@ class TestExperimentDocument:
         fn = FileNavigator('', '')
         e.add_related_obj_to_db(fn)
 
-        # ndi.NDI_Object is set with experiment_id
-        assert fn.metadata['experiment_id'] == e.id
+        # ndi.NDI_Object is set with session_id
+        assert fn.base['session_id'] == e.id
         #   and with db and binary collection
         assert fn.ctx.db == db
         assert fn.ctx.bin == e.ctx.bin
 
     def test_set_readers(self, new_experiment, new_sql_db):
-        """ndi.core.Experiment.set_readers()"""
+        """ndi.core.Session.set_readers()"""
         ds = MockDaqSystem('0')
         e = new_experiment.connect(
             database=new_sql_db,
@@ -129,7 +129,7 @@ class TestExperimentDocument:
             assert c.daq_reader == ds.daq_reader
 
     def test_add_document(self, new_experiment, new_sql_db):
-        """ndi.core.Experiment.add_related_obj_to_db()"""
+        """ndi.core.Session.add_related_obj_to_db()"""
         db = new_sql_db
         e = new_experiment.connect(
             database=db,
@@ -138,8 +138,8 @@ class TestExperimentDocument:
         d = Document({}, 'testdoc')
         e.add_document(d)
 
-        # ndi.Document is set with experiment_id
-        assert d.metadata['experiment_id'] == e.id
+        # ndi.Document is set with session_id
+        assert d.base['session_id'] == e.id
         #   and with db and binary collection
         assert d.ctx.db == db
         assert d.ctx.bin == e.ctx.bin

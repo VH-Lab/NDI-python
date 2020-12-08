@@ -38,7 +38,7 @@ def add_dependencies(doc):
     deps = [(key, Document({ 'mynameis': key })) 
             for key in ['a', 'b', 'c']]
     for key, dep in deps:
-        doc.add_dependency(dep, key)
+        doc.add_dependant(dep, key)
     return deps
 
 
@@ -86,16 +86,16 @@ class TestNdiDocument_SQL:
         assert metadata['version_depth'] == 0
         assert metadata['asc_path'] == ''
 
-    def test_save_updates(self, new_sql_db):
-        """ndi.Document.save_updates"""
+    def test_update(self, new_sql_db):
+        """ndi.Document.update"""
         db, doc = with_doc_in_db(new_sql_db)
         v0_id = doc.id
         dep = Document({})
-        doc.add_dependency(dep, key='mock')
+        doc.add_dependant(dep, key='mock')
         print(doc.data)
 
         # document version metadata is updated on save
-        doc.save_updates()
+        doc.update()
         metadata = doc.data['_metadata']
         assert metadata['latest_version'] == True
         assert metadata['version_depth'] == 1
@@ -118,12 +118,12 @@ class TestNdiDocument_SQL:
         """ndi.Document.get_history"""
         db, doc = with_doc_in_db(new_sql_db)
         v0_id = doc.id
-        doc.save_updates()
+        doc.update()
         v1_id = doc.id
-        doc.save_updates()
+        doc.update()
         v2_id = doc.id
 
-        # get history gets all previous versions of document from oldest to newest
+        # get history gets all previous records of document from oldest to newest
         history = doc.get_history()
         metadata = history[0].data['_metadata']
         assert metadata['latest_version'] == False
@@ -134,27 +134,27 @@ class TestNdiDocument_SQL:
         assert metadata['version_depth'] == 1
         assert metadata['asc_path'] == f',{v0_id}'
 
-    def test_add_dependency(self, new_sql_db):
-        """ndi.Document.add_dependency"""
+    def test_add_dependant(self, new_sql_db):
+        """ndi.Document.add_dependant"""
         db, doc = with_doc_in_db(new_sql_db)
 
         dep = Document({ "data": "yep" })
-        doc.add_dependency(dep, key='dep')
+        doc.add_dependant(dep, key='dep')
 
         # document's dependencies list is updated
         assert doc.data['_dependencies']['dep'] == dep.id
 
-        # dependency has been added to the database
+        # dependant has been added to the database
         assert db.find_by_id(dep.id)
 
-        # fails when new doc is already a dependency
+        # fails when new doc is already a dependant
         with pytest.raises(RuntimeError):
-            doc.add_dependency(dep, key='dup_dep')
+            doc.add_dependant(dep, key='dup_dep')
 
         # fails when new doc is added under a key that is already in use
         with pytest.raises(RuntimeError):
             also_a_dep = Document({ "data": "certainly "})
-            doc.add_dependency(also_a_dep, key='dep')
+            doc.add_dependant(also_a_dep, key='dep')
 
     def test_get_dependencies(self, new_sql_db):
         """ndi.Document.get_dependencies"""
@@ -163,7 +163,7 @@ class TestNdiDocument_SQL:
         deps = [(key, Document({ 'mynameis': key })) 
                 for key in ['a', 'b', 'c']]
         for key, dep in deps:
-            doc.add_dependency(dep, key)
+            doc.add_dependant(dep, key)
         
         # before get_dependencies, _dependencies values are ids
         doc_dependencies = doc.data['_dependencies']
@@ -183,7 +183,7 @@ class TestNdiDocument_SQL:
         # setup dependencies and history
         v0_deps = add_dependencies(doc)
         v0_id = doc.id
-        doc.save_updates()
+        doc.update()
         v1_deps = add_dependencies(doc)
         v1_id = doc.id
 

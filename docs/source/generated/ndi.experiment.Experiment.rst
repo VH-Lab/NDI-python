@@ -1,9 +1,9 @@
-ndi.experiment.Experiment
+ndi.experiment.Session
 =========================
 
 .. currentmodule:: ndi.experiment
 
-.. autoclass:: Experiment
+.. autoclass:: Session
 
    
    .. automethod:: __init__
@@ -13,10 +13,10 @@ ndi.experiment.Experiment
 
    .. autosummary::
    
-      ~Experiment.__init__
-      ~Experiment.add_daq_system
-      ~Experiment.from_flatbuffer
-      ~Experiment.serialize
+      ~Session.__init__
+      ~Session.add_daq_system
+      ~Session.from_flatbuffer
+      ~Session.serialize
    
    
 

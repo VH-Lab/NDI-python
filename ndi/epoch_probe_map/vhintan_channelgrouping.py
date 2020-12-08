@@ -5,10 +5,10 @@ from ..query import Query as Q
 
 
 class VHIntanChannelGrouping(EpochProbeMap):
-    def __init__(self, daq_reader, epoch_sets, experiment_id, ctx=None):
+    def __init__(self, daq_reader, epoch_sets, session_id, ctx=None):
         self.daq_reader = daq_reader
         self.epoch_sets = epoch_sets
-        self.experiment_id = experiment_id
+        self.session_id = session_id
         self.ctx = ctx
 
     def read_epoch_metadata_file(self, metadata_file_path):
@@ -83,8 +83,8 @@ class VHIntanChannelGrouping(EpochProbeMap):
         epochs = []
         if self.ctx:
             # TODO: figure out a new way to do this, as Query lives in DID now
-            query = (Q('_metadata.experiment_id') == self.experiment_id) \
-                & (Q('_metadata.type') == Epoch.DOCUMENT_TYPE) \
+            query = (Q('base.session_id') == self.session_id) \
+                & (Q('document_class.name') == Epoch.DOCUMENT_TYPE) \
                 & (Q('reference_dir') >> [epoch_set.root for epoch_set in self.epoch_sets])
 
             for doc in self.ctx.db.find(query):

@@ -9,20 +9,21 @@ pytest = "*"
 sphinx = "*"
 sphinx-rtd-theme = "*"
 mypy = "*"
+sqlalchemy = "*"
+sqlalchemy-utils = "*"
+sqlalchemy-views = "*"
+blake3 = "*"
+jupyter = "*"
 
 [packages]
 numpy = "*"
 scipy = "*"
 flatbuffers = "*"
-jupyter = "*"
 matplotlib = "*"
-sqlalchemy = "*"
 psycopg2-binary = "*"
-pytest = "*"
 neo = "*"
-alchemy-mock = "*"
+astropy = "*"
 did = {editable = true,path = "./../did-python"}
-sqlalchemy-utils = "*"
 
 [requires]
 python_version = "3.8"

@@ -4,8 +4,9 @@ from .schema import Document as build_document
 import json
 from .flatbuffer_object import Flatbuffer_Object
 from .context import Context
-
-
+from did.time import current_time
+from did import Query as Q
+from contextlib import contextmanager
 
 class BinaryWrapper:
     def __init__(self, binary_collection: T.BinaryCollection = None, id_: str =''):
@@ -32,7 +33,7 @@ class Document(Flatbuffer_Object):
     Inherits from the :class:`NDI_Object` abstract class.
     """
 
-    def __init__(self, data: dict = {}, name: str = '', type_: str = '', experiment_id: str = '', id_=None):
+    def __init__(self, data: dict = {}, name: str = '', session_id: str = '', id_=None):
         """Creates new ndi_document
 
         :param id_: [description], defaults to None
@@ -44,64 +45,109 @@ class Document(Flatbuffer_Object):
         self.ctx = Context()
         self.binary = BinaryWrapper()
         self.binary.id = self.id
-        self.data = {
-            '_metadata': {
-                'name': name,
-                'type': type_,
-                'experiment_id': experiment_id,
-                'parent_id': '',
-                'asc_path': '',
-                'version_depth': 0,
-                'latest_version': True,
-            },
-            'dependencies': {},
-
-            **data,
+        self.data = data or {
+            'depends_on': [],
+            'dependencies': [],
+            'binary_files': [],
             'base': {
                 'id': self.id,
-                'session_id': '',
-                **data.get('base', {}),
+                'session_id': session_id,
+                'name': name,
+                'datestamp': current_time(),
+                'snapshots': [],
+                'records': [],
             },
-            'depends_on': [
-                *data.get('depends_on', [])
-            ],
+            'document_class': {
+                'definition': None,
+                'validation': None,
+                'name': None,
+                'property_list_name': None,
+                'class_version': None,
+                'superclasses': [],
+            },
         }
-        self.id = self.data['base']['id']
+        if data:
+            if data['base']['id']:
+                self.id = data['base']['id']
+            else:
+                data['base']['id'] = self.id
         self.deleted = False
+        self.__dependencies = []
+        self.__depends_on = []
 
     @property
     def current(self):
         return self.refresh()
+    
+    def at_snapshot(self, snapshot):
+        return self.refresh(snapshot=snapshot)
+    
+    def at_commit(self, commit):
+        return self.refresh(commit=commit)
+        
+    @property
+    def version(self):
+        try:
+            return self.base['records'][0]
+        except IndexError:
+            return None
+        
+    @property
+    def snapshot(self):
+        try:
+            return self.base['snapshots'][0]
+        except IndexError:
+            return None
 
     @property
-    def metadata(self):
-        return self.data['_metadata']
+    def base(self):
+        return self.data['base']
 
-    @metadata.setter
-    def metadata(self, new_metadata):
-        self.data['_metadata'] = new_metadata
+    @base.setter
+    def base(self, value):
+        self.data['base'] = value
 
     @property
-    def metadata(self):
-        return self.data['_metadata']
+    def class_(self):
+        return self.data['document_class']
 
-    @metadata.setter
-    def metadata(self, new_metadata):
-        self.data['_metadata'] = new_metadata
+    @class_.setter
+    def class_(self, value):
+        self.data['document_class'] = value
 
     @property
     def dependencies(self):
-        return self.data['dependencies']
+        if not self.__dependencies:
+            self.__dependencies = self.get_dependencies()
+        return self.__dependencies
 
     @dependencies.setter
-    def dependencies(self, dependencies):
-        self.data['dependencies'] = dependencies
+    def dependencies(self, value):
+        self.__dependencies = value
 
     @property
     def depends_on(self):
-        return self.data['depends_on']
+        if not self.__depends_on:
+            self.__depends_on = self.get_depends_on()
+        return self.__depends_on
+
     @depends_on.setter
-    def depends_on(self, depends_on):
+    def depends_on(self, value):
+        self.__depends_on = value
+
+    @property
+    def dependencies_metadata(self):
+        return self.data['dependencies']
+
+    @dependencies_metadata.setter
+    def dependencies_metadata(self, dependencies):
+        self.data['dependencies'] = dependencies
+
+    @property
+    def depends_on_metadata(self):
+        return self.data['depends_on']
+    @depends_on_metadata.setter
+    def depends_on_metadata(self, depends_on):
         self.data['depends_on'] = depends_on
     
     def set_ctx_database(self, database: T.NdiDatabase) -> None:
@@ -122,19 +168,36 @@ class Document(Flatbuffer_Object):
     def _connect_binary_fork(self, binary_collection):
         self.binary = BinaryWrapper(binary_collection, self.id)
 
-    def save_updates(self):
-        """
-        Updates document data in database
-        """
+    @contextmanager
+    def available_ctx(self) -> T.Generator:
         if not self.ctx:
             """Will fire if the document is not in the database (ctx is attached any time a document is added or retrieved from the database; only user-initialized Documents should not have a ctx)."""
             # TODO: make this error message more helpful when ctx is well defined
             raise RuntimeError('This document is not attached to a database.')
         else:
-            self.ctx.db.update(self, force=True)
+            yield
 
-    def refresh(self):
-        self_in_db = self.ctx.db.find_by_id(self.id)
+    def save(self):
+        """Saves staged changes to database."""
+        with self.available_ctx():
+            self.ctx.db.save()
+
+    def update(self, save=None):
+        """
+        Stages document data update.
+        """
+        with self.available_ctx():
+            self.ctx.db.update(self, save=save)
+
+    def upsert(self, save=None):
+        """
+        Stages document data upsert.
+        """
+        with self.available_ctx():
+            self.ctx.db.upsert(self, save=save)
+
+    def refresh(self, snapshot=None, commit=None):
+        self_in_db = self.ctx.db.find_by_id(self.id, snapshot, commit)
         try:
             self.data = self_in_db.data
         except AttributeError:
@@ -142,82 +205,96 @@ class Document(Flatbuffer_Object):
         return self
 
     def get_history(self):
-        """oldest to newest"""
-        ids = self.metadata['asc_path'].split(',')[1:]
-        results = [self.ctx.db.find_by_id(id) for id in reversed(ids)]
-        return [x for x in results if x]
+        """Version history relevant to this document. 
 
-    def __check_dependency_key_exists(self, key: str):
-        dependencies = self.dependencies
-        return any([key is extant for extant in dependencies.keys()])
+        :return: Lists, from newest to oldest, the document's (database_snapshot_id, version_hash) for each change made to the document.
+        :rtype: List[Tuple]
+        """
+        return zip(self.base['snapshots'], self.base['records'])
+
+
+    def __check_dependency_name_exists(self, name: str):
+        dependencies = self.dependencies_metadata
+        return any([name == dep['name'] for dep in dependencies])
 
     def __check_dependency_id_exists(self, id_: str):
-        return any([id_ is extant_id for extant_id in self.dependencies.values()])
-
-    def add_dependency(self, ndi_document: T.Document, key: str = None):
-        key = key or ndi_document.metadata['name'] or ndi_document.data['base']['name'] or ndi_document.id
-        self.__verify_dependency(ndi_document, key)
-        self.__link_dependency(ndi_document, key)
-        self.ctx.db.add(ndi_document)
-        self.ctx.db.update(self, force=True)
-        ndi_document.with_ctx(self.ctx)
+        return any([id_ == dep['id'] for dep in self.dependencies_metadata])
     
-    def link_dependency(self, ndi_document: T.Document, key: str = None):
-        key = key or ndi_document.metadata['name']
-        self.__verify_dependency(ndi_document, key)
+    def __format_dep(self, ndi_document, related_document, name=None):
+        """Formats depends_on and dependencies objects."""
+        return {
+            'name': name or ndi_document.data['base']['name'] or ndi_document.id,
+            'id': related_document.id,
+            'record': related_document.version,
+            'snapshot': related_document.snapshot,
+            'own_record': ndi_document.version, 
+        }
 
-        self.__link_dependency(ndi_document, key)
+    def add_dependency(self, ndi_document: T.Document, name: str = None, save=None):
+        name = name or ndi_document.data['base']['name'] or ndi_document.id
+        self.__verify_dependency(ndi_document, name)
+        self.ctx.db.add(ndi_document, save=False)
+        self.__link_dependency(ndi_document, name)
+        self.ctx.db.update(self, save=False)
+        ndi_document.with_ctx(self.ctx)
+        if save:
+            self.ctx.db.save()
+    
+    def link_dependency(self, ndi_document: T.Document, name: str = None):
+        name = name or ndi_document.data['base']['name'] or ndi_document.id
+        self.__verify_dependency(ndi_document, name)
 
-    def __verify_dependency(self, ndi_document, key):
-        if self.__check_dependency_key_exists(key):
+        self.__link_dependency(ndi_document, name)
+
+    def __verify_dependency(self, ndi_document, name):
+        if self.__check_dependency_name_exists(name):
             raise RuntimeError(
-                'Dependency key is already in use (dependency keys default to the document name if not specified).')
+                'Dependency name is already in use (dependency names default to the document name if not specified).')
         elif self.__check_dependency_id_exists(ndi_document.id):
-            dependency_name = ndi_document.metadata['name']
-            own_name = self.metadata['name']
+            dependency_name = ndi_document.base['name']
+            own_name = self.base['name']
             raise RuntimeError(
                 f'Document {dependency_name} is already a dependency of document {own_name}.')
 
-    def __link_dependency(self, ndi_document, key):
-        ndi_document.depends_on.append(self.id)
-        new_dependency = {key: ndi_document.id}
-        self.dependencies = { 
-            **self.dependencies, 
-            **new_dependency 
-        }
+    def __link_dependency(self, ndi_document, name):
+        ndi_document.depends_on_metadata.append(self.__format_dep(ndi_document, self))
+        new_dependency = self.__format_dep(self, ndi_document, name)
+        self.dependencies_metadata = [
+            *self.dependencies_metadata, 
+            new_dependency 
+        ]
         return ndi_document
 
     def get_dependencies(self):
-        for key, value in self.dependencies.items():
-            if isinstance(value, str):
-                self.dependencies[key] = self.ctx.db.find_by_id(value)
-        return self.dependencies
+        dependencies = {}
+        for dependency in self.dependencies_metadata:
+            dependencies[dependency['name']] = self.ctx.db.find_record(dependency['record'])
+        return dependencies
 
-    def _get_depends_on_objects(self):
-        output = []
-        for id in self.depends_on:
-            doc = self.ctx.db.find_by_id(id)
-            if doc:
-                output.append(doc)
-        return output
+    def get_depends_on(self):
+        depends_on = {}
+        for dep in self.depends_on_metadata:
+            depends_on[dep['name']] = self.ctx.db.find_record(dep['record'])
+        return depends_on
 
 
-    def delete(self, force=False, remove_history=False,):
-        if force:
-            deletees = list(self.get_dependencies().values())
-            if remove_history:
-                deletees.extend(self.get_history())
-            for ndi_document in deletees:
-                ndi_document.delete(force=force, remove_history=remove_history)
-            self._remove_self_from_dependencies()
-            self.ctx.db.delete(self, force=force)
-            self._clear_own_data()
-        else:
-            raise RuntimeWarning('Are you sure you want to delete this document? This will permanently remove it and its dependencies. To delete anyway, set the force argument to True. To clear the version history of this document and related dependencies, set the remove_history argument to True.')
+    def delete(self, remove_history=False, save=None):
+        deletees = self.get_dependencies()
+        if remove_history:
+            deletees.extend(self.get_history())
+        for ndi_document in deletees:
+            ndi_document.delete(remove_history=remove_history, save=False)
+        self._remove_self_from_dependencies()
+        self.ctx.db.delete(self, save=False)
+        self._clear_own_data()
+        if save:
+            self.ctx.db.save()
 
     def _clear_own_data(self):
         self.deleted = True
         self.data = None
+        self.__dependencies = None
+        self.__depends_on = None
 
     def _remove_self_from_dependencies(self):
         """Removes itself as a dependency from all objects in depends_on list.
@@ -225,14 +302,14 @@ class Document(Flatbuffer_Object):
         :return: [description]
         :rtype: [type]
         """
-        documents = self._get_depends_on_objects()
-        for d in documents:
-            d.dependencies = {
-                key: value
-                for key, value in d.dependencies.items()
-                if value != self.id
-            }
-            self.ctx.db.update(d, force=True)
+        deps = self.depends_on_metadata
+        for own_dep in self.depends_on_metadata:
+            doc = self.ctx.db.find_record(own_dep['record'], in_all_history=True)
+            doc.dependencies_metadata = [
+                dep for dep in doc.dependencies_metadata
+                if dep['record'] != own_dep['own_record']
+            ]
+            self.ctx.db.update_record_dependencies(doc.version, doc.dependencies_metadata)
 
     @classmethod
     def from_flatbuffer(cls, flatbuffer):
@@ -263,14 +340,11 @@ class Document(Flatbuffer_Object):
     def _build(self, builder):
         """.. currentmodule:: ndi.ndi_object
 
-        Called in NDI_Object.serialize() as part of flatbuffer bytearray generation from Experiment instance.
+        Called in NDI_Object.serialize() as part of flatbuffer bytearray generation from Session instance.
 
         :param builder: Builder class in flatbuffers module.
         :type builder: flatbuffers.Builder
         """
-        self.data['dependencies'] = {
-            key: dep.id if isinstance(dep, Document) else dep
-            for key, dep in self.dependencies.items()}
 
         id_ = builder.CreateString(self.id)
         data = builder.CreateString(
