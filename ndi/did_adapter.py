@@ -16,10 +16,10 @@ class DIDAdapter:
         self.did.revert()
     
     def get_history(self):
-        self.did.get_history()
+        return self.did.get_history()
     
     def get_working_snapshot(self):
-        self.did.driver.working_snapshot_id
+        return self.did.driver.working_snapshot_id
 
     def add(self, ndi_document, save=None) -> None:
         did_document = DIDDocument(ndi_document.data)

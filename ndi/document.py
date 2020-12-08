@@ -6,6 +6,7 @@ from .flatbuffer_object import Flatbuffer_Object
 from .context import Context
 from did.time import current_time
 from did import Query as Q
+from did.versioning import hash_document
 from contextlib import contextmanager
 from .exceptions import InvalidDocument, DocumentIdentityError
 
@@ -194,6 +195,7 @@ class Document(Flatbuffer_Object):
         """
         with self.available_ctx():
             self.ctx.did.update(self, save=save)
+            self.__dependencies = None
 
     def upsert(self, save=None):
         """
@@ -201,6 +203,7 @@ class Document(Flatbuffer_Object):
         """
         with self.available_ctx():
             self.ctx.did.upsert(self, save=save)
+            self.__dependencies = None
 
     def refresh(self, snapshot=None, commit=None):
         self_in_db = self.ctx.did.find_by_id(self.id, snapshot, commit)
@@ -239,9 +242,8 @@ class Document(Flatbuffer_Object):
         return {
             'name': name or ndi_document.data['base']['name'] or ndi_document.id,
             'id': related_document.id,
-            'record': related_document.version,
-            'snapshot': related_document.snapshot,
-            'own_record': ndi_document.version, 
+            'own_snapshot': self.snapshot,
+            'dependency_snapshot': related_document.snapshot
         }
 
     def add_dependency(self, ndi_document: T.Document, name: str = None, save=None):
@@ -279,20 +281,36 @@ class Document(Flatbuffer_Object):
         ]
         return ndi_document
 
-    def get_dependencies(self):
+    def get_dependencies(self, scope='current'):
         dependencies = {}
-        for dependency in self.dependencies_metadata:
-            dependencies[dependency['name']] = self.ctx.did.find_record(dependency['record'])
+        if scope == 'existing':
+            for dependency in self.dependencies_metadata:
+                dependencies[dependency['name']] = self.ctx.did.find_by_id(dependency['id'])
+        elif scope == 'all':
+            for dependency in self.dependencies_metadata:
+                dependencies[dependency['name']] = self.ctx.did.find_by_id(
+                    dependency['id'], snapshot=dependency['dependency_snapshot']
+                )
+        elif scope == 'current':
+            relevant_deps = [dep for dep in self.dependencies_metadata if dep['own_snapshot'] ==  self.snapshot]
+            for dependency in relevant_deps:
+                dependencies[dependency['name']] = self.ctx.did.find_by_id(
+                    dependency['id'], snapshot=dependency['dependency_snapshot']
+                )
+
         return dependencies
 
     def get_depends_on(self):
         depends_on = {}
-        for dep in self.depends_on_metadata:
-            depends_on[dep['name']] = self.ctx.did.find_record(dep['record'])
+        relevant_deps = [dep for dep in self.depends_on_metadata if dep['own_snapshot'] ==  self.snapshot]
+        for dep in relevant_deps:
+            depends_on[dep['name']] = self.ctx.did.find_by_id(
+                dep['id'], snapshot=dep['dependency_snapshot']
+            )
         return depends_on
 
 
-    def delete(self, remove_history=False, save=None):
+    def delete(self, save=None):
         deletees = self.get_dependencies()
         if remove_history:
             deletees.extend(self.get_history())
@@ -316,7 +334,6 @@ class Document(Flatbuffer_Object):
         :return: [description]
         :rtype: [type]
         """
-        deps = self.depends_on_metadata
         for own_dep in self.depends_on_metadata:
             doc = self.ctx.did.find_record(own_dep['record'], in_all_history=True)
             doc.dependencies_metadata = [
