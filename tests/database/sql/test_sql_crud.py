@@ -93,7 +93,7 @@ mock_document_data = [
 @pytest.fixture
 def session():
     did = DID(
-        database = SQL(
+        driver = SQL(
             'postgres://postgres:password@localhost:5432/ndi_did_sql_tests', 
             hard_reset_on_init = True,
             debug_mode = False,
@@ -105,7 +105,7 @@ def session():
         data_interface_database = did,
         load_existing=False
     )
-    did.database.connection.close()
+    did.driver.connection.close()
 
 @pytest.fixture
 def ndi_mocdocs():
@@ -113,13 +113,13 @@ def ndi_mocdocs():
     yield [NDIDocument(data) for data in deepcopy(mock_document_data)]
 
 def doc_count(ctx_carrier):
-    return list(ctx_carrier.ctx.db.database.database.execute('select count(*) from document;'))[0][0]
+    return list(ctx_carrier.ctx._did_adapter.did.driver.execute('select count(*) from document;'))[0][0]
 
 def find_docs(ctx_carrier, where_clause = ''):
-    return ctx_carrier.ctx.db.database.database.execute(f'select data from document {where_clause};')
+    return ctx_carrier.ctx._did_adapter.did.driver.execute(f'select data from document {where_clause};')
 
 def get_snapshot(ctx_carrier):
-    return ctx_carrier.ctx.db.database.database.working_snapshot_id
+    return ctx_carrier.ctx._did_adapter.did.driver.working_snapshot_id
 
 class TestSqlCrud:
     def test_add(self, session, ndi_mocdocs):
@@ -194,7 +194,7 @@ class TestSqlCrud:
         docs_from_db = session.get_document_dependencies().values()
 
         target_id = ndi_mocdocs[0].data['base']['id']
-        session.ctx.db.update_by_id(target_id, { 'base': { 'name': 'AAAA' } })
+        session.ctx.did.update_by_id(target_id, { 'base': { 'name': 'AAAA' } })
 
         assert any([d.current.data['base']['name'] == 'AAAA' for d in docs_from_db])
 
@@ -205,7 +205,7 @@ class TestSqlCrud:
         docs_from_db = session.get_document_dependencies().values()
 
         by_session_id = Q('base.session_id') == session.id
-        session.ctx.db.update_many(by_session_id, { 'app': { 'd': True } })
+        session.ctx.did.update_many(by_session_id, { 'app': { 'd': True } })
         session.save()
 
         assert all([d.current.data['app']['d'] == True for d in docs_from_db])
@@ -213,16 +213,16 @@ class TestSqlCrud:
     def test_upsert(self, session, ndi_mocdocs):
         doc = ndi_mocdocs[0]
 
-        doc_from_db = session.ctx.db.find_by_id(doc.id)
+        doc_from_db = session.ctx.did.find_by_id(doc.id)
         assert not doc_from_db
 
-        session.ctx.db.upsert(doc)
+        session.ctx.did.upsert(doc)
 
-        doc_from_db = session.ctx.db.find_by_id(doc.id)
+        doc_from_db = session.ctx.did.find_by_id(doc.id)
         assert doc_from_db.data['base']['name'] == 'A'
 
         doc.data['base']['name'] = 'AAA'
-        session.ctx.db.upsert(doc)
+        session.ctx.did.upsert(doc)
 
         assert doc_from_db.current.data['base']['name'] == 'AAA'
 
@@ -244,7 +244,7 @@ class TestSqlCrud:
         assert doc_on_session.current.data is None
 
         # show that the document is no longer present in the db
-        doc_from_db = session.ctx.db.find_by_id(ndi_mocdocs[0].id)
+        doc_from_db = session.ctx.did.find_by_id(ndi_mocdocs[0].id)
         assert doc_from_db is None
 
     def test_delete_by_id(self, session, ndi_mocdocs):
@@ -252,16 +252,16 @@ class TestSqlCrud:
             session.add_document(ndi_doc)
 
         target_id = ndi_mocdocs[0].data['base']['id']
-        session.ctx.db.delete_by_id(target_id)
+        session.ctx.did.delete_by_id(target_id)
 
-        doc_from_db = session.ctx.db.find_by_id(ndi_mocdocs[0].id)
+        doc_from_db = session.ctx.did.find_by_id(ndi_mocdocs[0].id)
         assert doc_from_db is None
 
     def test_delete_many(self, session, ndi_mocdocs):
         for ndi_doc in ndi_mocdocs:
             session.add_document(ndi_doc)
         by_session_id = Q('base.session_id') == session.id
-        session.ctx.db.delete_many(by_session_id)
+        session.ctx.did.delete_many(by_session_id)
 
         docs_from_db = session.get_document_dependencies().values()
         assert all([
@@ -269,6 +269,6 @@ class TestSqlCrud:
             for d in docs_from_db
         ])
         for doc in ndi_mocdocs:
-            doc_from_db = session.ctx.db.find_by_id(doc.id)
+            doc_from_db = session.ctx.did.find_by_id(doc.id)
             assert doc_from_db is None
 

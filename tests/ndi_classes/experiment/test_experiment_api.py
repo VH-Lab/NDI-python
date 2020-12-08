@@ -74,7 +74,7 @@ class TestSessionDocument:
         )
         # all auxillary systems are set in session
         assert e.directory == directory
-        assert e.ctx.db == db
+        assert e.ctx.did == db
         assert e.ctx.bin == MockBinaryCollection
         assert e.ctx.daq_systems[0] == ds
         assert e.ctx.daq_readers_map[MockDaqReader.__name__] == MockDaqReader
@@ -91,7 +91,7 @@ class TestSessionDocument:
 
         # live daq systems are added to added to database and set with session_id
         for ds in dss:
-            ds_doc = e.ctx.db.find_by_id(ds.id)
+            ds_doc = e.ctx.did.find_by_id(ds.id)
             print(ds_doc.data)
             assert ds_doc.data['_metadata']['session_id'] == e.id
 
@@ -108,7 +108,7 @@ class TestSessionDocument:
         # ndi.NDI_Object is set with session_id
         assert fn.base['session_id'] == e.id
         #   and with db and binary collection
-        assert fn.ctx.db == db
+        assert fn.ctx.did == db
         assert fn.ctx.bin == e.ctx.bin
 
     def test_set_readers(self, new_session, new_sql_db):
@@ -141,5 +141,5 @@ class TestSessionDocument:
         # ndi.Document is set with session_id
         assert d.base['session_id'] == e.id
         #   and with db and binary collection
-        assert d.ctx.db == db
+        assert d.ctx.did == db
         assert d.ctx.bin == e.ctx.bin

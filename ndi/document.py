@@ -180,24 +180,24 @@ class Document(Flatbuffer_Object):
     def save(self):
         """Saves staged changes to database."""
         with self.available_ctx():
-            self.ctx.db.save()
+            self.ctx.did.save()
 
     def update(self, save=None):
         """
         Stages document data update.
         """
         with self.available_ctx():
-            self.ctx.db.update(self, save=save)
+            self.ctx.did.update(self, save=save)
 
     def upsert(self, save=None):
         """
         Stages document data upsert.
         """
         with self.available_ctx():
-            self.ctx.db.upsert(self, save=save)
+            self.ctx.did.upsert(self, save=save)
 
     def refresh(self, snapshot=None, commit=None):
-        self_in_db = self.ctx.db.find_by_id(self.id, snapshot, commit)
+        self_in_db = self.ctx.did.find_by_id(self.id, snapshot, commit)
         try:
             self.data = self_in_db.data
         except AttributeError:
@@ -233,12 +233,12 @@ class Document(Flatbuffer_Object):
     def add_dependency(self, ndi_document: T.Document, name: str = None, save=None):
         name = name or ndi_document.data['base']['name'] or ndi_document.id
         self.__verify_dependency(ndi_document, name)
-        self.ctx.db.add(ndi_document, save=False)
+        self.ctx.did.add(ndi_document, save=False)
         self.__link_dependency(ndi_document, name)
-        self.ctx.db.update(self, save=False)
+        self.ctx.did.update(self, save=False)
         ndi_document.with_ctx(self.ctx)
         if save:
-            self.ctx.db.save()
+            self.ctx.did.save()
     
     def link_dependency(self, ndi_document: T.Document, name: str = None):
         name = name or ndi_document.data['base']['name'] or ndi_document.id
@@ -268,13 +268,13 @@ class Document(Flatbuffer_Object):
     def get_dependencies(self):
         dependencies = {}
         for dependency in self.dependencies_metadata:
-            dependencies[dependency['name']] = self.ctx.db.find_record(dependency['record'])
+            dependencies[dependency['name']] = self.ctx.did.find_record(dependency['record'])
         return dependencies
 
     def get_depends_on(self):
         depends_on = {}
         for dep in self.depends_on_metadata:
-            depends_on[dep['name']] = self.ctx.db.find_record(dep['record'])
+            depends_on[dep['name']] = self.ctx.did.find_record(dep['record'])
         return depends_on
 
 
@@ -285,10 +285,10 @@ class Document(Flatbuffer_Object):
         for ndi_document in deletees:
             ndi_document.delete(remove_history=remove_history, save=False)
         self._remove_self_from_dependencies()
-        self.ctx.db.delete(self, save=False)
+        self.ctx.did.delete(self, save=False)
         self._clear_own_data()
         if save:
-            self.ctx.db.save()
+            self.ctx.did.save()
 
     def _clear_own_data(self):
         self.deleted = True
@@ -304,12 +304,12 @@ class Document(Flatbuffer_Object):
         """
         deps = self.depends_on_metadata
         for own_dep in self.depends_on_metadata:
-            doc = self.ctx.db.find_record(own_dep['record'], in_all_history=True)
+            doc = self.ctx.did.find_record(own_dep['record'], in_all_history=True)
             doc.dependencies_metadata = [
                 dep for dep in doc.dependencies_metadata
                 if dep['record'] != own_dep['own_record']
             ]
-            self.ctx.db.update_record_dependencies(doc.version, doc.dependencies_metadata)
+            self.ctx.did.update_record_dependencies(doc.version, doc.dependencies_metadata)
 
     @classmethod
     def from_flatbuffer(cls, flatbuffer):
