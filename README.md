@@ -3,7 +3,7 @@ A sister project to [NDI Matlab](https://github.com/VH-Lab/NDI-matlab).
 ---
 The NDI library is an Object Relational Mapping API for managing session data. It brings together data acquisition (daq) systems, a file navigator, the Data Interface Database (DID), and data analysis libraries for use by user-built apps.
 
-# Usage
+## Usage
 
 Basic usage is recommended via [Jupyter Notebook](https://jupyter.org/). Any Jupyter install should work but [Anaconda](https://www.anaconda.com/distribution/) (Python 3) is an easy way to get started with Jupyter.
 
