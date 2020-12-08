@@ -3,7 +3,8 @@ import ndi.types as T
 from did import DIDDocument
 import ndi
 
-class DIDAdapter: 
+class DIDAdapter:
+    """ Transformer: `NDIDocument`s <-> `DIDDocument`s. """
     def __init__(self, ctx, did):
         self.ctx = ctx
         self.did = did

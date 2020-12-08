@@ -149,6 +149,13 @@ class DaqSystem(NDI_Object):
             self.file_navigator = file_navigator
             # file_navigator is added to db in Session._add_daq_system()
 
+    @property
+    def epoch_ids(self):
+        return self.document.data['epoch_ids']
+    @epoch_ids.setter
+    def epoch_ids(self, value):
+        self.document.data['epoch_ids'] = value
+
     @classmethod
     def from_document(cls, document) -> DaqSystem:
         """Alternate DaqSystem constructor. For use when initializing from a document.
@@ -175,7 +182,8 @@ class DaqSystem(NDI_Object):
         return ds
 
     def provision(self, session: T.Session):
-        session.connect(daq_systems=[self])
+        session.ctx.load_daq_system(self)
+        session._add_daq_system(self)
 
         epoch_sets = self.file_navigator.get_epoch_set(session.directory)
         epochprobemap = self.epoch_probe_map(
@@ -292,6 +300,19 @@ class FileNavigator(NDI_Object):
         self.class_['name'] = self.DOCUMENT_TYPE
         self.add_data_property('epoch_file_patterns', epoch_file_patterns)
         self.add_data_property('metadata_file_pattern', metadata_file_pattern)
+    
+    @property
+    def epoch_file_patterns(self):
+        return self.document.data['epoch_file_patterns']
+    @epoch_file_patterns.setter
+    def epoch_file_patterns(self, value):
+        self.document.data['epoch_file_patterns'] = value
+    @property
+    def metadata_file_pattern(self):
+        return self.document.data['metadata_file_pattern']
+    @metadata_file_pattern.setter
+    def metadata_file_pattern(self, value):
+        self.document.data['metadata_file_pattern'] = value
 
     @classmethod
     def from_document(cls, document) -> FileNavigator:
@@ -379,6 +400,7 @@ class Session(NDI_Object):
 
     def connect(
         self,
+        directory='',
         data_interface_database=None,
         daq_systems=[],
         load_existing=False
@@ -398,9 +420,15 @@ class Session(NDI_Object):
         :raises Warning: [description]
         :return: [description]
         :rtype: [type]
-        """
-        if not data_interface_database and not self.ctx.did:
-            raise RuntimeError(f'Sessions must {data_interface_database} have an associated DID instance.')
+        """ 
+        if directory:
+            if not Path(directory).is_dir():
+                raise RuntimeError(f'Experiment\'s raw data directory ({directory}) is not a directory. Please check that the path is correct or create a new experiment directory and try again.')
+                raise RuntimeError(f'Session\'s raw data directory ({directory}) is not a directory. Please check that the path is correct or create a new experiment directory and try again.')
+            self.ctx.raw_data_directory = directory
+        if not data_interface_database:
+            if not self.ctx.did:
+                raise RuntimeError(f'Sessions must {data_interface_database} have an associated DID instance.')
         else: 
             self.ctx.data_interface_database = data_interface_database
         isSession = Q('document_class.name') == self.DOCUMENT_TYPE
@@ -420,7 +448,6 @@ class Session(NDI_Object):
             for daq_sys in daq_systems:
                 self.ctx.load_daq_system(daq_sys)
                 self._add_daq_system(daq_sys)
-        self.ctx.did.save()
 
         return self
 
@@ -467,7 +494,7 @@ class Session(NDI_Object):
         self.ctx.did.update(self.document)
 
     def _add_daq_system(self, daq_system: T.DaqSystem) -> None:
-        """Stores a daq_system instance and labels it with the session's id.
+        """Upserts daq_system instance labeled with the session's id.
             DOES NOT ADD DAQ SYSTEM TO CONTEXT
 
         .. currentmodule:: ndi.daq_system
@@ -483,11 +510,10 @@ class Session(NDI_Object):
             daq_system.base['session_id'] = self.id
         else:
             daq_system.base['session_id'] = self.id
-            if self.ctx:
-                self.ctx.did.upsert(daq_system.document)
-                self.ctx.did.upsert(daq_system.file_navigator.document)
-                daq_system.set_ctx(self.ctx)
-                daq_system.file_navigator.set_ctx = self.ctx
+        self.ctx.did.upsert(daq_system.document)
+        self.ctx.did.upsert(daq_system.file_navigator.document)
+        daq_system.set_ctx(self.ctx)
+        daq_system.file_navigator.set_ctx(self.ctx)
 
     def _connect_ndi_object(self, ndi_object):
         ndi_object.base['session_id'] = self.id
@@ -661,6 +687,19 @@ class Epoch(NDI_Object):
         self.add_data_property('reference_dir', reference_dir)
         self.add_data_property('daq_system_ids', daq_system_ids)
 
+    @property
+    def reference_dir(self):
+        return self.document.data['reference_dir']
+    @reference_dir.setter
+    def reference_dir(self, value):
+        self.document.data['reference_dir'] = value
+    @property
+    def daq_system_ids(self):
+        return self.document.data['daq_system_ids']
+    @daq_system_ids.setter
+    def daq_system_ids(self, value):
+        self.document.data['daq_system_ids'] = value
+
     @classmethod
     def from_document(cls, document) -> Epoch:
         """Alternate Epoch constructor. For use when initializing from a document.
@@ -764,6 +803,25 @@ class Probe(NDI_Object):
         self.add_data_property('reference', reference)
         self.add_data_property('daq_system_id', daq_system_id)
         self.add_data_property('type', type_)
+
+    @property
+    def reference(self):
+        return self.document.data['reference']
+    @reference.setter
+    def reference(self, value):
+        self.document.data['reference'] = value
+    @property
+    def daq_system_id(self):
+        return self.document.data['daq_system_id']
+    @daq_system_id.setter
+    def daq_system_id(self, value):
+        self.document.data['daq_system_id'] = value
+    @property
+    def type(self):
+        return self.document.data['type']
+    @type.setter
+    def type(self, value):
+        self.document.data['type'] = value
 
     # Document Methods
     @classmethod
@@ -905,6 +963,56 @@ class Channel(NDI_Object):
         self.add_data_property('epoch_id', epoch_id)
         self.add_data_property('daq_system_id', daq_system_id)
         self.daq_reader = daq_reader(source_file) if daq_reader else None
+
+
+    @property
+    def number(self):
+        return self.document.data['number']
+    @number.setter
+    def number(self, value):
+        self.document.data['number'] = value
+    @property
+    def type(self):
+        return self.document.data['type']
+    @type.setter
+    def type(self, value):
+        self.document.data['type'] = value
+    @property
+    def clock_type(self):
+        return self.document.data['clock_type']
+    @clock_type.setter
+    def clock_type(self, value):
+        self.document.data['clock_type'] = value
+    @property
+    def source_file(self):
+        return self.document.data['source_file']
+    @source_file.setter
+    def source_file(self, value):
+        self.document.data['source_file'] = value
+    @property
+    def daq_reader_class_name(self):
+        return self.document.data['daq_reader_class_name']
+    @daq_reader_class_name.setter
+    def daq_reader_class_name(self, value):
+        self.document.data['daq_reader_class_name'] = value
+    @property
+    def probe_id(self):
+        return self.document.data['probe_id']
+    @probe_id.setter
+    def probe_id(self, value):
+        self.document.data['probe_id'] = value
+    @property
+    def epoch_id(self):
+        return self.document.data['epoch_id']
+    @epoch_id.setter
+    def epoch_id(self, value):
+        self.document.data['epoch_id'] = value
+    @property
+    def daq_system_id(self):
+        return self.document.data['daq_system_id']
+    @daq_system_id.setter
+    def daq_system_id(self, value):
+        self.document.data['daq_system_id'] = value
 
     @classmethod
     def from_document(cls, document) -> Channel:

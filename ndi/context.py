@@ -5,10 +5,12 @@ from .did_adapter import DIDAdapter
 class Context:
     def __init__(
         self, 
+        raw_data_directory = '',
         data_interface_database = None,
         daq_systems: T.List[T.DaqSystem] = [],
         daq_readers_map: T.Dict[str, T.DaqReader] = {}
-    ):
+    ):        
+        self.raw_data_directory = raw_data_directory
         self._did_adapter = DIDAdapter(self, data_interface_database)
         self.daq_systems = daq_systems
         self.daq_readers_map = daq_readers_map
@@ -21,7 +23,7 @@ class Context:
     @property
     def did(self):
         return self._did_adapter
-        
+
     @property
     def data_interface_database(self):
         return self._did_adapter

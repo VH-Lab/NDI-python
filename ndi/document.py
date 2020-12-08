@@ -7,20 +7,21 @@ from .context import Context
 from did.time import current_time
 from did import Query as Q
 from contextlib import contextmanager
+from .exceptions import InvalidDocument, DocumentIdentityError
 
 class BinaryWrapper:
-    def __init__(self, binary_collection: T.BinaryCollection = None, id_: str =''):
-        self.id = id_
+    def __init__(self, binary_collection: T.BinaryCollection = None, document: Document = None):
+        self.document = document
         self.binary_collection = binary_collection
     
     def connect(self, binary_collection: T.BinaryCollection = None):
         self.binary_collection = binary_collection
 
-    def open_write_stream(self):
-        return self.binary_collection.open_write_stream(self.id)
+    def open_write_stream(self, name):
+        return self.binary_collection.open_write_stream(self.document, name)
 
-    def open_read_stream(self):
-        return self.binary_collection.open_read_stream(self.id)
+    def open_read_stream(self, name, record=None):
+        return self.binary_collection.open_read_stream(self.document, name, record)
 
 
 
@@ -43,34 +44,36 @@ class Document(Flatbuffer_Object):
         """
         super().__init__(id_)
         self.ctx = Context()
-        self.binary = BinaryWrapper()
-        self.binary.id = self.id
-        self.data = data or {
-            'depends_on': [],
-            'dependencies': [],
-            'binary_files': [],
-            'base': {
-                'id': self.id,
-                'session_id': session_id,
-                'name': name,
-                'datestamp': current_time(),
-                'snapshots': [],
-                'records': [],
-            },
-            'document_class': {
-                'definition': None,
-                'validation': None,
-                'name': None,
-                'property_list_name': None,
-                'class_version': None,
-                'superclasses': [],
-            },
-        }
+        self.binary = BinaryWrapper(document=self)
         if data:
+            self.validate(data) # throws InvalidDocument if invalid
+            self.data = data
             if data['base']['id']:
                 self.id = data['base']['id']
             else:
                 data['base']['id'] = self.id
+        else:   
+            self.data = {
+                'depends_on': [],
+                'dependencies': [],
+                'binary_files': [],
+                'base': {
+                    'id': self.id,
+                    'session_id': session_id,
+                    'name': name,
+                    'datestamp': current_time(),
+                    'snapshots': [],
+                    'records': [],
+                },
+                'document_class': {
+                    'definition': '',
+                    'validation': '',
+                    'name': '',
+                    'property_list_name': '',
+                    'class_version': '',
+                    'superclasses': [],
+                },
+            }
         self.deleted = False
         self.__dependencies = []
         self.__depends_on = []
@@ -212,6 +215,14 @@ class Document(Flatbuffer_Object):
         """
         return zip(self.base['snapshots'], self.base['records'])
 
+    def checkout(self, record):
+        doc = self.ctx.did.find_record(record, in_all_history=True)
+        if doc.id == self.id:
+            self.data = doc.data
+        else:
+            raise DocumentIdentityError(f'The given record (id = {doc.id}) is not this document.')
+        print('returning self')
+        return self
 
     def __check_dependency_name_exists(self, name: str):
         dependencies = self.dependencies_metadata
@@ -310,6 +321,53 @@ class Document(Flatbuffer_Object):
                 if dep['record'] != own_dep['own_record']
             ]
             self.ctx.did.update_record_dependencies(doc.version, doc.dependencies_metadata)
+
+    def validate(self, data=None):
+        data = data or self.data
+        expected_fields = {
+            'depends_on': list,
+            'dependencies': list,
+            'binary_files': list,
+            'base': {
+                'id': str,
+                'session_id': str,
+                'name': str,
+                'datestamp': str,
+                'snapshots': list,
+                'records': list,
+            },
+            'document_class': {
+                'definition': str,
+                'validation': str,
+                'name': str,
+                'property_list_name': str,
+                'class_version': str,
+                'superclasses': list,
+            }
+        }
+        def check_fields(dict_, reference, path=['data']):
+            errors = []
+            for key, value in reference.items():
+                key_exists = False
+                try:
+                    dict_[key]
+                    key_exists = True
+                except KeyError:
+                    errors.append(f'{".".join(path)} is missing key "{key}".')
+                if key_exists:
+                    path_w_key = [*path, key]
+                    if type(value) is dict:
+                        errors = [
+                            *errors,
+                            *check_fields(dict_[key], value, path_w_key)
+                        ]
+                    elif type(dict_[key]) is not value:
+                        errors.append(f'Value of {".".join(path_w_key)} must be of {value}.')
+            return errors
+        errors = check_fields(data, expected_fields)
+        if errors:
+            nl = '\n  '
+            raise InvalidDocument(f'The given data contains the following errors:{nl}{nl.join(errors)}')
 
     @classmethod
     def from_flatbuffer(cls, flatbuffer):
