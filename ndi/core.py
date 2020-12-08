@@ -135,6 +135,7 @@ class DaqSystem(NDI_Object):
         super().__init__(id_)
         self.base['name'] = name
         self.class_['name'] = self.DOCUMENT_TYPE
+        self.class_['__is_NDI_class'] = True
         self.base['session_id'] = session_id
         self.add_data_property('epoch_ids', epoch_ids)
 
@@ -298,6 +299,7 @@ class FileNavigator(NDI_Object):
         """
         super().__init__(id_)
         self.class_['name'] = self.DOCUMENT_TYPE
+        self.class_['__is_NDI_class'] = True
         self.add_data_property('epoch_file_patterns', epoch_file_patterns)
         self.add_data_property('metadata_file_pattern', metadata_file_pattern)
     
@@ -388,6 +390,7 @@ class Session(NDI_Object):
         self.base['name'] = name
         self.base['session_id'] = self.id
         self.class_['name'] = self.DOCUMENT_TYPE
+        self.class_['__is_NDI_class'] = True
 
         self.daq_systems: T.List[DaqSystem] = []
         self.daq_readers_map: T.Dict[str, T.DaqReader] = {}
@@ -610,6 +613,11 @@ class Session(NDI_Object):
         ]
         return ndi_objects
 
+    def get_documents(self):
+        by_session_id = Q('base.session_id') == self.id
+        not_ndi_class = Q('document_class.__is_NDI_class') != True
+        return self.ctx.did.find(by_session_id & not_ndi_class)
+
     def get_document_dependencies(self):
         return {
             name: doc.with_ctx(self.ctx) if doc else None
@@ -683,6 +691,7 @@ class Epoch(NDI_Object):
         """
         super().__init__(id_)
         self.class_['name'] = self.DOCUMENT_TYPE
+        self.class_['__is_NDI_class'] = True
         self.base['session_id'] = session_id
         self.add_data_property('reference_dir', reference_dir)
         self.add_data_property('daq_system_ids', daq_system_ids)
@@ -799,6 +808,7 @@ class Probe(NDI_Object):
         super().__init__(id_)
         self.base['name'] = name
         self.class_['name'] = self.DOCUMENT_TYPE
+        self.class_['__is_NDI_class'] = True
         self.base['session_id'] = session_id
         self.add_data_property('reference', reference)
         self.add_data_property('daq_system_id', daq_system_id)
@@ -953,6 +963,7 @@ class Channel(NDI_Object):
         super().__init__(id_)
         self.base['name'] = name
         self.class_['name'] = self.DOCUMENT_TYPE
+        self.class_['__is_NDI_class'] = True
         self.base['session_id'] = session_id
         self.add_data_property('number', number)
         self.add_data_property('type', type_)

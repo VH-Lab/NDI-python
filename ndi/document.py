@@ -312,8 +312,8 @@ class Document(Flatbuffer_Object):
 
     def delete(self, save=None):
         deletees = self.get_dependencies()
-        for ndi_document in deletees:
-            ndi_document.delete(remove_history=remove_history, save=False)
+        for ndi_document in deletees.values():
+            ndi_document.delete(save=False)
         self._remove_self_from_dependencies()
         self.ctx.did.delete(self, save=False)
         self._clear_own_data()
