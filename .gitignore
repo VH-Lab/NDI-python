@@ -70,5 +70,4 @@ example/binary_collections/*
 *.DS_Store
 
 # symlinked schema
-ndi/schema
 */.ndi
