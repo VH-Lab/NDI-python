@@ -36,9 +36,9 @@ class TestChannelDocument:
         c, name, number, type_, source_file, epoch_id, probe_id, daq_system_id, session_id, clock_type = new_channel
 
         # metadata is properly set in document
-        assert c.document.data['_metadata']['name'] == name
-        assert c.document.data['_metadata']['type'] == Channel.DOCUMENT_TYPE
-        assert c.document.data['_metadata']['session_id'] == session_id
+        assert c.document.base['name'] == name
+        assert c.document.class_['name'] == Channel.DOCUMENT_TYPE
+        assert c.document.base['session_id'] == session_id
 
         # data is properly set in document
         assert c.document.data['number'] == number
