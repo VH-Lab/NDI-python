@@ -43,5 +43,5 @@ class TestDaqSystemDocument:
         # Test that rebuilt DaqSystem properties match the original's
         assert rebuilt_daq_system.id == ds.id
         assert rebuilt_daq_system.base['name'] == ds.base['name']
-        assert rebuilt_daq_system.metadata['session_id'] == ds.metadata['session_id']
+        assert rebuilt_daq_system.base['session_id'] == ds.base['session_id']
         assert ds.document.data['epoch_ids'] == epoch_ids

@@ -106,7 +106,7 @@ class TestSessionDocument:
         e.add_related_obj_to_db(fn)
 
         # ndi.NDI_Object is set with session_id
-        assert fn.metadata['session_id'] == e.id
+        assert fn.base['session_id'] == e.id
         #   and with db and binary collection
         assert fn.ctx.db == db
         assert fn.ctx.bin == e.ctx.bin
@@ -139,7 +139,7 @@ class TestSessionDocument:
         e.add_document(d)
 
         # ndi.Document is set with session_id
-        assert d.metadata['session_id'] == e.id
+        assert d.base['session_id'] == e.id
         #   and with db and binary collection
         assert d.ctx.db == db
         assert d.ctx.bin == e.ctx.bin

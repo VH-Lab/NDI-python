@@ -5,6 +5,7 @@ from did import Query as Q
 from pathlib import Path
 from uuid import uuid4
 import os
+import re
 
 class NDI_Object:
     """
@@ -89,7 +90,7 @@ class NDI_Object:
         self.document.data[key] = value
 
     def delete(self, remove_history=False):
-        self.document.delete(force=force, remove_history=remove_history)
+        self.document.delete(remove_history=remove_history)
 
         
 
@@ -134,7 +135,7 @@ class DaqSystem(NDI_Object):
         super().__init__(id_)
         self.base['name'] = name
         self.class_['name'] = self.DOCUMENT_TYPE
-        self.metadata['session_id'] = session_id
+        self.base['session_id'] = session_id
         self.add_data_property('epoch_ids', epoch_ids)
 
         self.epoch_probe_map = epoch_probe_map
@@ -150,7 +151,7 @@ class DaqSystem(NDI_Object):
 
     @classmethod
     def from_document(cls, document) -> DaqSystem:
-        """Alternate DaqSystem constructor. For use whan initializing from a document.
+        """Alternate DaqSystem constructor. For use when initializing from a document.
         ::
             reconstructed_daq_system = DaqSystem.from_document(fb)
 
@@ -164,7 +165,7 @@ class DaqSystem(NDI_Object):
         ds = cls(
             id_=document.id,
             name=document.base['name'],
-            session_id=document.metadata['session_id'],
+            session_id=document.base['session_id'],
             epoch_ids=document.data['epoch_ids'],
             file_navigator=None,
             epoch_probe_map=None,
@@ -180,24 +181,24 @@ class DaqSystem(NDI_Object):
         epochprobemap = self.epoch_probe_map(
             daq_reader=self.daq_reader,
             epoch_sets=epoch_sets,
-            session_id=self.metadata['session_id'],
+            session_id=self.base['session_id'],
             ctx=self.ctx,
         )
 
         epochs, probes, channels = epochprobemap.get_epochs_probes_channels()
 
         # set relationships, verify types, and add to database.
-        for e in epochs:
-            e.daq_system_ids.append(self.id)
-            self.epoch_ids.append(e.id)
-            experiment.upsert(e)
+        for epoch in epochs:
+            epoch.daq_system_ids.append(self.id)
+            self.epoch_ids.append(epoch.id)
+            experiment.upsert(epoch)
         self.ctx.db.update(self.document)
-        for p in probes:
-            p.daq_system_id = self.id
-            experiment.upsert(p)
-        for c in channels:
-            c.daq_system_id = self.id
-            experiment.upsert(c)
+        for probe in probes:
+            probe.daq_system_id = self.id
+            experiment.upsert(probe)
+        for channel in channels:
+            channel.daq_system_id = self.id
+            experiment.upsert(channel)
 
         return epochs, probes, channels
     
@@ -208,7 +209,7 @@ class DaqSystem(NDI_Object):
         :type epoch: [type]
         """
         e.daq_system_ids.append(self.id)
-        self.epoch_ids.append(e.id)
+        self.epoch_ids.append(epoch.id)
         self.ctx.db.update(epoch.document)
         self.ctx.db.update(self.document)
 
@@ -446,7 +447,7 @@ class Session(NDI_Object):
         
     @classmethod
     def from_document(cls, document) -> Session:
-        """Alternate Session constructor. For use whan initializing from a document bytearray.
+        """Alternate Session constructor. For use when initializing from a document bytearray.
         ::
             reconstructed_experiment = Session.from_document(fb)
 
@@ -484,9 +485,9 @@ class Session(NDI_Object):
             daq_system = self.ctx.db.find_by_id(daq_system)
             if not daq_system:
                 raise ValueError(f'A DAQ system with id {daq_system} does not exist in the database.')
-            daq_system.metadata['session_id'] = self.id
+            daq_system.base['session_id'] = self.id
         else:
-            daq_system.metadata['session_id'] = self.id
+            daq_system.base['session_id'] = self.id
             if self.ctx:
                 self.ctx.db.upsert(daq_system.document)
                 self.ctx.db.upsert(daq_system.file_navigator.document)
@@ -494,12 +495,12 @@ class Session(NDI_Object):
                 daq_system.file_navigator.set_ctx = self.ctx
 
     def _connect_ndi_object(self, ndi_object):
-        ndi_object.metadata['session_id'] = self.id
+        ndi_object.base['session_id'] = self.id
         ndi_object.set_ctx(self.ctx)
 
     def upsert(self, ndi_object: T.NdiObjectWithSessionId) -> None:
         self._connect_ndi_object(ndi_object)
-        self.ctx.db.upsert(ndi_object.document, force=force)
+        self.ctx.db.upsert(ndi_object.document)
 
     def add_related_obj_to_db(self, ndi_object: T.NdiObjectWithSessionId) -> None:
         self._connect_ndi_object(ndi_object)
@@ -540,11 +541,11 @@ class Session(NDI_Object):
 
     def __verify_relation_exists_in_experiment(self, ndi_object, related_id):
         relation = self.ctx.db.find_by_id(related_id)
-        relation_session_id = relation.metadata['session_id']
+        relation_session_id = relation.base['session_id']
         relation_type = relation.metadata['type']
         if not relation:
             raise RuntimeError(f'Object {ndi_object} appears to have a foreign key to {relation_type}:{related_id}, which does not yet exist. Please add {relation_type}:{related_id} to the experiment before trying again.')
-        elif relation_session_id != self.metadata['session_id']:
+        elif relation_session_id != self.base['session_id']:
             raise RuntimeError(f'Object {ndi_object} appears to have a foreign key to {relation_type}:{related_id}, which belongs to another experiment({relation_session_id}).')
 
     def get_daq_systems(self):
@@ -661,13 +662,13 @@ class Epoch(NDI_Object):
         """
         super().__init__(id_)
         self.class_['name'] = self.DOCUMENT_TYPE
-        self.metadata['session_id'] = session_id
+        self.base['session_id'] = session_id
         self.add_data_property('reference_dir', reference_dir)
         self.add_data_property('daq_system_ids', daq_system_ids)
 
     @classmethod
     def from_document(cls, document) -> Epoch:
-        """Alternate Epoch constructor. For use whan initializing from a document.
+        """Alternate Epoch constructor. For use when initializing from a document.
         ::
             reconstructed_epoch = Epoch.from_document(fb)
 
@@ -679,7 +680,7 @@ class Epoch(NDI_Object):
         """
         epoch = cls(
             id_=document.id,
-            session_id=document.metadata['session_id'],
+            session_id=document.base['session_id'],
             daq_system_ids=document.data['daq_system_ids'],
         )
         epoch.document = document
@@ -764,7 +765,7 @@ class Probe(NDI_Object):
         super().__init__(id_)
         self.base['name'] = name
         self.class_['name'] = self.DOCUMENT_TYPE
-        self.metadata['session_id'] = session_id
+        self.base['session_id'] = session_id
         self.add_data_property('reference', reference)
         self.add_data_property('daq_system_id', daq_system_id)
         self.add_data_property('type', type_)
@@ -772,7 +773,7 @@ class Probe(NDI_Object):
     # Document Methods
     @classmethod
     def from_document(cls, document) -> Probe:
-        """Alternate Probe constructor. For use whan initializing from a document.
+        """Alternate Probe constructor. For use when initializing from a document.
         ::
             reconstructed_probe = Probe.from_document(fb)
 
@@ -788,7 +789,7 @@ class Probe(NDI_Object):
             reference=document.data['reference'],
             type_=document.data['type'],
             daq_system_id=document.data['daq_system_id'],
-            session_id=document.metadata['session_id'],
+            session_id=document.base['session_id'],
         )
         probe.document = document
         return probe
@@ -817,7 +818,7 @@ class Probe(NDI_Object):
         if channel.metadata['type'] != Channel.DOCUMENT_TYPE:
             raise TypeError(f'Object {channel} is not an instance of ndi.Channel.')
         
-        channel.metadata['session_id'] = self.metadata['session_id']
+        channel.base['session_id'] = self.base['session_id']
         channel.probe_id = self.id
         channel.daq_system_id = self.daq_system_id
 
@@ -899,7 +900,7 @@ class Channel(NDI_Object):
         super().__init__(id_)
         self.base['name'] = name
         self.class_['name'] = self.DOCUMENT_TYPE
-        self.metadata['session_id'] = session_id
+        self.base['session_id'] = session_id
         self.add_data_property('number', number)
         self.add_data_property('type', type_)
         self.add_data_property('clock_type', clock_type)
@@ -912,7 +913,7 @@ class Channel(NDI_Object):
 
     @classmethod
     def from_document(cls, document) -> Channel:
-        """Alternate Channel constructor. For use whan initializing from a document.
+        """Alternate Channel constructor. For use when initializing from a document.
         ::
             reconstructed_channel = Channel.from_document(fb)
 
@@ -933,7 +934,7 @@ class Channel(NDI_Object):
             probe_id=document.data['probe_id'],
             epoch_id=document.data['epoch_id'],
             daq_system_id=document.data['daq_system_id'],
-            session_id=document.metadata['session_id'],
+            session_id=document.base['session_id'],
         )
         channel.document = document
         return channel
@@ -964,7 +965,7 @@ class Channel(NDI_Object):
 
         self.ctx.db.update(self.document)
 
-    def set_reader(self, daq_reader):
+    def set_reader(self, daq_reader, force=False):
         if daq_reader.__name__ == self.daq_reader_class_name:
             self.daq_reader = daq_reader
         elif force:
