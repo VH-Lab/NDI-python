@@ -29,9 +29,9 @@ class TestDaqSystemDocument:
         ds, name, session_id, fn_id, epoch_ids = new_daq_system
 
         # metadata is properly set in document
-        assert ds.document.data['_metadata']['name'] == name
-        assert ds.document.data['_metadata']['type'] == DaqSystem.DOCUMENT_TYPE
-        assert ds.document.data['_metadata']['session_id'] == session_id
+        assert ds.document.base['name'] == name
+        assert ds.document.class_['name'] == DaqSystem.DOCUMENT_TYPE
+        assert ds.document.base['session_id'] == session_id
         assert ds.document.data['epoch_ids'] == epoch_ids
 
     def test_document_to_daq_system(self, new_daq_system):

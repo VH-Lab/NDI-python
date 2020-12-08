@@ -21,9 +21,9 @@ class TestSessionDocument:
         e, name, directory, ds_ids = new_session
 
         # metadata is properly set in document
-        assert e.document.data['_metadata']['name'] == name
-        assert e.document.data['_metadata']['type'] == Session.DOCUMENT_TYPE
-        assert e.document.data['_metadata']['session_id'] == e.id
+        assert e.document.base['name'] == name
+        assert e.document.class_['name'] == Session.DOCUMENT_TYPE
+        assert e.document.base['session_id'] == e.id
 
     def test_document_to_session(self, new_session):
         """ndi.Session.from_document"""
