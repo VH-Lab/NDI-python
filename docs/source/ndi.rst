@@ -44,7 +44,7 @@ Submodules
    :show-inheritance:
 
 
-.. automodule:: ndi.experiment
+.. automodule:: ndi.session
    :members:
    :undoc-members:
    :show-inheritance:

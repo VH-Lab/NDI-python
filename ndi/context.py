@@ -5,19 +5,13 @@ from .did_adapter import DIDAdapter
 class Context:
     def __init__(
         self, 
-        raw_data_directory: str = '',
         data_interface_database = None,
         daq_systems: T.List[T.DaqSystem] = [],
         daq_readers_map: T.Dict[str, T.DaqReader] = {}
     ):
-        self.raw_data_directory = raw_data_directory
         self.__data_interface_database = data_interface_database
         self.daq_systems = daq_systems
         self.daq_readers_map = daq_readers_map
-    
-    @property
-    def dir(self):
-        return self.raw_data_directory
 
     @property
     def bin(self):

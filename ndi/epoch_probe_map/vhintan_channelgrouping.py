@@ -1,7 +1,7 @@
 import re
 from .epoch_probe_map import EpochProbeMap
 from ..core import Epoch, Probe, Channel
-from ..query import Query as Q
+from did import Query as Q
 
 
 class VHIntanChannelGrouping(EpochProbeMap):

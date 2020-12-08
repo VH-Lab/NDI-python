@@ -15,7 +15,7 @@ ndi.database.file\_system.FileSystem
    
       ~FileSystem.__init__
       ~FileSystem.add
-      ~FileSystem.add_experiment
+      ~FileSystem.add_session
       ~FileSystem.create_collection
       ~FileSystem.delete
       ~FileSystem.delete_by_id

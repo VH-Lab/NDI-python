@@ -45,24 +45,24 @@ class MockDaqSystem:
         self.document.metadata = metadata
 
 @pytest.fixture
-def new_experiment():
-    e = Session('test_experiment')
+def new_session():
+    e = Session('test_session')
     yield e
 
 class TestSessionDocument:
-    def test_overwrite_with_document(self, new_experiment):
+    def test_overwrite_with_document(self, new_session):
         """ndi.core.Session.__overwrite_with_document()"""
-        e = new_experiment
+        e = new_session
         d = Document({'words': 'lalala'}, 'new doc')
         
-        # the method overwrites the document object on experiment
+        # the method overwrites the document object on session
         assert d != e.document
         e._Session__overwrite_with_document(d)
         assert d == e.document
 
-    def test_connect(self, new_experiment, new_sql_db):
+    def test_connect(self, new_session, new_sql_db):
         """ndi.core.Session.connect()"""
-        e = new_experiment
+        e = new_session
         directory = './tests/data/intracell_example'
         db = new_sql_db
         ds = MockDaqSystem('daqsysid')
@@ -72,16 +72,16 @@ class TestSessionDocument:
             binary_collection=MockBinaryCollection,
             daq_systems=[ds]
         )
-        # all auxillary systems are set in experiment
+        # all auxillary systems are set in session
         assert e.directory == directory
         assert e.ctx.db == db
         assert e.ctx.bin == MockBinaryCollection
         assert e.ctx.daq_systems[0] == ds
         assert e.ctx.daq_readers_map[MockDaqReader.__name__] == MockDaqReader
     
-    def test_add_daq_system(self, new_experiment, new_sql_db):
+    def test_add_daq_system(self, new_session, new_sql_db):
         """ndi.core.Session.add_daq_system()"""
-        e = new_experiment.connect(database=new_sql_db)
+        e = new_session.connect(database=new_sql_db)
         dss = [
             MockDaqSystem('1234567890'),
             MockDaqSystem('0987654321'),
@@ -95,10 +95,10 @@ class TestSessionDocument:
             print(ds_doc.data)
             assert ds_doc.data['_metadata']['session_id'] == e.id
 
-    def test_add_related_obj_to_db(self, new_experiment, new_sql_db):
+    def test_add_related_obj_to_db(self, new_session, new_sql_db):
         """ndi.core.Session.add_related_obj_to_db()"""
         db = new_sql_db
-        e = new_experiment.connect(
+        e = new_session.connect(
             database=db,
             binary_collection=MockDaqSystem
         )
@@ -111,10 +111,10 @@ class TestSessionDocument:
         assert fn.ctx.db == db
         assert fn.ctx.bin == e.ctx.bin
 
-    def test_set_readers(self, new_experiment, new_sql_db):
+    def test_set_readers(self, new_session, new_sql_db):
         """ndi.core.Session.set_readers()"""
         ds = MockDaqSystem('0')
-        e = new_experiment.connect(
+        e = new_session.connect(
             database=new_sql_db,
             daq_systems=[ds]
         )
@@ -128,10 +128,10 @@ class TestSessionDocument:
         for c in channels:
             assert c.daq_reader == ds.daq_reader
 
-    def test_add_document(self, new_experiment, new_sql_db):
+    def test_add_document(self, new_session, new_sql_db):
         """ndi.core.Session.add_related_obj_to_db()"""
         db = new_sql_db
-        e = new_experiment.connect(
+        e = new_session.connect(
             database=db,
             binary_collection=MockDaqSystem
         )

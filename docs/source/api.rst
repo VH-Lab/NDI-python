@@ -40,7 +40,7 @@ NDI Objects
 .. autosummary::
    :toctree: generated
 
-   experiment.Session
+   session.Session
    daq_system.DaqSystem
    probe.Probe
    channel.Channel

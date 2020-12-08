@@ -174,10 +174,10 @@ class DaqSystem(NDI_Object):
         ds.document = document
         return ds
 
-    def provision(self, experiment: T.Session):
-        experiment.connect(daq_systems=[self])
+    def provision(self, session: T.Session):
+        session.connect(daq_systems=[self])
 
-        epoch_sets = self.file_navigator.get_epoch_set(experiment.directory)
+        epoch_sets = self.file_navigator.get_epoch_set(session.directory)
         epochprobemap = self.epoch_probe_map(
             daq_reader=self.daq_reader,
             epoch_sets=epoch_sets,
@@ -191,14 +191,14 @@ class DaqSystem(NDI_Object):
         for epoch in epochs:
             epoch.daq_system_ids.append(self.id)
             self.epoch_ids.append(epoch.id)
-            experiment.upsert(epoch)
+            session.upsert(epoch)
         self.ctx.db.update(self.document)
         for probe in probes:
             probe.daq_system_id = self.id
-            experiment.upsert(probe)
+            session.upsert(probe)
         for channel in channels:
             channel.daq_system_id = self.id
-            experiment.upsert(channel)
+            session.upsert(channel)
 
         return epochs, probes, channels
     
@@ -342,7 +342,7 @@ class FileNavigator(NDI_Object):
 
 class Session(NDI_Object):
     """
-    A flatbuffer interface for experiments.
+    A flatbuffer interface for sessions.
 
     .. currentmodule:: ndi.ndi_object
 
@@ -354,7 +354,7 @@ class Session(NDI_Object):
     def __init__(self, name: str, id_: T.NdiId = None):
         """Session constructor: initializes with fields defined in `ndi_schema <https://>`_'s Session table. For use when creating a new Session instance from scratch.
         ::
-            new_experiment = Session(**fields)
+            new_session = Session(**fields)
 
         .. currentmodule:: ndi.daq_system
 
@@ -379,15 +379,14 @@ class Session(NDI_Object):
 
     def connect(
         self,
-        directory='',
         data_interface_database=None,
         daq_systems=[],
         load_existing=False
     ):
-        """This will connect the experiment to the database and binary collection. 
-        If this experiment already exists in the database (identified by _metadata.name),
-        then this experiment is loaded with its contents in database.
-        Otherwise, this experiment is added to the database a new experiment.
+        """This will connect the session to the database and binary collection. 
+        If this session already exists in the database (identified by _metadata.name),
+        then this session is loaded with its contents in database.
+        Otherwise, this session is added to the database a new session.
 
         :param data_interface_database: [description], defaults to None
         :type data_interface_database: [type], optional
@@ -400,25 +399,21 @@ class Session(NDI_Object):
         :return: [description]
         :rtype: [type]
         """
-        if directory:
-            if not Path(directory).is_dir():
-                raise RuntimeError(f'Session\'s raw data directory ({directory}) is not a directory. Please check that the path is correct or create a new experiment directory and try again.')
-            self.ctx.raw_data_directory = directory
-        if not data_interface_database:
-            raise RuntimeError(f'{data_interface_database} must be a DID instance.')
+        if not data_interface_database and not self.ctx.db:
+            raise RuntimeError(f'Sessions must {data_interface_database} have an associated DID instance.')
         else: 
             self.ctx.data_interface_database = data_interface_database
         isSession = Q('document_class.name') == self.DOCUMENT_TYPE
         ownName = self.base['name']
         hasOwnName = Q('base.name') == ownName
-        preexisting_experiment = data_interface_database.find(isSession & hasOwnName)
-        if preexisting_experiment:
+        preexisting_session = data_interface_database.find(isSession & hasOwnName)
+        if preexisting_session:
             if not load_existing:
-                raise RuntimeError(f'An experiment with the name {ownName} already exists in this database. To connect to it, set load_existing to True. To make a new experiment, please choose a unique name.')
-            self.__overwrite_with_document(preexisting_experiment[0])
+                raise RuntimeError(f'An session with the name {ownName} already exists in this database. To connect to it, set load_existing to True. To make a new session, please choose a unique name.')
+            self.__overwrite_with_document(preexisting_session[0])
         else:
             if load_existing:
-                raise Warning(f'An experiment with the name {ownName} does not yet exist in this database. To add this experiment to the database, set load_existing to False.')
+                raise Warning(f'An session with the name {ownName} does not yet exist in this database. To add this session to the database, set load_existing to False.')
             else:
                 self.ctx.db.add(self.document, save=False)
         if daq_systems:
@@ -436,8 +431,8 @@ class Session(NDI_Object):
     # Document Methods
     @classmethod
     def from_database(cls, db, ndi_query):
-        is_experiment = Q('document_class.name') == Session.DOCUMENT_TYPE
-        ndi_query = is_experiment & ndi_query
+        is_session = Q('document_class.name') == Session.DOCUMENT_TYPE
+        ndi_query = is_session & ndi_query
         documents = db.find(ndi_query=ndi_query)
         return [
             cls.from_document(d) 
@@ -449,15 +444,15 @@ class Session(NDI_Object):
     def from_document(cls, document) -> Session:
         """Alternate Session constructor. For use when initializing from a document bytearray.
         ::
-            reconstructed_experiment = Session.from_document(fb)
+            reconstructed_session = Session.from_document(fb)
 
         :type document: ndi.Document
 
-        .. currentmodule:: ndi.experiment
+        .. currentmodule:: ndi.session
 
         :rtype: :class:`Session`
         """
-        print(f'Warning: Session.connect() has not been run on this experiment ({document.id}). It will be minimally functional until connected.')
+        print(f'Warning: Session.connect() has not been run on this session ({document.id}). It will be minimally functional until connected.')
         exp = cls(
             id_=document.id,
             name=document.base['name'],
@@ -472,7 +467,7 @@ class Session(NDI_Object):
         self.ctx.db.update(self.document)
 
     def _add_daq_system(self, daq_system: T.DaqSystem) -> None:
-        """Stores a daq_system instance and labels it with the experiment's id.
+        """Stores a daq_system instance and labels it with the session's id.
             DOES NOT ADD DAQ SYSTEM TO CONTEXT
 
         .. currentmodule:: ndi.daq_system
@@ -481,7 +476,7 @@ class Session(NDI_Object):
         """
         if isinstance(daq_system, str): 
             # if daq_system is an id
-            # this will occur when an experiment is being rebuilt from a document
+            # this will occur when an session is being rebuilt from a document
             daq_system = self.ctx.db.find_by_id(daq_system)
             if not daq_system:
                 raise ValueError(f'A DAQ system with id {daq_system} does not exist in the database.')
@@ -532,21 +527,21 @@ class Session(NDI_Object):
             if key.endswith('_ids'):
                 related_ids = getattr(ndi_object, key)
                 for id_ in related_ids:
-                    self.__verify_relation_exists_in_experiment(ndi_object, id_)
+                    self.__verify_relation_exists_in_session(ndi_object, id_)
             else:
                 related_id = getattr(ndi_object, key)
                 if not related_id:
                     raise RuntimeError(f'Object {ndi_object} is missing its required {key}.')
-                self.__verify_relation_exists_in_experiment(ndi_object, related_id)
+                self.__verify_relation_exists_in_session(ndi_object, related_id)
 
-    def __verify_relation_exists_in_experiment(self, ndi_object, related_id):
+    def __verify_relation_exists_in_session(self, ndi_object, related_id):
         relation = self.ctx.db.find_by_id(related_id)
         relation_session_id = relation.base['session_id']
         relation_type = relation.metadata['type']
         if not relation:
-            raise RuntimeError(f'Object {ndi_object} appears to have a foreign key to {relation_type}:{related_id}, which does not yet exist. Please add {relation_type}:{related_id} to the experiment before trying again.')
+            raise RuntimeError(f'Object {ndi_object} appears to have a foreign key to {relation_type}:{related_id}, which does not yet exist. Please add {relation_type}:{related_id} to the session before trying again.')
         elif relation_session_id != self.base['session_id']:
-            raise RuntimeError(f'Object {ndi_object} appears to have a foreign key to {relation_type}:{related_id}, which belongs to another experiment({relation_session_id}).')
+            raise RuntimeError(f'Object {ndi_object} appears to have a foreign key to {relation_type}:{related_id}, which belongs to another session({relation_session_id}).')
 
     def get_daq_systems(self):
         is_ndi_epoch_type = Q('document_class.name') == DaqSystem.DOCUMENT_TYPE
@@ -564,7 +559,7 @@ class Session(NDI_Object):
             else:
                 if c.daq_reader_class_name:
                     whats_missing = f'DAQ reader {c.daq_reader_class_name} not'
-                    how_to_fix = ' If necessary, connect this experiment to the appropriate DAQ system.'
+                    how_to_fix = ' If necessary, connect this session to the appropriate DAQ system.'
                 else:
                     whats_missing = 'No DAQ reader'
                     how_to_fix = ''
@@ -701,7 +696,7 @@ class Epoch(NDI_Object):
         if session_id: self.session_id = session_id
         self.ctx.db.update(self.document)
 
-    def get_experiment(self):
+    def get_session(self):
         doc = self.ctx.db.find_by_id(self.session_id)
         return doc and Session.from_document(doc).with_ctx(self.ctx)
 
@@ -840,7 +835,7 @@ class Probe(NDI_Object):
             for doc in self.ctx.db.find_by_id(self.daq_system_id)
         ]
 
-    def get_experiment(self):
+    def get_session(self):
         doc = self.ctx.db.find_by_id(self.session_id)
         return Session.from_document(doc).with_ctx(self.ctx)
 
@@ -995,6 +990,6 @@ class Channel(NDI_Object):
         doc = self.ctx.db.find_by_id(self.daq_system_id)
         return DaqSystem.from_document(doc).with_ctx(self.ctx)
 
-    def get_experiment(self):
+    def get_session(self):
         doc = self.ctx.db.find_by_id(self.session_id)
         return Session.from_document(doc).with_ctx(self.ctx)
