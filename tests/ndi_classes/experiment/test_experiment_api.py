@@ -15,7 +15,6 @@ def fix_get(Session):
 def add_delete_tracker(Session):
     Session.delete_tracker = []
     def delete(self, document):
-        print('SESSION DELETE')
         self.Session.delete_tracker.append(document)
     Session.delete = delete
     return Session
@@ -92,7 +91,6 @@ class TestSessionDocument:
         # live daq systems are added to added to database and set with session_id
         for ds in dss:
             ds_doc = e.ctx.did.find_by_id(ds.id)
-            print(ds_doc.data)
             assert ds_doc.data['_metadata']['session_id'] == e.id
 
     def test_add_related_obj_to_db(self, new_session, new_sql_db):

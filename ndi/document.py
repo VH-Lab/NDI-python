@@ -105,6 +105,10 @@ class Document(Flatbuffer_Object):
             return self.base['snapshots'][0]
         except IndexError:
             return None
+        
+    @property
+    def binary_files(self):
+        return self.data['binary_files']
 
     @property
     def base(self):
@@ -227,7 +231,6 @@ class Document(Flatbuffer_Object):
             self.data = doc.data
         else:
             raise DocumentIdentityError(f'The given record (id = {doc.id}) is not this document.')
-        print('returning self')
         return self
 
     def __check_dependency_name_exists(self, name: str):
@@ -250,17 +253,21 @@ class Document(Flatbuffer_Object):
         name = name or ndi_document.data['base']['name'] or ndi_document.id
         self.__verify_dependency(ndi_document, name)
         self.ctx.did.add(ndi_document, save=False)
+        ndi_document.with_ctx(self.ctx)
         self.__link_dependency(ndi_document, name)
         self.ctx.did.update(self, save=False)
-        ndi_document.with_ctx(self.ctx)
         if save:
             self.ctx.did.save()
     
-    def link_dependency(self, ndi_document: T.Document, name: str = None):
+    def link_dependency(self, ndi_document: T.Document, name: str = None, save=None):
         name = name or ndi_document.data['base']['name'] or ndi_document.id
         self.__verify_dependency(ndi_document, name)
-
+        self.ctx.did.update(ndi_document, save=False)
+        ndi_document.with_ctx(self.ctx)
         self.__link_dependency(ndi_document, name)
+        self.ctx.did.update(self, save=False)
+        if save:
+            self.ctx.did.save()
 
     def __verify_dependency(self, ndi_document, name):
         if self.__check_dependency_name_exists(name):

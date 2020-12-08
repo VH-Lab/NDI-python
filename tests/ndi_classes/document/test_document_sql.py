@@ -17,7 +17,6 @@ def fix_get(Session):
 def add_delete_tracker(Session):
     Session.delete_tracker = []
     def delete(self, document):
-        print('SESSION DELETE')
         self.Session.delete_tracker.append(document)
     Session.delete = delete
     return Session
@@ -92,7 +91,6 @@ class TestNdiDocument_SQL:
         v0_id = doc.id
         dep = Document({})
         doc.add_dependant(dep, key='mock')
-        print(doc.data)
 
         # document version metadata is updated on save
         doc.update()
@@ -192,11 +190,3 @@ class TestNdiDocument_SQL:
         doc.delete(force=True)
 
         get_deleted(db)
-
-def get_deleted(db):
-    calls = [call for call in db.Session._mock_mock_calls if 'delete' in str(call)]
-
-    for c in calls: 
-        print(c)
-        print(c.__dict__)
-    # print(calls)
