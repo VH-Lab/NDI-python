@@ -217,7 +217,7 @@ class DaqSystem(NDI_Object):
         :param epoch: [description]
         :type epoch: [type]
         """
-        e.daq_system_ids.append(self.id)
+        epoch.daq_system_ids.append(self.id)
         self.epoch_ids.append(epoch.id)
         self.ctx.did.update(epoch.document)
         self.ctx.did.update(self.document)
