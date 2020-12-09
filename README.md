@@ -29,6 +29,24 @@ The Python package makes use of [native namespace packages available in Python 3
 
 NDI_Object subclasses are PascalCase, their collection/table names are snake_case + 's', and their reference keys are snake_case + '_id'.
 
+### Updating the Document Flatbuffer Class
+
+ndi.schema.Document is a generated class. To make updates to it, you'll need to update its schema at ./ndi/schema/schema/document.fbs.
+
+Be sure to install flatbuffer compiler (flatc) before running script.
+
+The compiler can be installed via homebrew:
+
+```shell
+brew install flatbuffers
+```
+
+Run the script to compile flatbuffer schema from the ./ndi/schema directory:
+
+```shell
+./scripts/build-schema.sh
+```
+
 ## Documentation
 
 This library is documented in the set of Jupyter Notebooks at ./examples.
