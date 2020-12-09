@@ -13,7 +13,7 @@ class TestFileNavigator:
         fn, epoch_file_patterns, metadata_file_pattern = new_file_navigator
 
         # Test properties in document data match what was passed in at instantiation
-        assert fn.document.data['_metadata']['type'] == FileNavigator.DOCUMENT_TYPE
+        assert fn.document.class_['name'] == FileNavigator.DOCUMENT_TYPE
         assert fn.document.data['epoch_file_patterns'] == epoch_file_patterns
         assert fn.document.data['metadata_file_pattern'] == metadata_file_pattern
 

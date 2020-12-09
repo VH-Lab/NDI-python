@@ -15,7 +15,7 @@ ndi.database.sql.SQL
    
       ~SQL.__init__
       ~SQL.add
-      ~SQL.add_experiment
+      ~SQL.add_session
       ~SQL.create_collection
       ~SQL.define_relationship
       ~SQL.delete

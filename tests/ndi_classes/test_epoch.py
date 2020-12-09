@@ -13,8 +13,8 @@ class TestEpochDocument:
         e, session_id = new_epoch
 
         # metadata is properly set in document
-        assert e.document.data['_metadata']['type'] == Epoch.DOCUMENT_TYPE
-        assert e.document.data['_metadata']['session_id'] == session_id
+        assert e.document.class_['name'] == Epoch.DOCUMENT_TYPE
+        assert e.document.base['session_id'] == session_id
 
     def test_document_to_epoch(self, new_epoch):
         """ndi.Epoch.from_document"""

@@ -1,7 +1,7 @@
-ndi.experiment.Session
+ndi.session.Session
 =========================
 
-.. currentmodule:: ndi.experiment
+.. currentmodule:: ndi.session
 
 .. autoclass:: Session
 

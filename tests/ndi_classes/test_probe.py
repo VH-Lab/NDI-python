@@ -17,9 +17,9 @@ class TestProbeDocument:
         p, name, reference, type_, daq_system_id, session_id = new_probe
 
         # metadata is properly set in document
-        assert p.document.data['_metadata']['name'] == name
-        assert p.document.data['_metadata']['type'] == Probe.DOCUMENT_TYPE
-        assert p.document.data['_metadata']['session_id'] == session_id
+        assert p.document.base['name'] == name
+        assert p.document.class_['name'] == Probe.DOCUMENT_TYPE
+        assert p.document.base['session_id'] == session_id
 
         # data is properly set in document
         assert p.document.data['reference'] == reference

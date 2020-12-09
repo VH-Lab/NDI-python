@@ -64,10 +64,10 @@ example/.ipynb_checkpoints/
 
 # Example binary files
 example/test_db/document_binary/*
+example/binary_collections/*
 
 # MacOS
 *.DS_Store
 
 # symlinked schema
-ndi/schema
 */.ndi

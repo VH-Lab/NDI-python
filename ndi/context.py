@@ -5,35 +5,31 @@ from .did_adapter import DIDAdapter
 class Context:
     def __init__(
         self, 
-        raw_data_directory: str = '',
+        raw_data_directory = '',
         data_interface_database = None,
         daq_systems: T.List[T.DaqSystem] = [],
         daq_readers_map: T.Dict[str, T.DaqReader] = {}
-    ):
+    ):        
         self.raw_data_directory = raw_data_directory
-        self.__data_interface_database = data_interface_database
+        self._did_adapter = DIDAdapter(self, data_interface_database)
         self.daq_systems = daq_systems
         self.daq_readers_map = daq_readers_map
-    
-    @property
-    def dir(self):
-        return self.raw_data_directory
 
     @property
     def bin(self):
         # TODO: phase need for this out by moving binary feature implementations from ndi to did 
-        return self.__data_interface_database.database.bin
+        return self._did_adapter.did.bin
     
     @property
-    def db(self):
-        return self.__data_interface_database
+    def did(self):
+        return self._did_adapter
+
     @property
     def data_interface_database(self):
-        return self.__data_interface_database
-
+        return self._did_adapter
     @data_interface_database.setter
     def data_interface_database(self, did_instance):
-        self.__data_interface_database = DIDAdapter(self, did_instance)
+        self._did_adapter = DIDAdapter(self, did_instance)
 
     def load_daq_system(self, daq_system):
         if daq_system.id not in [ds.id for ds in self.daq_systems]:

@@ -6,21 +6,23 @@ from .flatbuffer_object import Flatbuffer_Object
 from .context import Context
 from did.time import current_time
 from did import Query as Q
+from did.versioning import hash_document
 from contextlib import contextmanager
+from .exceptions import InvalidDocument, DocumentIdentityError
 
 class BinaryWrapper:
-    def __init__(self, binary_collection: T.BinaryCollection = None, id_: str =''):
-        self.id = id_
+    def __init__(self, binary_collection: T.BinaryCollection = None, document: Document = None):
+        self.document = document
         self.binary_collection = binary_collection
     
     def connect(self, binary_collection: T.BinaryCollection = None):
         self.binary_collection = binary_collection
 
-    def open_write_stream(self):
-        return self.binary_collection.open_write_stream(self.id)
+    def open_write_stream(self, name):
+        return self.binary_collection.open_write_stream(self.document, name)
 
-    def open_read_stream(self):
-        return self.binary_collection.open_read_stream(self.id)
+    def open_read_stream(self, name, record=None):
+        return self.binary_collection.open_read_stream(self.document, name, record)
 
 
 
@@ -43,34 +45,39 @@ class Document(Flatbuffer_Object):
         """
         super().__init__(id_)
         self.ctx = Context()
-        self.binary = BinaryWrapper()
-        self.binary.id = self.id
-        self.data = data or {
-            'depends_on': [],
-            'dependencies': [],
-            'binary_files': [],
-            'base': {
-                'id': self.id,
-                'session_id': session_id,
-                'name': name,
-                'datestamp': current_time(),
-                'snapshots': [],
-                'records': [],
-            },
-            'document_class': {
-                'definition': None,
-                'validation': None,
-                'name': None,
-                'property_list_name': None,
-                'class_version': None,
-                'superclasses': [],
-            },
-        }
+        self.binary = BinaryWrapper(document=self)
         if data:
-            if data['base']['id']:
-                self.id = data['base']['id']
-            else:
-                data['base']['id'] = self.id
+            self.data = data
+            try:
+                if data['base']['id']:
+                    self.id = data['base']['id']
+                else:
+                    data['base']['id'] = self.id
+            except KeyError:
+                pass # Handle error in self.validate
+            self.validate(data) # throws InvalidDocument if invalid
+        else:   
+            self.data = {
+                'depends_on': [],
+                'dependencies': [],
+                'binary_files': [],
+                'base': {
+                    'id': self.id,
+                    'session_id': session_id,
+                    'name': name,
+                    'datestamp': current_time(),
+                    'snapshots': [],
+                    'records': [],
+                },
+                'document_class': {
+                    'definition': '',
+                    'validation': '',
+                    'name': '',
+                    'property_list_name': '',
+                    'class_version': '',
+                    'superclasses': [],
+                },
+            }
         self.deleted = False
         self.__dependencies = []
         self.__depends_on = []
@@ -98,6 +105,10 @@ class Document(Flatbuffer_Object):
             return self.base['snapshots'][0]
         except IndexError:
             return None
+        
+    @property
+    def binary_files(self):
+        return self.data['binary_files']
 
     @property
     def base(self):
@@ -180,24 +191,26 @@ class Document(Flatbuffer_Object):
     def save(self):
         """Saves staged changes to database."""
         with self.available_ctx():
-            self.ctx.db.save()
+            self.ctx.did.save()
 
     def update(self, save=None):
         """
         Stages document data update.
         """
         with self.available_ctx():
-            self.ctx.db.update(self, save=save)
+            self.ctx.did.update(self, save=save)
+            self.__dependencies = None
 
     def upsert(self, save=None):
         """
         Stages document data upsert.
         """
         with self.available_ctx():
-            self.ctx.db.upsert(self, save=save)
+            self.ctx.did.upsert(self, save=save)
+            self.__dependencies = None
 
     def refresh(self, snapshot=None, commit=None):
-        self_in_db = self.ctx.db.find_by_id(self.id, snapshot, commit)
+        self_in_db = self.ctx.did.find_by_id(self.id, snapshot, commit)
         try:
             self.data = self_in_db.data
         except AttributeError:
@@ -212,6 +225,13 @@ class Document(Flatbuffer_Object):
         """
         return zip(self.base['snapshots'], self.base['records'])
 
+    def checkout(self, record):
+        doc = self.ctx.did.find_record(record, in_all_history=True)
+        if doc.id == self.id:
+            self.data = doc.data
+        else:
+            raise DocumentIdentityError(f'The given record (id = {doc.id}) is not this document.')
+        return self
 
     def __check_dependency_name_exists(self, name: str):
         dependencies = self.dependencies_metadata
@@ -225,26 +245,29 @@ class Document(Flatbuffer_Object):
         return {
             'name': name or ndi_document.data['base']['name'] or ndi_document.id,
             'id': related_document.id,
-            'record': related_document.version,
-            'snapshot': related_document.snapshot,
-            'own_record': ndi_document.version, 
+            'own_snapshot': self.snapshot,
+            'dependency_snapshot': related_document.snapshot
         }
 
     def add_dependency(self, ndi_document: T.Document, name: str = None, save=None):
         name = name or ndi_document.data['base']['name'] or ndi_document.id
         self.__verify_dependency(ndi_document, name)
-        self.ctx.db.add(ndi_document, save=False)
-        self.__link_dependency(ndi_document, name)
-        self.ctx.db.update(self, save=False)
+        self.ctx.did.add(ndi_document, save=False)
         ndi_document.with_ctx(self.ctx)
+        self.__link_dependency(ndi_document, name)
+        self.ctx.did.update(self, save=False)
         if save:
-            self.ctx.db.save()
+            self.ctx.did.save()
     
-    def link_dependency(self, ndi_document: T.Document, name: str = None):
+    def link_dependency(self, ndi_document: T.Document, name: str = None, save=None):
         name = name or ndi_document.data['base']['name'] or ndi_document.id
         self.__verify_dependency(ndi_document, name)
-
+        self.ctx.did.update(ndi_document, save=False)
+        ndi_document.with_ctx(self.ctx)
         self.__link_dependency(ndi_document, name)
+        self.ctx.did.update(self, save=False)
+        if save:
+            self.ctx.did.save()
 
     def __verify_dependency(self, ndi_document, name):
         if self.__check_dependency_name_exists(name):
@@ -265,30 +288,44 @@ class Document(Flatbuffer_Object):
         ]
         return ndi_document
 
-    def get_dependencies(self):
+    def get_dependencies(self, scope='current'):
         dependencies = {}
-        for dependency in self.dependencies_metadata:
-            dependencies[dependency['name']] = self.ctx.db.find_record(dependency['record'])
+        if scope == 'existing':
+            for dependency in self.dependencies_metadata:
+                dependencies[dependency['name']] = self.ctx.did.find_by_id(dependency['id'])
+        elif scope == 'all':
+            for dependency in self.dependencies_metadata:
+                dependencies[dependency['name']] = self.ctx.did.find_by_id(
+                    dependency['id'], snapshot=dependency['dependency_snapshot']
+                )
+        elif scope == 'current':
+            relevant_deps = [dep for dep in self.dependencies_metadata if dep['own_snapshot'] ==  self.snapshot]
+            for dependency in relevant_deps:
+                dependencies[dependency['name']] = self.ctx.did.find_by_id(
+                    dependency['id'], snapshot=dependency['dependency_snapshot']
+                )
+
         return dependencies
 
     def get_depends_on(self):
         depends_on = {}
-        for dep in self.depends_on_metadata:
-            depends_on[dep['name']] = self.ctx.db.find_record(dep['record'])
+        relevant_deps = [dep for dep in self.depends_on_metadata if dep['own_snapshot'] ==  self.snapshot]
+        for dep in relevant_deps:
+            depends_on[dep['name']] = self.ctx.did.find_by_id(
+                dep['id'], snapshot=dep['dependency_snapshot']
+            )
         return depends_on
 
 
-    def delete(self, remove_history=False, save=None):
+    def delete(self, save=None):
         deletees = self.get_dependencies()
-        if remove_history:
-            deletees.extend(self.get_history())
-        for ndi_document in deletees:
-            ndi_document.delete(remove_history=remove_history, save=False)
+        for ndi_document in deletees.values():
+            ndi_document.delete(save=False)
         self._remove_self_from_dependencies()
-        self.ctx.db.delete(self, save=False)
+        self.ctx.did.delete(self, save=False)
         self._clear_own_data()
         if save:
-            self.ctx.db.save()
+            self.ctx.did.save()
 
     def _clear_own_data(self):
         self.deleted = True
@@ -302,14 +339,60 @@ class Document(Flatbuffer_Object):
         :return: [description]
         :rtype: [type]
         """
-        deps = self.depends_on_metadata
         for own_dep in self.depends_on_metadata:
-            doc = self.ctx.db.find_record(own_dep['record'], in_all_history=True)
+            doc = self.ctx.did.find_by_id(own_dep['id'], snapshot=own_dep['dependency_snapshot'])
             doc.dependencies_metadata = [
                 dep for dep in doc.dependencies_metadata
-                if dep['record'] != own_dep['own_record']
+                if dep['id'] != self.id
             ]
-            self.ctx.db.update_record_dependencies(doc.version, doc.dependencies_metadata)
+            self.ctx.did.update_record_dependencies(doc.version, doc.dependencies_metadata)
+
+    def validate(self, data=None):
+        data = data or self.data
+        expected_fields = {
+            'depends_on': list,
+            'dependencies': list,
+            'binary_files': list,
+            'base': {
+                'id': str,
+                'session_id': str,
+                'name': str,
+                'datestamp': str,
+                'snapshots': list,
+                'records': list,
+            },
+            'document_class': {
+                'definition': str,
+                'validation': str,
+                'name': str,
+                'property_list_name': str,
+                'class_version': str,
+                'superclasses': list,
+            }
+        }
+        def check_fields(dict_, reference, path=['data']):
+            errors = []
+            for key, value in reference.items():
+                key_exists = False
+                try:
+                    dict_[key]
+                    key_exists = True
+                except KeyError:
+                    errors.append(f'{".".join(path)} is missing key "{key}".')
+                if key_exists:
+                    path_w_key = [*path, key]
+                    if type(value) is dict:
+                        errors = [
+                            *errors,
+                            *check_fields(dict_[key], value, path_w_key)
+                        ]
+                    elif type(dict_[key]) is not value:
+                        errors.append(f'Value of {".".join(path_w_key)} must be of {value}.')
+            return errors
+        errors = check_fields(data, expected_fields)
+        if errors:
+            nl = '\n  '
+            raise InvalidDocument(f'The given data contains the following errors:{nl}{nl.join(errors)}')
 
     @classmethod
     def from_flatbuffer(cls, flatbuffer):
