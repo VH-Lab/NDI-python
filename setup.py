@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="ndi",
-    version="0.0.1",
+    version="1.0.0",
     author="Squishymedia",
     author_email="info@squishymedia.com",
     description="NDI Python",

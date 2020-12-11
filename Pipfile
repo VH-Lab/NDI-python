@@ -23,7 +23,7 @@ flatbuffers = "*"
 matplotlib = "*"
 psycopg2-binary = "*"
 neo = "*"
-did = {editable = true,path = "./../did-python"}
+did = {editable = true,path = "./../DID-python"}
 
 [requires]
 python_version = "3.8"
