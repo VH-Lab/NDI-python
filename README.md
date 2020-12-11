@@ -5,7 +5,14 @@ The NDI library is an Object Relational Mapping API for managing session data. I
 
 ## Usage
 
-Basic usage is recommended via [Jupyter Notebook](https://jupyter.org/). Any Jupyter install should work but [Anaconda](https://www.anaconda.com/distribution/) (Python 3) is an easy way to get started with Jupyter.
+Basic usage is recommended via [Jupyter Notebook](https://jupyter.org/). Any Jupyter install should work but [Anaconda](https://www.anaconda.com/distribution/) (Python 3) is an easy way to get started with Jupyter. 
+
+While in development, this package requires that the DID-python repo be in the same directory as the NDI-python repo.
+```
+<some directory>/
+  |- DID-python/
+  |- NDI-python/
+```
 
 ## Package manager
 Ndi-python uses pipenv is used for package management, it can be installed with pip.
