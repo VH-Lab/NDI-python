@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "35c6e94a00d6f2a27007a5403fb1abda2a0547daec764dea21ecd31af178d5c6"
+            "sha256": "b7454606b1049baad23a34978269da3ac17089bad7d944122e5ea67c6f218da1"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -25,7 +25,7 @@
         },
         "did": {
             "editable": true,
-            "path": "./../did-python"
+            "path": "./../DID-python"
         },
         "flatbuffers": {
             "hashes": [
@@ -296,7 +296,7 @@
                 "sha256:93aa393e9d6c54c5cd570ccadd8edad61ea0c4b9ea7a01409020c9aa019eb442",
                 "sha256:dd83cd4b5b460958838f6eb3000c660b1f9caf2a5b1de4264e941512f603258a"
             ],
-            "markers": "platform_system == 'Darwin'",
+            "markers": "sys_platform == 'darwin'",
             "version": "==0.1.2"
         },
         "argon2-cffi": {
@@ -519,10 +519,10 @@
         },
         "ipykernel": {
             "hashes": [
-                "sha256:9b2652af1607986a1b231c62302d070bc0534f564c393a5d9d130db9abbbe89d",
-                "sha256:d6fbba26dba3cebd411382bc484f7bc2caa98427ae0ddb4ab37fe8bfeb5c7dd3"
+                "sha256:2ab1777581376c4847908ddc71e0098fc20e0674e48d0d3d5acd94264823f2a9",
+                "sha256:b61a7ef2bf710ddeecbaef488e350c6cd1e70da836c7907c28f3f45af2852554"
             ],
-            "version": "==5.3.4"
+            "version": "==5.4.1"
         },
         "ipython": {
             "hashes": [

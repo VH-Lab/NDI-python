@@ -61,4 +61,4 @@ Further documentation on the associated DID library can be found in that repo at
 
 ## Testing
 
-From pipenv shell, run `python -m pytest`.
+From pipenv shell, run `python -m pytest`. You will need the dev dependencies installed for this `pipenv install -d`.
