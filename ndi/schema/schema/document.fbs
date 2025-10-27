@@ -1,6 +1,0 @@
-namespace ndi.schema;
-
-table Document {
-  id:string;
-  data:string;
-}
