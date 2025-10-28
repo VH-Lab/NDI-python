@@ -58,3 +58,15 @@ def flattenstruct2table(s):
     # This is a simplified implementation. A more robust version
     # would handle nested dictionaries and lists of dictionaries.
     return s
+
+import hashlib
+import json
+
+def hashmatlabvariable(v):
+    """
+    Computes a hash of a variable, similar to the Matlab version.
+    """
+    # Convert the variable to a string representation.
+    # For dictionaries, we'll sort the keys to ensure consistency.
+    s = json.dumps(v, sort_keys=True)
+    return hashlib.sha256(s.encode('utf-8')).hexdigest()

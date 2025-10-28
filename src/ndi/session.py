@@ -1,12 +1,16 @@
 from .ido import Ido
+from .documentservice import DocumentService
 
-class Session(Ido):
+class Session(Ido, DocumentService):
     def __init__(self, reference):
         super().__init__()
         self.reference = reference
         # self.syncgraph = ndi.time.syncgraph(self)
         # self.cache = ndi.cache()
         # self.database = None
+
+    def search_query(self):
+        return {'base.session_id': self.id()}
 
     def daqsystem_add(self, dev):
         pass
@@ -18,12 +22,6 @@ class Session(Ido):
         pass
 
     def daqsystem_clear(self):
-        pass
-
-    def new_document(self, document_type, **kwargs):
-        pass
-
-    def search_query(self):
         pass
 
     def database_add(self, document):
