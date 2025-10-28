@@ -1,15 +1,12 @@
-import uuid
+from .ido import Ido
 
-class Session:
+class Session(Ido):
     def __init__(self, reference):
+        super().__init__()
         self.reference = reference
-        self.identifier = str(uuid.uuid4())
         # self.syncgraph = ndi.time.syncgraph(self)
         # self.cache = ndi.cache()
         # self.database = None
-
-    def id(self):
-        return self.identifier
 
     def daqsystem_add(self, dev):
         pass

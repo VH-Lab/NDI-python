@@ -1,5 +1,8 @@
-class System:
+from ..ido import Ido
+
+class System(Ido):
     def __init__(self, name, filenavigator, daqreader, daqmetadatareader=None):
+        super().__init__()
         self.name = name
         self.filenavigator = filenavigator
         self.daqreader = daqreader

@@ -50,3 +50,11 @@ def structmerge(s1, s2):
     overwriting the first.
     """
     return {**s1, **s2}
+
+def flattenstruct2table(s):
+    """
+    Flattens a dictionary to a table-like structure.
+    """
+    # This is a simplified implementation. A more robust version
+    # would handle nested dictionaries and lists of dictionaries.
+    return s

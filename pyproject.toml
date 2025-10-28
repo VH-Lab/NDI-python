@@ -19,6 +19,7 @@ classifiers = [
 dependencies = [
     "did @ file:///app/DID-python",
     "mkdocs",
+    "pandas",
 ]
 
 [project.urls]
