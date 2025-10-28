@@ -6,7 +6,7 @@ def strcmp_substitution(s1, s2, **kwargs):
     """
     substitute_string_symbol = kwargs.get('SubstituteStringSymbol', '#')
     use_substitute_string = kwargs.get('UseSubstituteString', True)
-    substitute_string = kwargs.get('SubstituteString', '')
+    substitute_string = kwargs.get('SubstituteString', None) # Changed to None
 
     if isinstance(s2, str):
         s2 = [s2]
@@ -15,22 +15,24 @@ def strcmp_substitution(s1, s2, **kwargs):
     match_string = [''] * len(s2)
     substitute_string_out = [''] * len(s2)
 
+    s1_re = s1.replace(substitute_string_symbol, '(.+)')
+
     for i, s in enumerate(s2):
         if use_substitute_string and substitute_string_symbol in s1:
-            if substitute_string:
-                s1_re = s1.replace(substitute_string_symbol, re.escape(substitute_string))
-                if re.fullmatch(s1_re, s):
+            if substitute_string is not None:
+                s1_re_filled = s1.replace(substitute_string_symbol, re.escape(substitute_string))
+                if re.fullmatch(s1_re_filled, s):
                     tf[i] = True
                     match_string[i] = s
                     substitute_string_out[i] = substitute_string
-            else:
-                s1_re = s1.replace(substitute_string_symbol, '(.+)')
+            else: # substitute_string is None, so we are searching
                 match = re.fullmatch(s1_re, s)
                 if match:
                     tf[i] = True
                     match_string[i] = s
                     substitute_string_out[i] = match.group(1)
         else:
+            # regular expression match without substitution
             if re.fullmatch(s1, s):
                 tf[i] = True
                 match_string[i] = s
@@ -83,3 +85,31 @@ def intseq2str(a, **kwargs):
         i = j + 1
 
     return sep.join(s)
+
+def line_n(s, n):
+    """
+    Get the Nth line of a character string.
+    """
+    return s.splitlines()[n-1]
+
+def string2cell(s, separator):
+    """
+    Convert a delimited list to a cell array of strings.
+    """
+    return [item.strip() for item in s.split(separator)]
+
+def tabstr2struct(s, fields):
+    """
+    Convert a tab-separated set of strings to a dictionary.
+    """
+    a = {}
+    values = s.split('\t')
+    for i, field in enumerate(fields):
+        try:
+            a[field] = int(values[i])
+        except ValueError:
+            try:
+                a[field] = float(values[i])
+            except ValueError:
+                a[field] = values[i]
+    return a

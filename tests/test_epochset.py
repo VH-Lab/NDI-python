@@ -1,15 +1,15 @@
 import unittest
-from ndi.epoch.epochset import EpochSet
+from ndi.epoch.epochset import Param
 
 class TestEpochSet(unittest.TestCase):
 
     def test_epochset_creation(self):
-        es = EpochSet()
-        self.assertIsInstance(es, EpochSet)
+        es = Param()
+        self.assertIsInstance(es, Param)
 
     def test_num_epochs(self):
-        es = EpochSet()
-        self.assertEqual(es.num_epochs(), 0)
+        es = Param()
+        self.assertEqual(es.numepochs(), 0)
 
 if __name__ == '__main__':
     unittest.main()

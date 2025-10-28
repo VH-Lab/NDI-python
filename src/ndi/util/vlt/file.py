@@ -52,6 +52,7 @@ def findfilegroups(parentdir, fileparameters, **kwargs):
                 kwargs['SubstituteString'] = filelist_potential[j]['searchString']
                 tf, match_string, new_search_string = strcmp_substitution(fileparameters[k], regularfiles, **kwargs)
 
+
                 for i, t in enumerate(tf):
                     if t:
                         matchpotential = {}

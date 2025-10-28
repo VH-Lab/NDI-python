@@ -1,17 +1,17 @@
 from ..util.vlt import data as vlt_data
 
-class EpochSet:
+class Param:
     def __init__(self):
         pass
 
-    def num_epochs(self):
-        return len(self.epoch_table())
+    def numepochs(self):
+        return len(self.epochtable())
 
-    def epoch_table(self):
+    def epochtable(self):
         # caching logic will go here
-        return self.build_epoch_table()
+        return self.buildepochtable()
 
-    def build_epoch_table(self):
+    def buildepochtable(self):
         return []
 
     def get_cache(self):

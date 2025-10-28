@@ -70,3 +70,17 @@ def hashmatlabvariable(v):
     # For dictionaries, we'll sort the keys to ensure consistency.
     s = json.dumps(v, sort_keys=True)
     return hashlib.sha256(s.encode('utf-8')).hexdigest()
+
+def islikevarname(name):
+    """
+    Checks if a string is like a Matlab variable name.
+    """
+    if not isinstance(name, str):
+        raise ValueError("must be a character string.")
+    if len(name) < 1:
+        raise ValueError("must be at least one character.")
+    if not name[0].isalpha():
+        raise ValueError("must begin with a letter.")
+    if ' ' in name:
+        raise ValueError("must have no whitespace.")
+    return True

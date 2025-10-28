@@ -15,7 +15,7 @@ class Document(Document):
             self.document_properties = self._read_blank_definition(document_type)
             ido = Ido()
             self.document_properties['base']['id'] = ido.id()
-            self.document_properties['base']['datestamp'] = ndi.fun.timestamp()
+            self.document_properties['base']['datestamp'] = ndi.fun.timestamp.timestamp()
 
             for key, value in kwargs.items():
                 keys = key.split('.')

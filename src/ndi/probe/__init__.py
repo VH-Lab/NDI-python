@@ -1,2 +1,1 @@
-class Probe:
-    pass
+# NDI probe package
