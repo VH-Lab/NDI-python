@@ -1,0 +1,2 @@
+class Syncgraph:
+    pass
