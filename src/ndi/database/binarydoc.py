@@ -1,34 +1,37 @@
 import abc
 
 class BinaryDoc(abc.ABC):
-    """
-    An abstract class for reading and writing binary data.
-    """
+    @abc.abstractmethod
+    def __init__(self, *args, **kwargs):
+        pass
 
     @abc.abstractmethod
     def fopen(self):
-        raise NotImplementedError
+        pass
 
     @abc.abstractmethod
     def fseek(self, location, reference):
-        raise NotImplementedError
+        pass
 
     @abc.abstractmethod
     def ftell(self):
-        raise NotImplementedError
+        pass
 
     @abc.abstractmethod
     def feof(self):
-        raise NotImplementedError
+        pass
 
     @abc.abstractmethod
     def fwrite(self, data, precision, skip):
-        raise NotImplementedError
+        pass
 
     @abc.abstractmethod
     def fread(self, count, precision, skip):
-        raise NotImplementedError
+        pass
 
     @abc.abstractmethod
     def fclose(self):
-        raise NotImplementedError
+        pass
+
+    def __del__(self):
+        self.fclose()
