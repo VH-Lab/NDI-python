@@ -1,8 +1,9 @@
 from ..ido import Ido
-from ..epoch.epochset import EpochSet
+from ..epoch.epochset import Param as EpochSet
 from ..documentservice import DocumentService
+import abc
 
-class Element(Ido, EpochSet, DocumentService):
+class Element(Ido, EpochSet, DocumentService, abc.ABC):
     def __init__(self, session, name, reference, type, underlying_element, direct, subject_id, dependencies):
         super().__init__()
         self.session = session
@@ -33,7 +34,7 @@ class Element(Ido, EpochSet, DocumentService):
             return self.session.cache, f"{self.elementstring()} | {self.type}"
         return None, None
 
-    def build_epoch_table(self):
+    def buildepochtable(self):
         # implementation will go here
         return []
 

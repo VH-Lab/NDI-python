@@ -1,6 +1,7 @@
 from ..util.vlt import data as vlt_data
+import abc
 
-class Param:
+class Param(abc.ABC):
     def __init__(self):
         pass
 
@@ -11,6 +12,7 @@ class Param:
         # caching logic will go here
         return self.buildepochtable()
 
+    @abc.abstractmethod
     def buildepochtable(self):
         return []
 

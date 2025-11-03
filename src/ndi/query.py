@@ -1,5 +1,5 @@
-from did.query import Query
+from did.query import Query as DIDQuery
 
-class Query(Query):
-    def __init__(self, field, op=None, param1=None, param2=None):
-        super().__init__(field, op, param1, param2)
+class Query(DIDQuery):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)

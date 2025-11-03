@@ -1,8 +1,8 @@
-from ..ido import Ido
-from ..documentservice import DocumentService
-from ..time.clocktype import ClockType
-from ..util.vlt import data as vlt_data
-from .daqsystemstring import DaqSystemString
+from ...ido import Ido
+from ...documentservice import DocumentService
+from ...time.clocktype import ClockType
+from ...util.vlt import data as vlt_data
+from ..daqsystemstring import DaqSystemString
 
 class System(Ido, DocumentService):
     def __init__(self, name, filenavigator, daqreader, daqmetadatareader=None):
