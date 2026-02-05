@@ -17,7 +17,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "did @ file:///app/DID-python",
+    "did @ git+https://github.com/VH-Lab/DID-python.git@main",
     "mkdocs",
     "pandas",
     "requests",
