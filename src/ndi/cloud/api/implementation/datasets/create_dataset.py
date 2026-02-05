@@ -5,30 +5,30 @@ import requests
 import json
 import os
 
-class ListDatasets(Call):
+class CreateDataset(Call):
     """
-    Implementation class for listing datasets in an organization.
+    Implementation class for creating a new dataset.
     """
 
-    def __init__(self, cloud_organization_id=None):
+    def __init__(self, dataset_info, organization_id=None):
         """
-        Creates a new ListDatasets API call object.
+        Creates a new CreateDataset API call object.
 
         Args:
-            cloud_organization_id: The ID of the organization. If not
-                provided, the environment variable NDI_CLOUD_ORGANIZATION_ID
-                will be used.
+            dataset_info (dict): The dataset information to create.
+            organization_id (str, optional): The ID of the organization.
         """
-        self.cloud_organization_id = cloud_organization_id
-        self.endpoint_name = 'list_datasets'
+        self.dataset_info = dataset_info
+        self.organization_id = organization_id
+        self.endpoint_name = 'create_dataset'
 
     def execute(self):
         """
-        Performs the API call to list datasets.
+        Performs the API call to create a dataset.
         """
         token = authenticate()
 
-        organization_id = self.cloud_organization_id
+        organization_id = self.organization_id
         if organization_id is None:
             organization_id = os.getenv('NDI_CLOUD_ORGANIZATION_ID')
 
@@ -39,13 +39,14 @@ class ListDatasets(Call):
 
         headers = {
             'Accept': 'application/json',
+            'Content-Type': 'application/json',
             'Authorization': f'Bearer {token}'
         }
 
-        response = requests.get(api_url, headers=headers)
+        response = requests.post(api_url, headers=headers, json=self.dataset_info)
 
-        if response.status_code == 200:
-            return True, response.json().get('datasets', []), response, api_url
+        if response.status_code in [200, 201]:
+            return True, response.json(), response, api_url
         else:
             try:
                 answer = response.json()
