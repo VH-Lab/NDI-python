@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, Mock
-from ndi.cloud.api.documents import add_document, get_document, update_document, delete_document, list_dataset_documents
+from ndi.cloud.api.documents import add_document, get_document, update_document, delete_document, list_dataset_documents, list_dataset_documents_all
 
 class TestCloudDocuments(unittest.TestCase):
 
@@ -66,6 +66,32 @@ class TestCloudDocuments(unittest.TestCase):
         success, answer, _, _ = list_dataset_documents('ds1')
         self.assertTrue(success)
         self.assertEqual(len(answer), 1)
+
+    @patch('ndi.cloud.api.implementation.documents.list_dataset_documents.authenticate')
+    @patch('requests.get')
+    def test_list_dataset_documents_all(self, mock_get, mock_authenticate):
+        mock_authenticate.return_value = 'fake_token'
+
+        # Page 1 response
+        resp1 = Mock()
+        resp1.status_code = 200
+        resp1.json.return_value = [{'id': 'doc1'}, {'id': 'doc2'}]
+
+        # Page 2 response (partial page)
+        resp2 = Mock()
+        resp2.status_code = 200
+        resp2.json.return_value = [{'id': 'doc3'}]
+
+        mock_get.side_effect = [resp1, resp2]
+
+        # page_size=2 to force 2 pages
+        success, answer, _, _ = list_dataset_documents_all('ds1', page_size=2)
+
+        self.assertTrue(success)
+        self.assertEqual(len(answer), 3)
+        self.assertEqual(answer[0]['id'], 'doc1')
+        self.assertEqual(answer[2]['id'], 'doc3')
+        self.assertEqual(mock_get.call_count, 2)
 
 if __name__ == '__main__':
     unittest.main()
