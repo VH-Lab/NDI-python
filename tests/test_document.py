@@ -4,7 +4,7 @@ from ndi.document import Document
 
 class TestDocument(unittest.TestCase):
 
-    @patch('ndi.document.Document._read_blank_definition')
+    @patch('ndi.document.Document.read_blank_definition')
     def test_document_creation(self, mock_read_blank_definition):
         mock_read_blank_definition.return_value = {
             'base': {
@@ -23,7 +23,7 @@ class TestDocument(unittest.TestCase):
         self.assertEqual(doc.document_properties['base']['name'], 'my_doc')
         self.assertIsNotNone(doc.document_properties['base']['id'])
 
-    @patch('ndi.document.Document._read_blank_definition')
+    @patch('ndi.document.Document.read_blank_definition')
     def test_set_session_id(self, mock_read_blank_definition):
         mock_read_blank_definition.return_value = {
             'base': {

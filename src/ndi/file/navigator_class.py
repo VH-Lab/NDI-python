@@ -80,6 +80,6 @@ class Navigator(Ido, EpochSet, DocumentService): #, IngestionHelp):
         # implementation will go here
         pass
 
-    def searchquery(self):
+    def search_query(self):
         # implementation will go here
         pass

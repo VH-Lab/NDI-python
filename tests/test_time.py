@@ -6,6 +6,8 @@ from ndi.time.syncrule import SyncRule
 class MockSyncRule(SyncRule):
     def apply(self, epochnode_a, epochnode_b):
         return 1.0, None
+    def search_query(self):
+        pass
 
 class TestTime(unittest.TestCase):
 
