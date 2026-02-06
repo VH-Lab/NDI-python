@@ -19,6 +19,7 @@ classifiers = [
 dependencies = [
     "did @ git+https://github.com/VH-Lab/DID-python.git@main",
     "mkdocs",
+    "mkdocs-material",
     "pandas",
     "requests",
     "ndi-compress @ git+https://github.com/Waltham-Data-Science/NDI-compress-python",
