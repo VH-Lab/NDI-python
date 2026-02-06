@@ -2,14 +2,16 @@ import unittest
 from unittest.mock import MagicMock, patch
 import sys
 
-# Mock 'did' and 'did.query' before importing ndi
-mock_did = MagicMock()
-sys.modules['did'] = mock_did
-sys.modules['did.query'] = mock_did
-sys.modules['did.document'] = mock_did
+# We need to ensure dependencies are handled.
+# If 'did' is not installed, we can mock it safely using patch.dict
+# But 'download_new_impl' imports it at module level (via get_cloud_dataset_id... -> query -> did.query)
+# So we need to mock it *before* importing download_new_impl if it's missing.
 
-from ndi.cloud.sync.download_new import download_new
-from ndi.cloud.sync.sync_options import SyncOptions
+needs_did_mock = False
+try:
+    import did
+except ImportError:
+    needs_did_mock = True
 
 class TestCloudSyncDownloadNew(unittest.TestCase):
 
@@ -17,13 +19,32 @@ class TestCloudSyncDownloadNew(unittest.TestCase):
         self.mock_dataset = MagicMock()
         self.mock_dataset.path = '/tmp/fake_dataset'
 
-    @patch('ndi.cloud.sync.download_new.get_cloud_dataset_id_for_local_dataset')
-    @patch('ndi.cloud.sync.download_new.read_sync_index')
-    @patch('ndi.cloud.sync.download_new.list_remote_document_ids')
-    @patch('ndi.cloud.sync.download_new.download_ndi_documents')
-    @patch('ndi.cloud.sync.download_new.list_local_documents')
-    @patch('ndi.cloud.sync.download_new.update_sync_index')
+        if needs_did_mock:
+            self.did_patcher = patch.dict('sys.modules', {
+                'did': MagicMock(),
+                'did.query': MagicMock(),
+                'did.document': MagicMock()
+            })
+            self.did_patcher.start()
+
+        # Re-import to ensure mocks are used if patched
+        # Or import inside test methods
+
+    def tearDown(self):
+        if needs_did_mock:
+            self.did_patcher.stop()
+
+    @patch('ndi.cloud.sync.download_new_impl.get_cloud_dataset_id_for_local_dataset')
+    @patch('ndi.cloud.sync.download_new_impl.read_sync_index')
+    @patch('ndi.cloud.sync.download_new_impl.list_remote_document_ids')
+    @patch('ndi.cloud.sync.download_new_impl.download_ndi_documents')
+    @patch('ndi.cloud.sync.download_new_impl.list_local_documents')
+    @patch('ndi.cloud.sync.download_new_impl.update_sync_index')
     def test_download_new_success(self, mock_update_index, mock_list_local, mock_download_docs, mock_list_remote, mock_read_index, mock_get_cloud_id):
+        # Delayed import to allow setUp to patch sys.modules if needed
+        from ndi.cloud.sync.download_new_impl import download_new
+        from ndi.cloud.sync.sync_options import SyncOptions
+
         # Setup mocks
         mock_get_cloud_id.return_value = ('cloud-id-123', [])
         mock_read_index.return_value = {'remoteDocumentIdsLastSync': ['doc1']}
@@ -51,12 +72,16 @@ class TestCloudSyncDownloadNew(unittest.TestCase):
 
         mock_update_index.assert_called_once()
 
-    @patch('ndi.cloud.sync.download_new.get_cloud_dataset_id_for_local_dataset')
-    @patch('ndi.cloud.sync.download_new.read_sync_index')
-    @patch('ndi.cloud.sync.download_new.list_remote_document_ids')
-    @patch('ndi.cloud.sync.download_new.download_ndi_documents')
-    @patch('ndi.cloud.sync.download_new.update_sync_index')
+    @patch('ndi.cloud.sync.download_new_impl.get_cloud_dataset_id_for_local_dataset')
+    @patch('ndi.cloud.sync.download_new_impl.read_sync_index')
+    @patch('ndi.cloud.sync.download_new_impl.list_remote_document_ids')
+    @patch('ndi.cloud.sync.download_new_impl.download_ndi_documents')
+    @patch('ndi.cloud.sync.download_new_impl.update_sync_index')
     def test_download_new_no_changes(self, mock_update_index, mock_download_docs, mock_list_remote, mock_read_index, mock_get_cloud_id):
+        # Delayed import
+        from ndi.cloud.sync.download_new_impl import download_new
+        from ndi.cloud.sync.sync_options import SyncOptions
+
         mock_get_cloud_id.return_value = ('cloud-id-123', [])
         mock_read_index.return_value = {'remoteDocumentIdsLastSync': ['doc1']}
         mock_list_remote.return_value = {'ndiId': ['doc1'], 'apiId': ['api1']}
