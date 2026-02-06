@@ -1,0 +1,6 @@
+site_name: NDI-python
+nav:
+    - Home: index.md
+    - Cache: cache.md
+    - Fun: fun.md
+    - File: file.md

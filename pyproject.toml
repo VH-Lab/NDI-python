@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ndi"
+version = "0.0.1"
+authors = [
+  { name="VH-Lab", email="info@vhlab.org" },
+]
+description = "A Python port of NDI-matlab"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "did @ git+https://github.com/VH-Lab/DID-python.git@main",
+    "mkdocs",
+    "pandas",
+    "requests",
+    "ndi-compress @ git+https://github.com/Waltham-Data-Science/NDI-compress-python",
+    "vhlab-newstim @ git+https://github.com/VH-Lab/vhlab-NewStim-python",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/VH-Lab/NDI-python"
+"Bug Tracker" = "https://github.com/VH-Lab/NDI-python/issues"
+
+[tool.hatch.metadata]
+allow-direct-references = true
