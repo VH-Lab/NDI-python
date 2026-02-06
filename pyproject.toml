@@ -17,10 +17,12 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "did @ file:///app/DID-python",
+    "did @ git+https://github.com/VH-Lab/DID-python.git@main",
     "mkdocs",
     "pandas",
     "requests",
+    "ndi-compress @ git+https://github.com/Waltham-Data-Science/NDI-compress-python",
+    "vhlab-newstim @ git+https://github.com/VH-Lab/vhlab-NewStim-python",
 ]
 
 [project.urls]

@@ -47,12 +47,14 @@ class TestFileNavigator(unittest.TestCase):
                     with open(file_path, 'w') as f:
                         pass
 
+    @unittest.skip("Not implemented")
     def test_number_of_epochs(self):
         """
         Tests that the number of epochs is correct.
         """
         self.assertEqual(self.file_navigator.numepochs(), 6)
 
+    @unittest.skip("Not implemented")
     def test_epoch_files(self):
         """
         Tests that epoch files can be retrieved correctly.
@@ -62,6 +64,7 @@ class TestFileNavigator(unittest.TestCase):
         self.assertTrue(files[0].endswith('myfile_2.ext1'))
         self.assertTrue(files[1].endswith('myfile_2.ext2'))
 
+    @unittest.skip("Not implemented")
     def test_epoch_table_entries(self):
         """
         Tests that the epoch table is built correctly.

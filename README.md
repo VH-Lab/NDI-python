@@ -4,10 +4,16 @@ A Python port of VH-Lab/NDI-matlab.
 
 ## Installation
 
-To install the package, you can use pip:
+To install the package, run the following command in the root directory. **Note the dot `.` at the end**, which tells pip to install from the current directory. This will automatically install all required dependencies (including `did`, `ndi-compress`, etc.):
 
 ```bash
 pip install .
+```
+
+If you are installing for development (editable mode), use the `-e` flag (again, **note the dot `.` at the end**):
+
+```bash
+pip install -e .
 ```
 
 ## Usage
@@ -29,7 +35,7 @@ source venv/bin/activate
 
 ### Dependency Installation
 
-Then, install the dependencies:
+Install the package in editable mode, which will also install all dependencies:
 
 ```bash
 pip install -e .

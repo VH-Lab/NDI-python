@@ -1,6 +1,6 @@
 from did.document import Document
 from .ido import Ido
-import ndi.fun
+import ndi.fun.timestamp
 from .util.vlt import data as vlt_data
 import json
 import os
@@ -12,7 +12,7 @@ class Document(Document):
         elif isinstance(document_type, Document):
             self.document_properties = document_type.document_properties
         else:
-            self.document_properties = self._read_blank_definition(document_type)
+            self.document_properties = self.read_blank_definition(document_type)
             ido = Ido()
             self.document_properties['base']['id'] = ido.id()
             self.document_properties['base']['datestamp'] = ndi.fun.timestamp.timestamp()

@@ -5,13 +5,17 @@ from ndi.database.document import Document
 from ndi.database.binarydoc import BinaryDoc
 
 class MockDatabase(Database):
-    def add(self, doc, **kwargs): pass
-    def read(self, doc_id): pass
-    def remove(self, doc_id): pass
-    def search(self, search_parameters): pass
-    def alldocids(self): return []
+    def do_add(self, ndi_document_obj, add_parameters): pass
+    def do_read(self, ndi_document_id): pass
+    def do_remove(self, ndi_document_id): pass
+    def do_search(self, searchoptions, searchparams): pass
+    def do_openbinarydoc(self, ndi_document_id): pass
+    def check_exist_binarydoc(self, ndi_document_id): pass
+    def do_closebinarydoc(self, ndi_binarydoc_obj): pass
+    def do_open_database(self): pass
 
 class MockBinaryDoc(BinaryDoc):
+    def __init__(self): pass
     def fopen(self): pass
     def fseek(self, location, reference): pass
     def ftell(self): pass
