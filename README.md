@@ -46,7 +46,7 @@ pip install -e .
 To run the tests, use the following command:
 
 ```bash
-python -m unittest discover tests
+python -m unittest discover -s tests/ndi/unittest -t .
 ```
 
 ### Building Documentation
