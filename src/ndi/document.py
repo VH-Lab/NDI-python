@@ -1,6 +1,6 @@
 from did.document import Document
 from .ido import Ido
-import ndi.fun.timestamp
+import ndi.fun
 from .util.vlt import data as vlt_data
 import json
 import os
@@ -15,7 +15,7 @@ class Document(Document):
             self.document_properties = self.read_blank_definition(document_type)
             ido = Ido()
             self.document_properties['base']['id'] = ido.id()
-            self.document_properties['base']['datestamp'] = ndi.fun.timestamp.timestamp()
+            self.document_properties['base']['datestamp'] = ndi.fun.timestamp()
 
             for key, value in kwargs.items():
                 keys = key.split('.')
