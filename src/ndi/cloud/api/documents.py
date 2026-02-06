@@ -3,6 +3,8 @@ from .implementation.documents.get_document import GetDocument as GetDocumentImp
 from .implementation.documents.update_document import UpdateDocument as UpdateDocumentImpl
 from .implementation.documents.delete_document import DeleteDocument as DeleteDocumentImpl
 from .implementation.documents.list_dataset_documents import ListDatasetDocuments as ListDatasetDocumentsImpl
+from .implementation.documents.list_dataset_documents_all import ListDatasetDocumentsAll as ListDatasetDocumentsAllImpl
+from .implementation.documents.get_bulk_download_url import GetBulkDownloadURL as GetBulkDownloadURLImpl
 
 def add_document(dataset_id, document_info):
     """
@@ -74,4 +76,32 @@ def list_dataset_documents(dataset_id, page=1, page_size=20):
         tuple: (success, answer, response, url)
     """
     api_call = ListDatasetDocumentsImpl(dataset_id, page, page_size)
+    return api_call.execute()
+
+def list_dataset_documents_all(dataset_id, page_size=20):
+    """
+    Lists all documents in a dataset.
+
+    Args:
+        dataset_id (str): The ID of the dataset.
+        page_size (int, optional): The number of documents per page. Defaults to 20.
+
+    Returns:
+        tuple: (success, answer, response, url)
+    """
+    api_call = ListDatasetDocumentsAllImpl(dataset_id, page_size)
+    return api_call.execute()
+
+def get_bulk_download_url(dataset_id, document_ids=None):
+    """
+    Retrieves a pre-signed URL for bulk document download.
+
+    Args:
+        dataset_id (str): The ID of the dataset.
+        document_ids (list of str, optional): List of cloud document IDs to download.
+
+    Returns:
+        tuple: (success, answer, response, url)
+    """
+    api_call = GetBulkDownloadURLImpl(dataset_id, document_ids)
     return api_call.execute()
