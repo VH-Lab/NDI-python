@@ -1,4 +1,6 @@
 site_name: NDI-python
+theme:
+  name: material
 nav:
     - Home: index.md
     - Cache: cache.md

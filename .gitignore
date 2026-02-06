@@ -71,3 +71,4 @@ example/binary_collections/*
 
 # symlinked schema
 */.ndi
+site/
