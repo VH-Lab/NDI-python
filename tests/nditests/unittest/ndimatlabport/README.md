@@ -12,5 +12,16 @@ The following table tracks the status of MATLAB unit tests being ported to Pytho
 
 | MatlabTests | Converted_Yet |
 | :--- | :--- |
+| `ndi.unittest.dataset.buildDataset` | Yes |
+| `ndi.unittest.dataset.OldDatasetTest` | Yes |
 | `ndi.unittest.dataset.testDatasetBuild` | Yes |
+| `ndi.unittest.dataset.testDatasetConstructor` | Yes |
+| `ndi.unittest.dataset.testDeleteIngestedSession` | Yes |
+| `ndi.unittest.dataset.testSessionList` | Yes |
+| `ndi.unittest.dataset.testUnlinkSession` | Yes |
+| `ndi.unittest.session.buildSession` | Yes |
+| `ndi.unittest.session.buildSessionNDRAxon` | Yes |
+| `ndi.unittest.session.buildSessionNDRIntan` | Yes |
+| `ndi.unittest.session.TestDeleteSession` | Yes |
+| `ndi.unittest.session.testIsIngestedInDataset` | Yes |
 | `ndi.unittest.session.testSessionBuild` | Yes |
