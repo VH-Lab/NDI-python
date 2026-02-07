@@ -30,7 +30,7 @@ def get_url(endpoint_name, **kwargs):
         'uid': kwargs.get('file_uid'),
         'datasetId': kwargs.get('dataset_id'),
         'documentId': kwargs.get('document_id'),
-        'organizationId': kwargs.get('organization_id'),
+        'organizationId': kwargs.get('organization_id') or os.environ.get('NDI_CLOUD_ORGANIZATION_ID'),
         'userId': kwargs.get('user_id'),
         'pageSize': kwargs.get('page_size', 20),
         'page': kwargs.get('page', 1)
